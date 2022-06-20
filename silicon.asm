@@ -1,6 +1,8 @@
 PUBLIC START
 
 EXTERN ExitProcess: PROC
+EXTERN GetStdHandle: PROC
+EXTERN WriteFile: PROC
 
 SILICON SEGMENT READ WRITE EXECUTE ALIAS("SILICON")
 START PROC
@@ -30,6 +32,7 @@ DOTHREAD:
     MOV [R14], R12
     MOV R12, R13
     JMP CONTINUE
+    ALIGN 8
 
 ; Procedure implementing thread returns
 RETURN:
@@ -46,6 +49,7 @@ CONTINUE:
 RUN:
     ADD R13, 8
     JMP QWORD PTR [R13-8]
+    ALIGN 8
 
 EXECUTEHEADER:
     DB 7 ; Name length
@@ -70,7 +74,93 @@ EXIT:
     ALIGN 8
 
 THREAD:
+    DQ INITIO
+    DQ LITERAL
+    DB "H"
+    ALIGN 8
+    DQ PUT
     DQ EXIT
+
+LITERAL:
+    DQ LITERAL+8
+    MOV RCX, [R12]
+    ADD R12, 8
+    SUB R15, 8
+    MOV [R15], RCX
+    JMP CONTINUE
+    ALIGN 8
+
+INITIO:
+    DQ DOTHREAD
+    DQ LITERAL
+    DQ -11
+    DQ GETSTD
+    DQ STDOUT
+    DQ POKE
+    DQ LITERAL
+    DQ -10
+    DQ GETSTD
+    DQ STDIN
+    DQ POKE
+    DQ RETURN
+
+PUT:
+    DQ DOTHREAD
+    DQ STDOUT
+    DQ PEEK
+    DQ PUTBYTE
+    DQ RETURN
+
+GETSTD:
+    DQ GETSTD+8
+    MOV RCX, [R15]
+    CALL GetStdHandle
+    MOV [R15], RAX
+    JMP CONTINUE
+    ALIGN 8
+
+PEEK:
+    DQ PEEK+8
+    MOV RCX, [R15]
+    MOV RCX, [RCX]
+    MOV [R15], RCX
+    JMP CONTINUE
+    ALIGN 8
+
+POKE:
+    DQ POKE+8
+    MOV RCX, [R15]
+    MOV RDX, [R15+8]
+    MOV [RCX], RDX
+    ADD R15, 16
+    JMP CONTINUE
+    ALIGN 8
+
+PUTBYTE:
+    DQ PUTBYTE+8
+    MOV RCX, [R15]
+    LEA RDX, [R15+8]
+    MOV R8, 1
+    MOV R9, R15
+    MOV QWORD PTR [RSP+32], 0
+    CALL WriteFile
+    ADD R15, 16
+    JMP CONTINUE
+    ALIGN 8
+
+DOVAR:
+    SUB R15, 8
+    MOV [R15], R13
+    JMP CONTINUE
+    ALIGN 8
+
+STDOUT:
+    DQ DOVAR
+    DQ 0
+
+STDIN:
+    DQ DOVAR
+    DQ 0
 
 SILICON ENDS
 
