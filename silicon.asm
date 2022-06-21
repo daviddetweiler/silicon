@@ -400,9 +400,6 @@ PRINTLINE:
     DQ DOTHREAD
     DQ PRINT
     DQ LITERAL
-    DQ 13
-    DQ PUT
-    DQ LITERAL
     DQ 10
     DQ PUT
     DQ RETURN
@@ -564,7 +561,7 @@ PRINT:
 
 GREETING:
     DQ DOVARIABLE
-    DB "Hello, world!", 13, 10, 0
+    DB "SILICON (C) 2022 DAVID DETWEILER", 10, 10, 0
     ALIGN 8
 
 DROP:
