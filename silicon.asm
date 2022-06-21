@@ -386,15 +386,26 @@ SUM:
 
 ECHOTOKENS:
     DQ DOTHREAD
-    DQ SKIPSPACE
     DQ GETTOKEN
     DQ COPY
     DQ BRANCH
-    DQ 1
+    DQ 2
+    DQ DROP
     DQ RETURN
-    DQ PRINT
+    DQ PRINTLINE
     DQ JUMP
     DQ -9
+
+PRINTLINE:
+    DQ DOTHREAD
+    DQ PRINT
+    DQ LITERAL
+    DQ 13
+    DQ PUT
+    DQ LITERAL
+    DQ 10
+    DQ PUT
+    DQ RETURN
 
 BREAK:
     DQ BREAK+8
@@ -417,6 +428,7 @@ TOKENPOINTER:
 ; `token` points to a null-terminated token
 GETTOKEN:
     DQ DOTHREAD
+    DQ SKIPSPACE
     DQ LITERAL
     DQ 0
     DQ TOKENPOINTER
