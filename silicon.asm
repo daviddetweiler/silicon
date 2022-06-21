@@ -76,11 +76,9 @@ EXIT:
 
 THREAD:
     DQ INITIO
-    ;DQ GREETING
-    ;DQ PRINT
-    ;DQ GETTOKEN
-    ;DQ PRINT
-    DQ ECHOTEXT
+    DQ GREETING
+    DQ PRINT
+    DQ ECHOTOKENS
     DQ EXIT
 
 LITERAL:
@@ -359,18 +357,12 @@ SUM:
     JMP CONTINUE
     ALIGN 8
 
-ECHOTEXT:
+ECHOTOKENS:
     DQ DOTHREAD
-    DQ GET
-    DQ COPY
-    DQ BRANCH
-    DQ 1
-    DQ RETURN
-    DQ PUT
-    DQ LITERAL
-    DQ 1
-    DQ BRANCH
-    DQ -10
+    DQ GETTOKEN
+    DQ PRINT
+    DQ JUMP
+    DQ -4
     DQ RETURN
 
 TOKENBUFFER:
@@ -388,7 +380,7 @@ TOKENPOINTER:
 ; `token` points to a null-terminated token
 GETTOKEN:
     DQ DOTHREAD
-    ;DQ SKIPSPACE
+    DQ SKIPSPACE
     DQ LITERAL
     DQ 0
     DQ TOKENPOINTER
@@ -398,8 +390,8 @@ GETTOKEN:
     DQ BRANCH ; ( ch -- )
     DQ 3
     DQ DROP ; ( -- )
-    DQ JUMP
-    DQ 17
+    DQ ZERO
+    DQ RETURN
     DQ COPY ; ( ch ch -- )
     DQ TOKENBUFFER ; ( ch ch &tb -- )
     DQ TOKENPOINTER ; ( * &tp -- )
