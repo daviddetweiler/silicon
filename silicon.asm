@@ -117,6 +117,8 @@ GETSTD:
     JMP CONTINUE
     ALIGN 8
 
+; ( a -- v )
+; v = *a
 PEEK:
     DQ PEEK+8
     MOV RCX, [R15]
@@ -125,6 +127,9 @@ PEEK:
     JMP CONTINUE
     ALIGN 8
 
+; ( v a -- )
+;
+; *a = v
 POKE:
     DQ POKE+8
     MOV RCX, [R15]
@@ -219,26 +224,26 @@ PEEKBYTE:
     JMP CONTINUE
     ALIGN 8
 
+; ( -- ch )
+;
+; ch is either the next character from stdin, or null on EOF
 GET:
     DQ DOTHREAD
-    DQ IOPOINTER
-    DQ PEEK
     DQ FILLED
     DQ PEEK
-    DQ SWAP
+    DQ IOPOINTER
+    DQ PEEK
     DQ MODULUS
     DQ BRANCH
-    DQ 12
+    DQ 10
     DQ REFILL
     DQ FILLED
     DQ PEEK
     DQ BRANCH
-    DQ 3
-    DQ LITERAL
-    DQ 0
+    DQ 2
+    DQ ZERO
     DQ RETURN
-    DQ LITERAL
-    DQ 0
+    DQ ZERO
     DQ IOPOINTER
     DQ POKE
     DQ GETIOBYTE
@@ -250,15 +255,31 @@ GETIOBYTE:
     DQ IOPOINTER
     DQ PEEK
     DQ COPY
-    DQ LITERAL
-    DQ 1
-    DQ SUM
+    DQ INCREMENT
     DQ IOPOINTER
     DQ POKE
     DQ LINEBUFFER
     DQ SUM
     DQ PEEKBYTE
     DQ RETURN
+
+INCREMENT:
+    DQ DOTHREAD
+    DQ LITERAL
+    DQ 1
+    DQ SUM
+    DQ RETURN
+
+ZERO:
+    DQ DOCONSTANT
+    DQ 0
+
+DOCONSTANT:
+    MOV RCX, [R13]
+    SUB R15, 8
+    MOV [R15], RCX
+    JMP CONTINUE
+    ALIGN 8
 
 ; ( b a -- mod )
 ;
@@ -273,6 +294,7 @@ MODULUS:
     JMP CONTINUE
     ALIGN 8
 
+; ( a -- a a )
 COPY:
     DQ COPY+8
     MOV RCX, [R15]
@@ -281,6 +303,7 @@ COPY:
     JMP CONTINUE
     ALIGN 8
 
+; ( b a -- a b )
 SWAP:
     DQ SWAP+8
     MOV RCX, [R15]
@@ -289,6 +312,9 @@ SWAP:
     JMP CONTINUE
     ALIGN 8
 
+; ( b a -- c )
+;
+; c = a + b
 SUM:
     DQ SUM+8
     MOV RCX, [R15]
