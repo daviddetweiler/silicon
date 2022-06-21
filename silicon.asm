@@ -230,6 +230,10 @@ REFILL:
     DQ ZERO
     DQ IOPOINTER
     DQ POKE
+    DQ LITERAL
+    DQ 1
+    DQ ISFRESHLINE
+    DQ POKE
     DQ RETURN
 
 PEEKBYTE:
@@ -273,6 +277,9 @@ PEEKCHAR:
 
 NEXTCHAR:
     DQ DOTHREAD
+    DQ ZERO
+    DQ ISFRESHLINE
+    DQ POKE
     DQ IOPOINTER ; ( &iop -- )
     DQ COPY ; ( &iop &iop -- )
     DQ PEEK ; ( &iop iop -- )
@@ -281,9 +288,21 @@ NEXTCHAR:
     DQ POKE ; ( -- )
     DQ RETURN
 
+ISFRESHLINE:
+    DQ DOVARIABLE
+    DQ 0
+
 ; ( -- !iseof )
 FILLIFEMPTY:
     DQ DOTHREAD
+    DQ ISFRESHLINE
+    DQ PEEK
+    DQ LOGICNOT
+    DQ BRANCH
+    DQ 3
+    DQ LITERAL
+    DQ 1
+    DQ RETURN
     DQ FILLED ; ( &fill -- )
     DQ PEEK ; ( fill -- )
     DQ IOPOINTER ; ( fill &iop -- )
@@ -359,10 +378,11 @@ SUM:
 
 ECHOTOKENS:
     DQ DOTHREAD
+    DQ SKIPSPACE
     DQ GETTOKEN
     DQ PRINT
     DQ JUMP
-    DQ -4
+    DQ -5
     DQ RETURN
 
 TOKENBUFFER:
@@ -380,7 +400,6 @@ TOKENPOINTER:
 ; `token` points to a null-terminated token
 GETTOKEN:
     DQ DOTHREAD
-    DQ SKIPSPACE
     DQ LITERAL
     DQ 0
     DQ TOKENPOINTER
