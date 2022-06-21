@@ -76,6 +76,10 @@ EXIT:
 
 THREAD:
     DQ INITIO
+    ;DQ GREETING
+    ;DQ PRINT
+    ;DQ GETTOKEN
+    ;DQ PRINT
     DQ ECHOTEXT
     DQ EXIT
 
@@ -189,6 +193,15 @@ BRANCH:
     JMP CONTINUE
     ALIGN 8
 
+JUMP:
+    DQ JUMP+8
+    MOV RCX, [R12]
+    ADD R12, 8
+    IMUL RCX, 8
+    ADD R12, RCX
+    JMP CONTINUE
+    ALIGN 8
+
 ; ( buffer handle -- filled )
 ;
 ; Read 128 bytes from `handle` into `buffer`; `filled` is the number of bytes actually read
@@ -206,13 +219,18 @@ READLINE:
     JMP CONTINUE
     ALIGN 8
 
+; ( -- !iseof )
 REFILL:
     DQ DOTHREAD
     DQ LINEBUFFER
     DQ STDIN
     DQ PEEK
     DQ READLINE
+    DQ COPY
     DQ FILLED
+    DQ POKE
+    DQ ZERO
+    DQ IOPOINTER
     DQ POKE
     DQ RETURN
 
@@ -229,38 +247,56 @@ PEEKBYTE:
 ; ch is either the next character from stdin, or null on EOF
 GET:
     DQ DOTHREAD
-    DQ FILLED
-    DQ PEEK
-    DQ IOPOINTER
-    DQ PEEK
-    DQ MODULUS
-    DQ BRANCH
-    DQ 10
-    DQ REFILL
-    DQ FILLED
-    DQ PEEK
+    DQ PEEKCHAR ; ( lb[iop] -- )
+    DQ NEXTCHAR
+    DQ RETURN
+
+IOPOINTER:
+    DQ DOVARIABLE
+    DQ 0
+
+FILLED:
+    DQ DOVARIABLE
+    DQ 1
+
+PEEKCHAR:
+    DQ DOTHREAD
+    DQ FILLIFEMPTY ; ( -- !iseof )
     DQ BRANCH
     DQ 2
     DQ ZERO
     DQ RETURN
-    DQ ZERO
-    DQ IOPOINTER
-    DQ POKE
-    DQ GETIOBYTE
+    DQ IOPOINTER ; ( &iop -- )
+    DQ PEEK ; ( iop -- )
+    DQ LINEBUFFER ; ( iop &lb -- )
+    DQ SUM ; ( &lb[iop] -- )
+    DQ PEEKBYTE ; ( lb[iop] -- )
     DQ RETURN
 
-; Unsafe; does not range-check line buffer
-GETIOBYTE:
+NEXTCHAR:
     DQ DOTHREAD
-    DQ IOPOINTER
-    DQ PEEK
-    DQ COPY
-    DQ INCREMENT
-    DQ IOPOINTER
-    DQ POKE
-    DQ LINEBUFFER
-    DQ SUM
-    DQ PEEKBYTE
+    DQ IOPOINTER ; ( &iop -- )
+    DQ COPY ; ( &iop &iop -- )
+    DQ PEEK ; ( &iop iop -- )
+    DQ INCREMENT ; ( &iop iop+1 -- )
+    DQ SWAP ; ( iop+1 &iop -- )
+    DQ POKE ; ( -- )
+    DQ RETURN
+
+; ( -- !iseof )
+FILLIFEMPTY:
+    DQ DOTHREAD
+    DQ FILLED ; ( &fill -- )
+    DQ PEEK ; ( fill -- )
+    DQ IOPOINTER ; ( fill &iop -- )
+    DQ PEEK ; ( fill iop -- )
+    DQ MODULUS ; ( iop%fill -- )
+    DQ BRANCH ; ( -- )
+    DQ 2
+    DQ REFILL ; ( -- !iseof )
+    DQ RETURN
+    DQ LITERAL
+    DQ 1
     DQ RETURN
 
 INCREMENT:
@@ -323,14 +359,6 @@ SUM:
     JMP CONTINUE
     ALIGN 8
 
-IOPOINTER:
-    DQ DOVARIABLE
-    DQ 0
-
-FILLED:
-    DQ DOVARIABLE
-    DQ 1
-
 ECHOTEXT:
     DQ DOTHREAD
     DQ GET
@@ -344,6 +372,164 @@ ECHOTEXT:
     DQ BRANCH
     DQ -10
     DQ RETURN
+
+TOKENBUFFER:
+    DQ DOVARIABLE
+REPEAT 64
+    DB 0
+ENDM
+
+TOKENPOINTER:
+    DQ DOVARIABLE
+    DQ 0
+
+; ( -- token )
+;
+; `token` points to a null-terminated token
+GETTOKEN:
+    DQ DOTHREAD
+    ;DQ SKIPSPACE
+    DQ LITERAL
+    DQ 0
+    DQ TOKENPOINTER
+    DQ POKE
+    DQ GET ; ( ch -- )
+    DQ COPY ; ( ch ch -- )
+    DQ BRANCH ; ( ch -- )
+    DQ 3
+    DQ DROP ; ( -- )
+    DQ JUMP
+    DQ 17
+    DQ COPY ; ( ch ch -- )
+    DQ TOKENBUFFER ; ( ch ch &tb -- )
+    DQ TOKENPOINTER ; ( * &tp -- )
+    DQ COPY ; ( * &tp &tp -- )
+    DQ PEEK ; ( * &tp tp -- )
+    DQ SWAP ; ( * tp &tp -- )
+    DQ COPY ; ( * tp &tp &tp -- )
+    DQ PEEK ; ( * tp &tp tp -- )
+    DQ INCREMENT ; ( * tp &tp tp+1 -- )
+    DQ SWAP ; ( * tp tp+1 &tp -- )
+    DQ POKE ; ( * &tb tp -- )
+    DQ SUM ; ( ch ch &tb[tp] -- )
+    DQ POKEBYTE ; ( ch -- )
+    DQ ISSPACE ; ( sp -- )
+    DQ LOGICNOT ; ( !sp -- )
+    DQ BRANCH
+    DQ -24
+    DQ TOKENBUFFER
+    DQ COPY
+    DQ TOKENPOINTER
+    DQ PEEK
+    DQ LITERAL
+    DQ -1
+    DQ SUM
+    DQ SUM
+    DQ ZERO
+    DQ SWAP
+    DQ POKEBYTE
+    DQ RETURN
+
+SKIPSPACE:
+    DQ DOTHREAD
+    DQ PEEKCHAR
+    DQ ISSPACE
+    DQ BRANCH
+    DQ 1
+    DQ RETURN
+    DQ NEXTCHAR
+    DQ JUMP
+    DQ -8
+
+; ( ch -- sp )
+;
+; sp = ch in ['\r', '\n', '\t', ' ']
+ISSPACE:
+    DQ DOTHREAD
+    DQ COPY ; ( ch ch -- )
+    DQ LITERAL
+    DQ " "
+    DQ EQUALSBYTE ; ( ch ch==' ' -- )
+    DQ SWAP ; ( ch==' ' ch -- )
+    DQ COPY
+    DQ LITERAL
+    DQ 9
+    DQ EQUALSBYTE
+    DQ SWAP
+    DQ COPY
+    DQ LITERAL
+    DQ 13
+    DQ EQUALSBYTE
+    DQ SWAP
+    DQ LITERAL
+    DQ 10
+    DQ EQUALSBYTE
+    DQ BITOR
+    DQ BITOR
+    DQ BITOR
+    DQ RETURN
+
+EQUALSBYTE:
+    DQ EQUALSBYTE+8
+    MOV CL, [R15]
+    ADD R15, 8
+    CMP CL, [R15]
+    SETE CL
+    MOV [R15], RCX
+    JMP CONTINUE
+    ALIGN 8
+
+BITOR:
+    DQ BITOR+8
+    MOV RCX, [R15]
+    ADD R15, 8
+    OR [R15], RCX
+    JMP CONTINUE
+    ALIGN 8
+
+LOGICNOT:
+    DQ LOGICNOT+8
+    MOV RCX, [R15]
+    TEST RCX, RCX
+    SETZ CL
+    MOV [R15], RCX
+    JMP CONTINUE
+    ALIGN 8
+
+POKEBYTE:
+    DQ POKEBYTE+8
+    MOV RCX, [R15]
+    MOVZX RDX, BYTE PTR [R15+8]
+    MOV [RCX], RDX
+    ADD R15, 16
+    JMP CONTINUE
+    ALIGN 8
+
+PRINT:
+    DQ DOTHREAD
+    DQ COPY
+    DQ PEEKBYTE
+    DQ COPY
+    DQ BRANCH
+    DQ 3
+    DQ DROP
+    DQ DROP
+    DQ RETURN
+    DQ PUT
+    DQ INCREMENT
+    DQ JUMP
+    DQ -12
+
+GREETING:
+    DQ DOVARIABLE
+    DB "Hello, world!", 13, 10, 0
+    ALIGN 8
+
+DROP:
+    DQ DROP+8
+    ADD R15, 8
+    JMP CONTINUE
+    ALIGN 8
 
 SILICON ENDS
 
