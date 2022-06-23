@@ -5,20 +5,26 @@ EXTERN GetStdHandle: PROC
 EXTERN WriteFile: PROC
 EXTERN ReadFile: PROC
 
-NULLHEADER EQU 0
+LATEST = 0
 
-HEADER MACRO NAME, ID, PREVIOUS
-    ALIGN 8
+NEWHEADER MACRO ID
+LOCAL HEADER, NAME, LINK, PAD
 
-&NAME&HEADER:
-    DB &NAME&LINK - &NAME&LINK
+HEADER:
+    DB LINK-HEADER
 
-&NAME&NAME:
+NAME:
     DB ID
 
-&NAME&LINK:
-    ALIGN 8
-    DQ &PREVIOUS&HEADER
+PAD:
+REPEAT 8-((PAD-NAME) MOD 8)
+    DB 0
+ENDM
+
+LINK:
+    DQ LATEST
+
+LATEST = HEADER
 
 ENDM
 
@@ -62,7 +68,9 @@ THREAD:
     DQ INITIO
     DQ GREETING
     DQ PRINT
-    DQ ECHOTOKENS
+    DQ LITERAL
+    DQ DICTIONARY
+    DQ WALK
     DQ EXIT
 
 ; Begin inner interpreter components
@@ -90,7 +98,7 @@ RUN:
     JMP QWORD PTR [R13-8]
 
 ; Pops a word address from the data stack and executes it
-HEADER EXECUTE, "EXECUTE", NULL
+NEWHEADER "EXECUTE"
 NEWCODE EXECUTE
     MOV R13, [R15]
     ADD R15, 8
@@ -101,6 +109,10 @@ NEWCODE EXECUTE
 NEWCODE EXIT
     XOR RCX, RCX
     CALL ExitProcess
+
+NEWCODE BREAK
+    INT 3
+    JMP CONTINUE
 
 NEWCODE LITERAL
     MOV RCX, [R12]
@@ -122,10 +134,11 @@ NEWWORD INITIO, DOTHREAD
     DQ POKE
     DQ RETURN
 
-NEWWORD PUT, DOTHREAD
+NEWHEADER "EMIT"
+NEWWORD EMIT, DOTHREAD
     DQ STDOUT
     DQ PEEK
-    DQ PUTBYTE
+    DQ WRITEBYTE
     DQ RETURN
 
 NEWCODE GETSTD
@@ -136,6 +149,7 @@ NEWCODE GETSTD
 
 ; ( a -- v )
 ; v = *a
+NEWHEADER "@"
 NEWCODE PEEK
     MOV RCX, [R15]
     MOV RCX, [RCX]
@@ -145,6 +159,7 @@ NEWCODE PEEK
 ; ( v a -- )
 ;
 ; *a = v
+NEWHEADER "!"
 NEWCODE POKE
     MOV RCX, [R15]
     MOV RDX, [R15+8]
@@ -152,7 +167,7 @@ NEWCODE POKE
     ADD R15, 16
     JMP CONTINUE
 
-NEWCODE PUTBYTE
+NEWCODE WRITEBYTE
     MOV RCX, [R15]
     LEA RDX, [R15+8]
     MOV R8, 1
@@ -229,8 +244,7 @@ NEWWORD REFILL, DOTHREAD
     DQ ZERO
     DQ IOPOINTER
     DQ POKE
-    DQ LITERAL
-    DQ 1
+    DQ TRUE
     DQ ISFRESHLINE
     DQ POKE
     DQ RETURN
@@ -244,7 +258,8 @@ NEWCODE PEEKBYTE
 ; ( -- ch )
 ;
 ; ch is either the next character from stdin, or null on EOF
-NEWWORD GET, DOTHREAD
+NEWHEADER "KEY"
+NEWWORD KEY, DOTHREAD
     DQ PEEKCHAR ; ( lb[iop] -- )
     DQ NEXTCHAR
     DQ RETURN
@@ -294,7 +309,7 @@ NEWWORD FILLIFEMPTY, DOTHREAD
     DQ RETURN
     DQ ISFRESHLINE
     DQ PEEK
-    DQ LOGICNOT
+    DQ BITNOT
     DQ BRANCH
     DQ 3
     DQ LITERAL
@@ -313,12 +328,14 @@ NEWWORD FILLIFEMPTY, DOTHREAD
     DQ 1
     DQ RETURN
 
+NEWHEADER "+1"
 NEWWORD INCREMENT, DOTHREAD
     DQ LITERAL
     DQ 1
     DQ SUM
     DQ RETURN
 
+NEWHEADER "FALSE"
 NEWWORD ZERO, DOCONSTANT
     DQ 0
 
@@ -331,6 +348,7 @@ DOCONSTANT:
 ; ( b a -- mod )
 ;
 ; mod = a % b
+NEWHEADER "MOD"
 NEWCODE MODULUS
     XOR RDX, RDX
     MOV RAX, [R15]
@@ -340,6 +358,7 @@ NEWCODE MODULUS
     JMP CONTINUE
 
 ; ( a -- a a )
+NEWHEADER "DUP"
 NEWCODE COPY
     MOV RCX, [R15]
     SUB R15, 8
@@ -356,6 +375,7 @@ NEWCODE SWAP
 ; ( b a -- c )
 ;
 ; c = a + b
+NEWHEADER "+"
 NEWCODE SUM
     MOV RCX, [R15]
     ADD R15, 8
@@ -377,7 +397,7 @@ NEWWORD PRINTLINE, DOTHREAD
     DQ PRINT
     DQ LITERAL
     DQ 10
-    DQ PUT
+    DQ EMIT
     DQ RETURN
 
 NEWWORD TOKENBUFFER, DOVARIABLE
@@ -397,7 +417,7 @@ NEWWORD GETTOKEN, DOTHREAD
     DQ 0
     DQ TOKENPOINTER
     DQ POKE
-    DQ GET ; ( ch -- )
+    DQ KEY ; ( ch -- )
     DQ COPY ; ( ch ch -- )
     DQ BRANCH ; ( ch -- )
     DQ 3
@@ -418,7 +438,7 @@ NEWWORD GETTOKEN, DOTHREAD
     DQ SUM ; ( ch ch &tb[tp] -- )
     DQ POKEBYTE ; ( ch -- )
     DQ ISSPACE ; ( sp -- )
-    DQ LOGICNOT ; ( !sp -- )
+    DQ BITNOT ; ( !sp -- )
     DQ BRANCH
     DQ -24
     DQ TOKENBUFFER
@@ -451,46 +471,50 @@ NEWWORD ISSPACE, DOTHREAD
     DQ COPY ; ( ch ch -- )
     DQ LITERAL
     DQ " "
-    DQ EQUALSBYTE ; ( ch ch==' ' -- )
+    DQ EQUALS ; ( ch ch==' ' -- )
     DQ SWAP ; ( ch==' ' ch -- )
     DQ COPY
     DQ LITERAL
     DQ 9
-    DQ EQUALSBYTE
+    DQ EQUALS
     DQ SWAP
     DQ COPY
     DQ LITERAL
     DQ 13
-    DQ EQUALSBYTE
+    DQ EQUALS
     DQ SWAP
     DQ LITERAL
     DQ 10
-    DQ EQUALSBYTE
+    DQ EQUALS
     DQ BITOR
     DQ BITOR
     DQ BITOR
     DQ RETURN
 
-NEWCODE EQUALSBYTE
-    MOV CL, [R15]
+NEWHEADER "="
+NEWCODE EQUALS
+    MOV RCX, [R15]
     ADD R15, 8
-    CMP CL, [R15]
+    CMP RCX, [R15]
     SETE CL
     MOVZX RCX, CL
+    XOR RDX, RDX
+    NOT RDX
+    IMUL RCX, RDX
     MOV [R15], RCX
     JMP CONTINUE
 
+NEWHEADER "OR"
 NEWCODE BITOR
     MOV RCX, [R15]
     ADD R15, 8
     OR [R15], RCX
     JMP CONTINUE
 
-NEWCODE LOGICNOT
+NEWHEADER "NOT"
+NEWCODE BITNOT
     MOV RCX, [R15]
-    TEST RCX, RCX
-    SETZ CL
-    MOVZX RCX, CL
+    NOT RCX
     MOV [R15], RCX
     JMP CONTINUE
 
@@ -501,27 +525,55 @@ NEWCODE POKEBYTE
     ADD R15, 16
     JMP CONTINUE
 
+NEWHEADER "TYPE"
 NEWWORD PRINT, DOTHREAD
-    DQ COPY
-    DQ PEEKBYTE
-    DQ COPY
-    DQ BRANCH
+    DQ COPY ; ( str -- str str )
+    DQ PEEKBYTE ; ( str str -- str ch )
+    DQ COPY ; ( str ch -- str ch ch )
+    DQ BRANCH ; ( str ch ch -- str ch )
     DQ 3
-    DQ DROP
-    DQ DROP
+    DQ DROP ; ( str ch -- str )
+    DQ DROP ; ( str -- )
     DQ RETURN
-    DQ PUT
-    DQ INCREMENT
+    DQ EMIT ; ( str ch -- str )
+    DQ INCREMENT ; ( str -- str+1 )
     DQ JUMP
     DQ -12
 
 NEWWORD GREETING, DOVARIABLE
     DB "SILICON (C) 2022 DAVID DETWEILER", 10, 10, 0
 
+NEWHEADER "DROP"
 NEWCODE DROP
     ADD R15, 8
     JMP CONTINUE
 
+NEWHEADER "TRUE"
+NEWWORD TRUE, DOCONSTANT
+    DQ 0ffffffffffffffffh
+
+NEWWORD WALK, DOTHREAD
+    DQ COPY ; ( head -- head head )
+    DQ BRANCH ; ( head head -- head )
+    DQ 2
+    DQ DROP ; ( head -- )
+    DQ RETURN ; ( -- )
+    DQ COPY ; ( head -- head head )
+    DQ PRINTNAME ; ( head head -- head )
+    DQ COPY ; ( head -- head head )
+    DQ PEEKBYTE ; ( head head -- head link-off )
+    DQ SUM ; ( head link-off -- &head->link )
+    DQ PEEK ; ( &head->link -- head.link )
+    DQ JUMP
+    DQ -13
+
+NEWWORD PRINTNAME, DOTHREAD
+    DQ INCREMENT ; ( len head -- len name )
+    DQ PRINTLINE
+    DQ RETURN
+
 SILICON ENDS
+
+DICTIONARY = LATEST
 
 END
