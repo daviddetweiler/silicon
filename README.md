@@ -8,4 +8,4 @@ will exit the REPL.
 
 In an x64 Visual Studio developer command prompt:
 
-    > ML64 .\silicon.asm /link kernel32.lib /fixed /entry:START /subsystem:console
+    > ml64 .\silicon.asm /link kernel32.lib /fixed /entry:start /subsystem:console
