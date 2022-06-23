@@ -50,6 +50,22 @@ NEWCONSTANT MACRO NAME
 	NEWWORD NAME, DOCONSTANT
 ENDM
 
+NEWBRANCH MACRO NAME
+	LOCAL NEXT
+	DQ BRANCH
+	DQ (NAME-NEXT)/8
+
+	NEXT:
+ENDM
+
+NEWJUMP MACRO NAME
+	LOCAL NEXT
+	DQ JUMP
+	DQ (NAME-NEXT)/8
+
+	NEXT:
+ENDM
+
 TEXT SEGMENT ALIAS(".text") 'CODE'
 	START PROC
 		SUB RSP, 88H ; Stack alignment + 16 parameters
@@ -289,6 +305,7 @@ RDATA SEGMENT READONLY ALIAS(".rdata") 'CONST'
 		DQ LITERAL
 		DQ DICTIONARY
 		DQ WALK
+		DQ ECHOTOKENS
 		DQ EXIT
 
 	NEWTHREAD INITIO
@@ -339,16 +356,16 @@ RDATA SEGMENT READONLY ALIAS(".rdata") 'CONST'
 
 	NEWTHREAD PEEKCHAR
 		DQ FILLIFEMPTY ; ( -- !iseof )
-		DQ BRANCH
-		DQ 2
+		NEWBRANCH PEEKCHARREAD
 		DQ ZERO
 		DQ RETURN
-		DQ IOPOINTER ; ( &iop -- )
-		DQ PEEK ; ( iop -- )
-		DQ LINEBUFFER ; ( iop &lb -- )
-		DQ SUM ; ( &lb[iop] -- )
-		DQ PEEKBYTE ; ( lb[iop] -- )
-		DQ RETURN
+		PEEKCHARREAD:
+			DQ IOPOINTER ; ( &iop -- )
+			DQ PEEK ; ( iop -- )
+			DQ LINEBUFFER ; ( iop &lb -- )
+			DQ SUM ; ( &lb[iop] -- )
+			DQ PEEKBYTE ; ( lb[iop] -- )
+			DQ RETURN
 
 	NEWTHREAD NEXTCHAR
 		DQ ZERO
@@ -366,46 +383,39 @@ RDATA SEGMENT READONLY ALIAS(".rdata") 'CONST'
 	NEWTHREAD FILLIFEMPTY
 		DQ FILLED
 		DQ PEEK
-		DQ BRANCH
-		DQ 3
-		DQ LITERAL
-		DQ 0
+		NEWBRANCH FILLIFEMPTYFILL
+		DQ ZERO
 		DQ RETURN
-		DQ ISFRESHLINE
-		DQ PEEK
-		DQ BITNOT
-		DQ BRANCH
-		DQ 3
-		DQ LITERAL
-		DQ 1
-		DQ RETURN
-		DQ FILLED ; ( &fill -- )
-		DQ PEEK ; ( fill -- )
-		DQ IOPOINTER ; ( fill &iop -- )
-		DQ PEEK ; ( fill iop -- )
-		DQ MODULUS ; ( iop%fill -- )
-		DQ BRANCH ; ( -- )
-		DQ 2
-		DQ REFILL ; ( -- !iseof )
-		DQ RETURN
-		DQ LITERAL
-		DQ 1
-		DQ RETURN
+		FILLIFEMPTYFILL:
+			DQ ISFRESHLINE
+			DQ PEEK
+			NEWBRANCH FILLIFEMPTYDONE
+			DQ FILLED ; ( &fill -- )
+			DQ PEEK ; ( fill -- )
+			DQ IOPOINTER ; ( fill &iop -- )
+			DQ PEEK ; ( fill iop -- )
+			DQ MODULUS ; ( iop%fill -- )
+			NEWBRANCH FILLIFEMPTYDONE
+			DQ REFILL ; ( -- !iseof )
+			DQ RETURN
+		FILLIFEMPTYDONE:
+			DQ TRUE
+			DQ RETURN
 
 	NEWHEADER "FALSE"
 	NEWCONSTANT ZERO
 		DQ 0
 
 	NEWTHREAD ECHOTOKENS
-		DQ GETTOKEN
-		DQ COPY
-		DQ BRANCH
-		DQ 2
+		ECHOTOKENSNEXT:
+			DQ GETTOKEN
+			DQ COPY
+			NEWBRANCH ECHOTOKENSECHO
 		DQ DROP
 		DQ RETURN
-		DQ PRINTLINE
-		DQ JUMP
-		DQ -9
+		ECHOTOKENSECHO:
+			DQ PRINTLINE
+			NEWJUMP ECHOTOKENSNEXT
 
 	NEWTHREAD PRINTLINE
 		DQ PRINT
@@ -419,34 +429,33 @@ RDATA SEGMENT READONLY ALIAS(".rdata") 'CONST'
 	; `token` points to a null-terminated token
 	NEWTHREAD GETTOKEN
 		DQ SKIPSPACE
-		DQ LITERAL
-		DQ 0
+		DQ ZERO
 		DQ TOKENPOINTER
 		DQ POKE
-		DQ KEY ; ( ch -- )
-		DQ COPY ; ( ch ch -- )
-		DQ BRANCH ; ( ch -- )
-		DQ 3
-		DQ DROP ; ( -- )
-		DQ ZERO
-		DQ RETURN
-		DQ COPY ; ( ch ch -- )
-		DQ TOKENBUFFER ; ( ch ch &tb -- )
-		DQ TOKENPOINTER ; ( * &tp -- )
-		DQ COPY ; ( * &tp &tp -- )
-		DQ PEEK ; ( * &tp tp -- )
-		DQ SWAP ; ( * tp &tp -- )
-		DQ COPY ; ( * tp &tp &tp -- )
-		DQ PEEK ; ( * tp &tp tp -- )
-		DQ INCREMENT ; ( * tp &tp tp+1 -- )
-		DQ SWAP ; ( * tp tp+1 &tp -- )
-		DQ POKE ; ( * &tb tp -- )
-		DQ SUM ; ( ch ch &tb[tp] -- )
-		DQ POKEBYTE ; ( ch -- )
-		DQ ISSPACE ; ( sp -- )
-		DQ BITNOT ; ( !sp -- )
-		DQ BRANCH
-		DQ -24
+		GETTOKENLOOP:
+			DQ KEY ; ( ch -- )
+			DQ COPY ; ( ch ch -- )
+			NEWBRANCH GETTOKENOK
+			DQ DROP ; ( -- )
+			DQ ZERO
+			DQ RETURN
+		GETTOKENOK:
+			DQ COPY ; ( ch ch -- )
+			DQ TOKENBUFFER ; ( ch ch &tb -- )
+			DQ TOKENPOINTER ; ( * &tp -- )
+			DQ COPY ; ( * &tp &tp -- )
+			DQ PEEK ; ( * &tp tp -- )
+			DQ SWAP ; ( * tp &tp -- )
+			DQ COPY ; ( * tp &tp &tp -- )
+			DQ PEEK ; ( * tp &tp tp -- )
+			DQ INCREMENT ; ( * tp &tp tp+1 -- )
+			DQ SWAP ; ( * tp tp+1 &tp -- )
+			DQ POKE ; ( * &tb tp -- )
+			DQ SUM ; ( ch ch &tb[tp] -- )
+			DQ POKEBYTE ; ( ch -- )
+			DQ ISSPACE ; ( sp -- )
+			DQ BITNOT ; ( !sp -- )
+			NEWBRANCH GETTOKENLOOP
 		DQ TOKENBUFFER
 		DQ COPY
 		DQ TOKENPOINTER
@@ -461,14 +470,14 @@ RDATA SEGMENT READONLY ALIAS(".rdata") 'CONST'
 		DQ RETURN
 
 	NEWTHREAD SKIPSPACE
-		DQ PEEKCHAR
-		DQ ISSPACE
-		DQ BRANCH
-		DQ 1
+		SKIPSPACENEXT:
+			DQ PEEKCHAR
+			DQ ISSPACE
+			NEWBRANCH SKIPSPACECONTINUE
 		DQ RETURN
-		DQ NEXTCHAR
-		DQ JUMP
-		DQ -8
+		SKIPSPACECONTINUE:
+			DQ NEXTCHAR
+			NEWJUMP SKIPSPACENEXT
 
 	; ( ch -- sp )
 	;
@@ -499,37 +508,37 @@ RDATA SEGMENT READONLY ALIAS(".rdata") 'CONST'
 
 	NEWHEADER "TYPE"
 	NEWTHREAD PRINT
-		DQ COPY ; ( str -- str str )
-		DQ PEEKBYTE ; ( str str -- str ch )
-		DQ COPY ; ( str ch -- str ch ch )
-		DQ BRANCH ; ( str ch ch -- str ch )
-		DQ 3
+		PRINTNEXT:
+			DQ COPY ; ( str -- str str )
+			DQ PEEKBYTE ; ( str str -- str ch )
+			DQ COPY ; ( str ch -- str ch ch )
+			NEWBRANCH PRINTCONTINUE
 		DQ DROP ; ( str ch -- str )
 		DQ DROP ; ( str -- )
 		DQ RETURN
-		DQ EMIT ; ( str ch -- str )
-		DQ INCREMENT ; ( str -- str+1 )
-		DQ JUMP
-		DQ -12
+		PRINTCONTINUE:
+			DQ EMIT ; ( str ch -- str )
+			DQ INCREMENT ; ( str -- str+1 )
+			NEWJUMP PRINTNEXT
 
 	NEWVARIABLE GREETING
-		DB "DATA (C) 2022 DAVID DETWEILER", 10, 10, 0
+		DB "SILICON (C) 2022 DAVID DETWEILER", 10, 10, 0
 
 	NEWHEADER "TRUE"
 	NEWCONSTANT TRUE
 		DQ 0ffffffffffffffffh
 
 	NEWTHREAD WALK
-		DQ COPY ; ( head -- head head )
-		DQ BRANCH ; ( head head -- head )
-		DQ 2
+		WALKNEXT:
+			DQ COPY ; ( head -- head head )
+			NEWBRANCH WALKCONTINUE
 		DQ DROP ; ( head -- )
 		DQ RETURN ; ( -- )
-		DQ COPY ; ( head -- head head )
-		DQ PRINTNAME ; ( head head -- head )
-		DQ PEEK ; ( head -- head.next )
-		DQ JUMP
-		DQ -10
+		WALKCONTINUE:
+			DQ COPY ; ( head -- head head )
+			DQ PRINTNAME ; ( head head -- head )
+			DQ PEEK ; ( head -- head.next )
+			NEWJUMP WALKNEXT
 
 	NEWTHREAD PRINTNAME
 		DQ CELLSIZE
@@ -545,12 +554,12 @@ DATA SEGMENT ALIAS(".data") 'DATA'
 		REPEAT 64
 			DQ 0
 		ENDM
-	DSTACK:
+	DATASTACK:
 
 		REPEAT 64
 			DQ 0
 		ENDM
-	RETURNSTATAACK:
+	RETURNSTACK:
 
 	NEWVARIABLE STDOUT
 		DQ 0
