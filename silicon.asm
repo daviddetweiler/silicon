@@ -8,21 +8,18 @@ EXTERN ReadFile: PROC
 LATEST = 0
 
 NEWHEADER MACRO ID
-    LOCAL HEADER, NAME, LINK, PAD
+    LOCAL HEADER, NAME, PAD
 
     HEADER:
-        DB LINK-HEADER
+        DQ LATEST
 
     NAME:
-        DB ID
+        DB ID, 0
 
     PAD:
-        REPEAT 8-((PAD-NAME) MOD 8)
+        REPEAT (8-((PAD-NAME) MOD 8)) MOD 8
             DB 0
         ENDM
-
-    LINK:
-        DQ LATEST
 
     LATEST = HEADER
 ENDM
@@ -532,17 +529,18 @@ RDATA SEGMENT READONLY ALIAS(".rdata") 'CONST'
         DQ RETURN ; ( -- )
         DQ COPY ; ( head -- head head )
         DQ PRINTNAME ; ( head head -- head )
-        DQ COPY ; ( head -- head head )
-        DQ PEEKBYTE ; ( head head -- head link-off )
-        DQ SUM ; ( head link-off -- &head->link )
-        DQ PEEK ; ( &head->link -- head.link )
+        DQ PEEK ; ( head -- head.next )
         DQ JUMP
-        DQ -13
+        DQ -10
 
     NEWTHREAD PRINTNAME
-        DQ INCREMENT ; ( len head -- len name )
+        DQ CELLSIZE
+        DQ SUM
         DQ PRINTLINE
         DQ RETURN
+
+    NEWCONSTANT CELLSIZE
+        DQ 8
 RDATA ENDS
 
 DATA SEGMENT ALIAS(".data") 'DATA'
