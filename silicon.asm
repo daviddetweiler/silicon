@@ -1,595 +1,585 @@
-PUBLIC START
+public start
 
-EXTERN ExitProcess: PROC
-EXTERN GetStdHandle: PROC
-EXTERN WriteFile: PROC
-EXTERN ReadFile: PROC
+extern ExitProcess: proc
+extern GetStdHandle: proc
+extern WriteFile: proc
+extern ReadFile: proc
 
-LATEST = 0
+latest_header = 0
 
-NEWHEADER MACRO ID
-	LOCAL HEADER, NAME, PAD
+make_header macro id
+	local header, name, padding
+	header:
+		dq latest_header
 
-	HEADER:
-		DQ LATEST
+	name:
+		db id, 0
 
-	NAME:
-		DB ID, 0
+	padding:
+		repeat (8 - ((padding - name) mod 8)) mod 8
+			db 0
+		endm
 
-	PAD:
-		REPEAT (8-((PAD-NAME) MOD 8)) MOD 8
-			DB 0
-		ENDM
+	latest_header = header
+endm
 
-	LATEST = HEADER
-ENDM
+make_word macro name, code
+	align 8
+	name:
+		dq code
+endm
 
-NEWCODE MACRO NAME
-	ALIGN 8
+make_code_word macro name
+	make_word name, name + 8
+endm
 
-	NAME:
-		DQ NAME+8
-ENDM
+make_thread macro name
+	make_word name, call_thread
+endm
 
-NEWWORD MACRO NAME, CODE
-	ALIGN 8
+make_variable macro name
+	make_word name, call_variable
+endm
 
-NAME:
-	DQ CODE
-ENDM
+make_constant macro name
+	make_word name, call_constant
+endm
 
-NEWTHREAD MACRO NAME
-	NEWWORD NAME, DOTHREAD
-ENDM
+make_branch macro name
+	local next
+	dq branch
+	dq (name - next) / 8
+	next:
+endm
 
-NEWVARIABLE MACRO NAME
-	NEWWORD NAME, DOVARIABLE
-ENDM
+make_jump macro name
+	local next
+	dq jump
+	dq (name - next) / 8
+	next:
+endm
 
-NEWCONSTANT MACRO NAME
-	NEWWORD NAME, DOCONSTANT
-ENDM
-
-NEWBRANCH MACRO NAME
-	LOCAL NEXT
-	DQ BRANCH
-	DQ (NAME-NEXT)/8
-
-	NEXT:
-ENDM
-
-NEWJUMP MACRO NAME
-	LOCAL NEXT
-	DQ JUMP
-	DQ (NAME-NEXT)/8
-
-	NEXT:
-ENDM
-
-TEXT SEGMENT ALIAS(".text") 'CODE'
-	START PROC
-		SUB RSP, 88H ; Stack alignment + 16 parameters
-		MOV R12, THREAD
-		MOV R14, RETURNSTACK
-		MOV R15, DATASTACK
-		JMP CONTINUE
-	START ENDP
+primitives segment alias(".primitives") 'CODE'
+	start proc
+		sub rsp, 88h ; Stack alignment + 16 parameters
+		mov r12, thread
+		mov r14, rstack
+		mov r15, dstack
+		jmp continue
+	start endp
 
 	; Begin inner interpreter components
 
 	; Procedure implementing threaded words
-	DOTHREAD:
-		SUB R14, 8
-		MOV [R14], R12
-		MOV R12, R13
-		JMP CONTINUE
+	call_thread:
+		sub r14, 8
+		mov [r14], r12
+		mov r12, r13
+		jmp continue
 
 	; Procedure implementing thread returns
-	NEWCODE RETURN
-		MOV R12, [R14]
-		ADD R14, 8
+	make_code_word return
+		mov r12, [r14]
+		add r14, 8
 
 	; Runs the word referenced at the current IP, advances IP
-	CONTINUE:
-		ADD R12, 8
-		MOV R13, [R12-8]
+	continue:
+		add r12, 8
+		mov r13, [r12 - 8]
 
 	; Runs a word, setting WA to point to the data field
-	RUN:
-		ADD R13, 8
-		JMP QWORD PTR [R13-8]
+	run:
+		add r13, 8
+		jmp qword ptr [r13 - 8]
 
 	; Pops a word address from the data stack and executes it
-	NEWHEADER "EXECUTE"
-	NEWCODE EXECUTE
-		MOV R13, [R15]
-		ADD R15, 8
-		JMP RUN
+	make_header "EXECUTE"
+	make_code_word execute
+		mov r13, [r15]
+		add r15, 8
+		jmp run
 
 	; End inner interpreter components
 
-	NEWCODE EXIT
-		XOR RCX, RCX
-		CALL ExitProcess
+	make_code_word exit
+		xor rcx, rcx
+		call ExitProcess
 
-	NEWCODE BREAK
-		INT 3
-		JMP CONTINUE
+	make_code_word literal
+		mov rcx, [r12]
+		add r12, 8
+		sub r15, 8
+		mov [r15], rcx
+		jmp continue
 
-	NEWCODE LITERAL
-		MOV RCX, [R12]
-		ADD R12, 8
-		SUB R15, 8
-		MOV [R15], RCX
-		JMP CONTINUE
-
-	NEWCODE GETSTD
-		MOV RCX, [R15]
-		CALL GetStdHandle
-		MOV [R15], RAX
-		JMP CONTINUE
+	make_code_word get_std_handle
+		mov rcx, [r15]
+		call GetStdHandle
+		mov [r15], rax
+		jmp continue
 
 	; ( a -- v )
-	; v = *a
-	NEWHEADER "@"
-	NEWCODE PEEK
-		MOV RCX, [R15]
-		MOV RCX, [RCX]
-		MOV [R15], RCX
-		JMP CONTINUE
+	; v =  *a
+	make_header "@"
+	make_code_word peek
+		mov rcx, [r15]
+		mov rcx, [rcx]
+		mov [r15], rcx
+		jmp continue
 
 	; ( v a -- )
 	;
-	; *a = v
-	NEWHEADER "!"
-	NEWCODE POKE
-		MOV RCX, [R15]
-		MOV RDX, [R15+8]
-		MOV [RCX], RDX
-		ADD R15, 16
-		JMP CONTINUE
+	;  *a = v
+	make_header "!"
+	make_code_word poke
+		mov rcx, [r15]
+		mov rdx, [r15 + 8]
+		mov [rcx], rdx
+		add r15, 16
+		jmp continue
 
-	NEWCODE WRITEBYTE
-		MOV RCX, [R15]
-		LEA RDX, [R15+8]
-		MOV R8, 1
-		MOV R9, R15
-		MOV QWORD PTR [RSP+8*4], 0
-		CALL WriteFile
-		ADD R15, 16
-		JMP CONTINUE
+	make_code_word write_byte
+		mov rcx, [r15]
+		lea rdx, [r15 + 8]
+		mov r8, 1
+		mov r9, r15
+		mov qword ptr [rsp + 8 * 4], 0
+		call WriteFile
+		add r15, 16
+		jmp continue
 
-	DOVARIABLE:
-		SUB R15, 8
-		MOV [R15], R13
-		JMP CONTINUE
+	call_variable:
+		sub r15, 8
+		mov [r15], r13
+		jmp continue
 
 	; ( flag -- )
 	;
 	; Expects a literal signed branch constant; if `flag` is zero, resumes execution after the constant, else it adjusts the
 	; IP by the branch offset in units of cells.
-	NEWCODE BRANCH
-		MOV RCX, [R12]
-		ADD R12, 8
-		MOV RDX, [R15]
-		ADD R15, 8
-		TEST RDX, RDX
-		SETNE DL
-		MOVZX RDX, DL
-		IMUL RCX, RDX
-		IMUL RCX, 8
-		ADD R12, RCX
-		JMP CONTINUE
+	make_code_word branch
+		mov rcx, [r12]
+		add r12, 8
+		mov rdx, [r15]
+		add r15, 8
+		test rdx, rdx
+		setne dl
+		movzx rdx, dl
+		imul rcx, rdx
+		imul rcx, 8
+		add r12, rcx
+		jmp continue
 
-	NEWCODE JUMP
-		MOV RCX, [R12]
-		ADD R12, 8
-		IMUL RCX, 8
-		ADD R12, RCX
-		JMP CONTINUE
+	make_code_word jump
+		mov rcx, [r12]
+		add r12, 8
+		imul rcx, 8
+		add r12, rcx
+		jmp continue
 
 	; ( buffer handle -- filled )
 	;
 	; Read 128 bytes from `handle` into `buffer`; `filled` is the number of bytes actually read
-	NEWCODE READLINE
-		MOV RCX, [R15]
-		MOV RDX, [R15+8]
-		MOV R8, 128
-		MOV R9, R15
-		MOV QWORD PTR [RSP+8*4], 0
-		CALL ReadFile
-		MOV RCX, [R15]
-		MOV [R15+8], RCX
-		ADD R15, 8
-		JMP CONTINUE
+	make_code_word read_line
+		mov rcx, [r15]
+		mov rdx, [r15 + 8]
+		mov r8, 128
+		mov r9, r15
+		mov qword ptr [rsp + 8 * 4], 0
+		call ReadFile
+		mov rcx, [r15]
+		mov [r15 + 8], rcx
+		add r15, 8
+		jmp continue
 
-	NEWCODE PEEKBYTE
-		MOV RCX, [R15]
-		MOVZX RCX, BYTE PTR [RCX]
-		MOV [R15], RCX
-		JMP CONTINUE
+	make_code_word peek_byte
+		mov rcx, [r15]
+		movzx rcx, byte ptr [rcx]
+		mov [r15], rcx
+		jmp continue
 
-	DOCONSTANT:
-		MOV RCX, [R13]
-		SUB R15, 8
-		MOV [R15], RCX
-		JMP CONTINUE
+	call_constant:
+		mov rcx, [r13]
+		sub r15, 8
+		mov [r15], rcx
+		jmp continue
 
 	; ( b a -- mod )
 	;
 	; mod = a % b
-	NEWHEADER "MOD"
-	NEWCODE MODULUS
-		XOR RDX, RDX
-		MOV RAX, [R15]
-		DIV QWORD PTR [R15+8]
-		ADD R15, 8
-		MOV [R15], EDX
-		JMP CONTINUE
+	make_header "MOD"
+	make_code_word modulus
+		xor rdx, rdx
+		mov rax, [r15]
+		div qword ptr [r15 + 8]
+		add r15, 8
+		mov [r15], edx
+		jmp continue
 
 	; ( a -- a a )
-	NEWHEADER "DUP"
-	NEWCODE COPY
-		MOV RCX, [R15]
-		SUB R15, 8
-		MOV [R15], RCX
-		JMP CONTINUE
+	make_header "DUP"
+	make_code_word copy
+		mov rcx, [r15]
+		sub r15, 8
+		mov [r15], rcx
+		jmp continue
 
 	; ( b a -- a b )
-	NEWCODE SWAP
-		MOV RCX, [R15]
-		XCHG [R15+8], RCX
-		MOV [R15], RCX
-		JMP CONTINUE
+	make_header "SWAP"
+	make_code_word swap
+		mov rcx, [r15]
+		xchg [r15 + 8], rcx
+		mov [r15], rcx
+		jmp continue
 
 	; ( b a -- c )
 	;
 	; c = a + b
-	NEWHEADER "+"
-	NEWCODE SUM
-		MOV RCX, [R15]
-		ADD R15, 8
-		ADD [R15], RCX
-		JMP CONTINUE
+	make_header "+"
+	make_code_word stack_add
+		mov rcx, [r15]
+		add r15, 8
+		add [r15], rcx
+		jmp continue
 
-	NEWHEADER "DROP"
-	NEWCODE DROP
-		ADD R15, 8
-		JMP CONTINUE
+	make_header "DROP"
+	make_code_word drop
+		add r15, 8
+		jmp continue
 
-	NEWHEADER "="
-	NEWCODE EQUALS
-		MOV RCX, [R15]
-		ADD R15, 8
-		CMP RCX, [R15]
-		SETE CL
-		MOVZX RCX, CL
-		XOR RDX, RDX
-		NOT RDX
-		IMUL RCX, RDX
-		MOV [R15], RCX
-		JMP CONTINUE
+	make_header "="
+	make_code_word equals
+		mov rcx, [r15]
+		add r15, 8
+		cmp rcx, [r15]
+		sete cl
+		movzx rcx, cl
+		xor rdx, rdx
+		not rdx
+		imul rcx, rdx
+		mov [r15], rcx
+		jmp continue
 
-	NEWHEADER "OR"
-	NEWCODE BITOR
-		MOV RCX, [R15]
-		ADD R15, 8
-		OR [R15], RCX
-		JMP CONTINUE
+	make_header "or"
+	make_code_word stack_or
+		mov rcx, [r15]
+		add r15, 8
+		or [r15], rcx
+		jmp continue
 
-	NEWHEADER "NOT"
-	NEWCODE BITNOT
-		MOV RCX, [R15]
-		NOT RCX
-		MOV [R15], RCX
-		JMP CONTINUE
+	make_header "NOT"
+	make_code_word stack_not
+		mov rcx, [r15]
+		not rcx
+		mov [r15], rcx
+		jmp continue
 
-	NEWCODE POKEBYTE
-		MOV RCX, [R15]
-		MOVZX RDX, BYTE PTR [R15+8]
-		MOV [RCX], RDX
-		ADD R15, 16
-		JMP CONTINUE
+	make_code_word poke_byte
+		mov rcx, [r15]
+		movzx rdx, byte ptr [r15 + 8]
+		mov [rcx], rdx
+		add r15, 16
+		jmp continue
 
-	NEWHEADER "+1"
-	NEWCODE INCREMENT
-		ADD QWORD PTR [R15], 1
-		JMP CONTINUE
-TEXT ENDS
+	make_header "+1"
+	make_code_word increment
+		add qword ptr [r15], 1
+		jmp continue
+primitives ends
 
-RDATA SEGMENT READONLY ALIAS(".rdata") 'CONST'
-	THREAD:
-		DQ INITIO
-		DQ GREETING
-		DQ PRINT
-		DQ LITERAL
-		DQ DICTIONARY
-		DQ WALK
-		DQ ECHOTOKENS
-		DQ EXIT
+constants segment readonly alias(".rdata") 'CONST'
+	thread:
+		dq init_io
+		dq greeting
+		dq print
+		dq literal
+		dq dictionary
+		dq walk
+		dq echo_tokens
+		dq exit
 
-	NEWTHREAD INITIO
-		DQ LITERAL
-		DQ -11
-		DQ GETSTD
-		DQ STDOUT
-		DQ POKE
-		DQ LITERAL
-		DQ -10
-		DQ GETSTD
-		DQ STDIN
-		DQ POKE
-		DQ RETURN
+	make_thread init_io
+		dq literal
+		dq -11
+		dq get_std_handle
+		dq stdout
+		dq poke
+		dq literal
+		dq -10
+		dq get_std_handle
+		dq stdin
+		dq poke
+		dq return
 
-	NEWHEADER "EMIT"
-	NEWTHREAD EMIT
-		DQ STDOUT
-		DQ PEEK
-		DQ WRITEBYTE
-		DQ RETURN
+	make_header "EMIT"
+	make_thread emit
+		dq stdout
+		dq peek
+		dq write_byte
+		dq return
 
 	; ( -- !iseof )
-	NEWTHREAD REFILL
-		DQ LINEBUFFER
-		DQ STDIN
-		DQ PEEK
-		DQ READLINE
-		DQ COPY
-		DQ FILLED
-		DQ POKE
-		DQ ZERO
-		DQ IOPOINTER
-		DQ POKE
-		DQ TRUE
-		DQ ISFRESHLINE
-		DQ POKE
-		DQ RETURN
+	make_thread refill
+		dq line_buffer
+		dq stdin
+		dq peek
+		dq read_line
+		dq copy
+		dq filled
+		dq poke
+		dq zero
+		dq io_ptr
+		dq poke
+		dq true
+		dq is_fresh_line
+		dq poke
+		dq return
 
 	; ( -- ch )
 	;
 	; ch is either the next character from stdin, or null on EOF
-	NEWHEADER "KEY"
-	NEWTHREAD KEY
-		DQ PEEKCHAR ; ( lb[iop] -- )
-		DQ NEXTCHAR
-		DQ RETURN
+	make_header "KEY"
+	make_thread key
+		dq peek_char ; ( lb[iop] -- )
+		dq next_char
+		dq return
 
-	NEWTHREAD PEEKCHAR
-		DQ FILLIFEMPTY ; ( -- !iseof )
-		NEWBRANCH PEEKCHARREAD
-		DQ ZERO
-		DQ RETURN
-		PEEKCHARREAD:
-			DQ IOPOINTER ; ( &iop -- )
-			DQ PEEK ; ( iop -- )
-			DQ LINEBUFFER ; ( iop &lb -- )
-			DQ SUM ; ( &lb[iop] -- )
-			DQ PEEKBYTE ; ( lb[iop] -- )
-			DQ RETURN
+	make_thread peek_char
+		dq fill_if_empty ; ( -- !iseof )
+		make_branch peek_char_read
+		dq zero
+		dq return
+		peek_char_read:
+			dq io_ptr ; ( &iop -- )
+			dq peek ; ( iop -- )
+			dq line_buffer ; ( iop &lb -- )
+			dq stack_add ; ( &lb[iop] -- )
+			dq peek_byte ; ( lb[iop] -- )
+			dq return
 
-	NEWTHREAD NEXTCHAR
-		DQ ZERO
-		DQ ISFRESHLINE
-		DQ POKE
-		DQ IOPOINTER ; ( &iop -- )
-		DQ COPY ; ( &iop &iop -- )
-		DQ PEEK ; ( &iop iop -- )
-		DQ INCREMENT ; ( &iop iop+1 -- )
-		DQ SWAP ; ( iop+1 &iop -- )
-		DQ POKE ; ( -- )
-		DQ RETURN
+	make_thread next_char
+		dq zero
+		dq is_fresh_line
+		dq poke
+		dq io_ptr ; ( &iop -- )
+		dq copy ; ( &iop &iop -- )
+		dq peek ; ( &iop iop -- )
+		dq increment ; ( &iop iop + 1 -- )
+		dq swap ; ( iop + 1 &iop -- )
+		dq poke ; ( -- )
+		dq return
 
 	; ( -- !iseof )
-	NEWTHREAD FILLIFEMPTY
-		DQ FILLED
-		DQ PEEK
-		NEWBRANCH FILLIFEMPTYFILL
-		DQ ZERO
-		DQ RETURN
-		FILLIFEMPTYFILL:
-			DQ ISFRESHLINE
-			DQ PEEK
-			NEWBRANCH FILLIFEMPTYDONE
-			DQ FILLED ; ( &fill -- )
-			DQ PEEK ; ( fill -- )
-			DQ IOPOINTER ; ( fill &iop -- )
-			DQ PEEK ; ( fill iop -- )
-			DQ MODULUS ; ( iop%fill -- )
-			NEWBRANCH FILLIFEMPTYDONE
-			DQ REFILL ; ( -- !iseof )
-			DQ RETURN
-		FILLIFEMPTYDONE:
-			DQ TRUE
-			DQ RETURN
+	make_thread fill_if_empty
+		dq filled
+		dq peek
+		make_branch fill_if_empty_fill
+		dq zero
+		dq return
+		fill_if_empty_fill:
+			dq is_fresh_line
+			dq peek
+			make_branch fill_if_empty_done
+			dq filled ; ( &fill -- )
+			dq peek ; ( fill -- )
+			dq io_ptr ; ( fill &iop -- )
+			dq peek ; ( fill iop -- )
+			dq modulus ; ( iop%fill -- )
+			make_branch fill_if_empty_done
+			dq refill ; ( -- !iseof )
+			dq return
+		fill_if_empty_done:
+			dq true
+			dq return
 
-	NEWHEADER "FALSE"
-	NEWCONSTANT ZERO
-		DQ 0
+	make_header "FALSE"
+	make_constant zero
+		dq 0
 
-	NEWTHREAD ECHOTOKENS
-		ECHOTOKENSNEXT:
-			DQ GETTOKEN
-			DQ COPY
-			NEWBRANCH ECHOTOKENSECHO
-		DQ DROP
-		DQ RETURN
-		ECHOTOKENSECHO:
-			DQ PRINTLINE
-			NEWJUMP ECHOTOKENSNEXT
+	make_thread echo_tokens
+		echo_tokens_next:
+			dq get_token
+			dq copy
+			make_branch echo_tokens_echo
+		dq drop
+		dq return
+		echo_tokens_echo:
+			dq println
+			make_jump echo_tokens_next
 
-	NEWTHREAD PRINTLINE
-		DQ PRINT
-		DQ LITERAL
-		DQ 10
-		DQ EMIT
-		DQ RETURN
+	make_thread println
+		dq print
+		dq literal
+		dq 10
+		dq emit
+		dq return
 
 	; ( -- token )
 	;
-	; `token` points to a null-terminated token
-	NEWTHREAD GETTOKEN
-		DQ SKIPSPACE
-		DQ ZERO
-		DQ TOKENPOINTER
-		DQ POKE
-		GETTOKENLOOP:
-			DQ KEY ; ( ch -- )
-			DQ COPY ; ( ch ch -- )
-			NEWBRANCH GETTOKENOK
-			DQ DROP ; ( -- )
-			DQ ZERO
-			DQ RETURN
-		GETTOKENOK:
-			DQ COPY ; ( ch ch -- )
-			DQ TOKENBUFFER ; ( ch ch &tb -- )
-			DQ TOKENPOINTER ; ( * &tp -- )
-			DQ COPY ; ( * &tp &tp -- )
-			DQ PEEK ; ( * &tp tp -- )
-			DQ SWAP ; ( * tp &tp -- )
-			DQ COPY ; ( * tp &tp &tp -- )
-			DQ PEEK ; ( * tp &tp tp -- )
-			DQ INCREMENT ; ( * tp &tp tp+1 -- )
-			DQ SWAP ; ( * tp tp+1 &tp -- )
-			DQ POKE ; ( * &tb tp -- )
-			DQ SUM ; ( ch ch &tb[tp] -- )
-			DQ POKEBYTE ; ( ch -- )
-			DQ ISSPACE ; ( sp -- )
-			DQ BITNOT ; ( !sp -- )
-			NEWBRANCH GETTOKENLOOP
-		DQ TOKENBUFFER
-		DQ COPY
-		DQ TOKENPOINTER
-		DQ PEEK
-		DQ LITERAL
-		DQ -1
-		DQ SUM
-		DQ SUM
-		DQ ZERO
-		DQ SWAP
-		DQ POKEBYTE
-		DQ RETURN
+	; `token` points to a null - terminated token
+	make_thread get_token
+		dq skip_space
+		dq zero
+		dq token_ptr
+		dq poke
+		get_token_loop:
+			dq key ; ( ch -- )
+			dq copy ; ( ch ch -- )
+			make_branch get_token_ok
+			dq drop ; ( -- )
+			dq zero
+			dq return
+		get_token_ok:
+			dq copy ; ( ch ch -- )
+			dq token_buffer ; ( ch ch &tb -- )
+			dq token_ptr ; ( * &tp -- )
+			dq copy ; ( * &tp &tp -- )
+			dq peek ; ( * &tp tp -- )
+			dq swap ; ( * tp &tp -- )
+			dq copy ; ( * tp &tp &tp -- )
+			dq peek ; ( * tp &tp tp -- )
+			dq increment ; ( * tp &tp tp + 1 -- )
+			dq swap ; ( * tp tp + 1 &tp -- )
+			dq poke ; ( * &tb tp -- )
+			dq stack_add ; ( ch ch &tb[tp] -- )
+			dq poke_byte ; ( ch -- )
+			dq is_space ; ( sp -- )
+			dq stack_not ; ( !sp -- )
+			make_branch get_token_loop
+		dq token_buffer
+		dq copy
+		dq token_ptr
+		dq peek
+		dq literal
+		dq -1
+		dq stack_add
+		dq stack_add
+		dq zero
+		dq swap
+		dq poke_byte
+		dq return
 
-	NEWTHREAD SKIPSPACE
-		SKIPSPACENEXT:
-			DQ PEEKCHAR
-			DQ ISSPACE
-			NEWBRANCH SKIPSPACECONTINUE
-		DQ RETURN
-		SKIPSPACECONTINUE:
-			DQ NEXTCHAR
-			NEWJUMP SKIPSPACENEXT
+	make_thread skip_space
+		skip_space_next:
+			dq peek_char
+			dq is_space
+			make_branch skip_space_continue
+		dq return
+		skip_space_continue:
+			dq next_char
+			make_jump skip_space_next
 
 	; ( ch -- sp )
 	;
 	; sp = ch in ['\r', '\n', '\t', ' ']
-	NEWTHREAD ISSPACE
-		DQ COPY ; ( ch ch -- )
-		DQ LITERAL
-		DQ " "
-		DQ EQUALS ; ( ch ch==' ' -- )
-		DQ SWAP ; ( ch==' ' ch -- )
-		DQ COPY
-		DQ LITERAL
-		DQ 9
-		DQ EQUALS
-		DQ SWAP
-		DQ COPY
-		DQ LITERAL
-		DQ 13
-		DQ EQUALS
-		DQ SWAP
-		DQ LITERAL
-		DQ 10
-		DQ EQUALS
-		DQ BITOR
-		DQ BITOR
-		DQ BITOR
-		DQ RETURN
+	make_thread is_space
+		dq copy ; ( ch ch -- )
+		dq literal
+		dq " "
+		dq equals ; ( ch ch==' ' -- )
+		dq swap ; ( ch==' ' ch -- )
+		dq copy
+		dq literal
+		dq 9
+		dq equals
+		dq swap
+		dq copy
+		dq literal
+		dq 13
+		dq equals
+		dq swap
+		dq literal
+		dq 10
+		dq equals
+		dq stack_or
+		dq stack_or
+		dq stack_or
+		dq return
 
-	NEWHEADER "TYPE"
-	NEWTHREAD PRINT
-		PRINTNEXT:
-			DQ COPY ; ( str -- str str )
-			DQ PEEKBYTE ; ( str str -- str ch )
-			DQ COPY ; ( str ch -- str ch ch )
-			NEWBRANCH PRINTCONTINUE
-		DQ DROP ; ( str ch -- str )
-		DQ DROP ; ( str -- )
-		DQ RETURN
-		PRINTCONTINUE:
-			DQ EMIT ; ( str ch -- str )
-			DQ INCREMENT ; ( str -- str+1 )
-			NEWJUMP PRINTNEXT
+	make_header "TYPE"
+	make_thread print
+		print_next:
+			dq copy ; ( str -- str str )
+			dq peek_byte ; ( str str -- str ch )
+			dq copy ; ( str ch -- str ch ch )
+			make_branch print_continue
+		dq drop ; ( str ch -- str )
+		dq drop ; ( str -- )
+		dq return
+		print_continue:
+			dq emit ; ( str ch -- str )
+			dq increment ; ( str -- str + 1 )
+			make_jump print_next
 
-	NEWVARIABLE GREETING
-		DB "SILICON (C) 2022 DAVID DETWEILER", 10, 10, 0
+	make_variable greeting
+		db "SILICON (C) 2022 DAVID DETWEILER", 10, 10, 0
 
-	NEWHEADER "TRUE"
-	NEWCONSTANT TRUE
-		DQ 0ffffffffffffffffh
+	make_header "TRUE"
+	make_constant true
+		dq 0ffffffffffffffffh
 
-	NEWTHREAD WALK
-		WALKNEXT:
-			DQ COPY ; ( head -- head head )
-			NEWBRANCH WALKCONTINUE
-		DQ DROP ; ( head -- )
-		DQ RETURN ; ( -- )
-		WALKCONTINUE:
-			DQ COPY ; ( head -- head head )
-			DQ PRINTNAME ; ( head head -- head )
-			DQ PEEK ; ( head -- head.next )
-			NEWJUMP WALKNEXT
+	make_thread walk
+		walk_next:
+			dq copy ; ( head -- head head )
+			make_branch walk_continue
+		dq drop ; ( head -- )
+		dq return ; ( -- )
+		walk_continue:
+			dq copy ; ( head -- head head )
+			dq print_name ; ( head head -- head )
+			dq peek ; ( head -- head.next )
+			make_jump walk_next
 
-	NEWTHREAD PRINTNAME
-		DQ CELLSIZE
-		DQ SUM
-		DQ PRINTLINE
-		DQ RETURN
+	make_thread print_name
+		dq cell_size
+		dq stack_add
+		dq println
+		dq return
 
-	NEWCONSTANT CELLSIZE
-		DQ 8
-RDATA ENDS
+	make_constant cell_size
+		dq 8
+constants ends
 
-DATA SEGMENT ALIAS(".data") 'DATA'
-		REPEAT 64
-			DQ 0
-		ENDM
-	DATASTACK:
+data segment alias(".data") 'DATA'
+		repeat 64
+			dq 0
+		endm
+	dstack:
 
-		REPEAT 64
-			DQ 0
-		ENDM
-	RETURNSTACK:
+		repeat 64
+			dq 0
+		endm
+	rstack:
 
-	NEWVARIABLE STDOUT
-		DQ 0
+	make_variable stdout
+		dq 0
 
-	NEWVARIABLE STDIN
-		DQ 0
+	make_variable stdin
+		dq 0
 
-	NEWVARIABLE LINEBUFFER
-		REPEAT 128
-			DB 0
-		ENDM
+	make_variable line_buffer
+		repeat 128
+			db 0
+		endm
 
-	NEWVARIABLE IOPOINTER
-		DQ 0
+	make_variable io_ptr
+		dq 0
 
-	NEWVARIABLE FILLED
-		DQ 1
+	make_variable filled
+		dq 1
 
-	NEWVARIABLE ISFRESHLINE
-		DQ 0
+	make_variable is_fresh_line
+		dq 0
 
-	NEWVARIABLE TOKENBUFFER
-		REPEAT 64
-			DB 0
-		ENDM
+	make_variable token_buffer
+		repeat 64
+			db 0
+		endm
 
-	NEWVARIABLE TOKENPOINTER
-		DQ 0
-DATA ENDS
+	make_variable token_ptr
+		dq 0
+data ends
 
-DICTIONARY = LATEST
+dictionary = latest_header
 
-END
+end
