@@ -5,6 +5,38 @@ EXTERN GetStdHandle: PROC
 EXTERN WriteFile: PROC
 EXTERN ReadFile: PROC
 
+NULLHEADER EQU 0
+
+HEADER MACRO NAME, ID, PREVIOUS
+    ALIGN 8
+
+&NAME&HEADER:
+    DB &NAME&LINK - &NAME&LINK
+
+&NAME&NAME:
+    DB ID
+
+&NAME&LINK:
+    ALIGN 8
+    DQ &PREVIOUS&HEADER
+
+ENDM
+
+NEWCODE MACRO NAME
+    ALIGN 8
+
+NAME:
+    DQ NAME+8
+ENDM
+
+NEWWORD MACRO NAME, CODE
+    ALIGN 8
+
+NAME:
+    DQ CODE
+
+ENDM
+
 SILICON SEGMENT READ WRITE EXECUTE ALIAS("SILICON")
 START PROC
     SUB RSP, 88H ; Stack alignment + 16 parameters
@@ -12,8 +44,9 @@ START PROC
     MOV R14, RSTACK
     MOV R15, DSTACK
     JMP CONTINUE
-    ALIGN 8
 START ENDP
+
+    ALIGN 8
 
 REPEAT 64
     DQ 0
@@ -25,6 +58,13 @@ REPEAT 64
 ENDM
 RSTACK:
 
+THREAD:
+    DQ INITIO
+    DQ GREETING
+    DQ PRINT
+    DQ ECHOTOKENS
+    DQ EXIT
+
 ; Begin inner interpreter components
 
 ; Procedure implementing threaded words
@@ -33,11 +73,9 @@ DOTHREAD:
     MOV [R14], R12
     MOV R12, R13
     JMP CONTINUE
-    ALIGN 8
 
 ; Procedure implementing thread returns
-RETURN:
-    DQ RETURN+8
+NEWCODE RETURN
     MOV R12, [R14]
     ADD R14, 8
 
@@ -50,48 +88,28 @@ CONTINUE:
 RUN:
     ADD R13, 8
     JMP QWORD PTR [R13-8]
-    ALIGN 8
-
-EXECUTEHEADER:
-    DB 7 ; Name length
-    DB "EXECUTE"
-    ALIGN 8
-    DQ 0 ; Link field
 
 ; Pops a word address from the data stack and executes it
-EXECUTE:
-    DQ EXECUTE+8
+HEADER EXECUTE, "EXECUTE", NULL
+NEWCODE EXECUTE
     MOV R13, [R15]
     ADD R15, 8
     JMP RUN
-    ALIGN 8
 
 ; End inner interpreter components
 
-EXIT:
-    DQ EXIT+8
+NEWCODE EXIT
     XOR RCX, RCX
     CALL ExitProcess
-    ALIGN 8
 
-THREAD:
-    DQ INITIO
-    DQ GREETING
-    DQ PRINT
-    DQ ECHOTOKENS
-    DQ EXIT
-
-LITERAL:
-    DQ LITERAL+8
+NEWCODE LITERAL
     MOV RCX, [R12]
     ADD R12, 8
     SUB R15, 8
     MOV [R15], RCX
     JMP CONTINUE
-    ALIGN 8
 
-INITIO:
-    DQ DOTHREAD
+NEWWORD INITIO, DOTHREAD
     DQ LITERAL
     DQ -11
     DQ GETSTD
@@ -104,45 +122,37 @@ INITIO:
     DQ POKE
     DQ RETURN
 
-PUT:
-    DQ DOTHREAD
+NEWWORD PUT, DOTHREAD
     DQ STDOUT
     DQ PEEK
     DQ PUTBYTE
     DQ RETURN
 
-GETSTD:
-    DQ GETSTD+8
+NEWCODE GETSTD
     MOV RCX, [R15]
     CALL GetStdHandle
     MOV [R15], RAX
     JMP CONTINUE
-    ALIGN 8
 
 ; ( a -- v )
 ; v = *a
-PEEK:
-    DQ PEEK+8
+NEWCODE PEEK
     MOV RCX, [R15]
     MOV RCX, [RCX]
     MOV [R15], RCX
     JMP CONTINUE
-    ALIGN 8
 
 ; ( v a -- )
 ;
 ; *a = v
-POKE:
-    DQ POKE+8
+NEWCODE POKE
     MOV RCX, [R15]
     MOV RDX, [R15+8]
     MOV [RCX], RDX
     ADD R15, 16
     JMP CONTINUE
-    ALIGN 8
 
-PUTBYTE:
-    DQ PUTBYTE+8
+NEWCODE PUTBYTE
     MOV RCX, [R15]
     LEA RDX, [R15+8]
     MOV R8, 1
@@ -151,24 +161,19 @@ PUTBYTE:
     CALL WriteFile
     ADD R15, 16
     JMP CONTINUE
-    ALIGN 8
 
 DOVARIABLE:
     SUB R15, 8
     MOV [R15], R13
     JMP CONTINUE
-    ALIGN 8
 
-STDOUT:
-    DQ DOVARIABLE
+NEWWORD STDOUT, DOVARIABLE
     DQ 0
 
-STDIN:
-    DQ DOVARIABLE
+NEWWORD STDIN, DOVARIABLE
     DQ 0
 
-LINEBUFFER:
-    DQ DOVARIABLE
+NEWWORD LINEBUFFER, DOVARIABLE
 REPEAT 128
     DB 0
 ENDM
@@ -177,8 +182,7 @@ ENDM
 ;
 ; Expects a literal signed branch constant; if `flag` is zero, resumes execution after the constant, else it adjusts the
 ; IP by the branch offset in units of cells.
-BRANCH:
-    DQ BRANCH+8
+NEWCODE BRANCH
     MOV RCX, [R12]
     ADD R12, 8
     MOV RDX, [R15]
@@ -190,22 +194,18 @@ BRANCH:
     IMUL RCX, 8
     ADD R12, RCX
     JMP CONTINUE
-    ALIGN 8
 
-JUMP:
-    DQ JUMP+8
+NEWCODE JUMP
     MOV RCX, [R12]
     ADD R12, 8
     IMUL RCX, 8
     ADD R12, RCX
     JMP CONTINUE
-    ALIGN 8
 
 ; ( buffer handle -- filled )
 ;
 ; Read 128 bytes from `handle` into `buffer`; `filled` is the number of bytes actually read
-READLINE:
-    DQ READLINE+8
+NEWCODE READLINE
     MOV RCX, [R15]
     MOV RDX, [R15+8]
     MOV R8, 128
@@ -216,11 +216,9 @@ READLINE:
     MOV [R15+8], RCX
     ADD R15, 8
     JMP CONTINUE
-    ALIGN 8
 
 ; ( -- !iseof )
-REFILL:
-    DQ DOTHREAD
+NEWWORD REFILL, DOTHREAD
     DQ LINEBUFFER
     DQ STDIN
     DQ PEEK
@@ -237,33 +235,27 @@ REFILL:
     DQ POKE
     DQ RETURN
 
-PEEKBYTE:
-    DQ PEEKBYTE+8
+NEWCODE PEEKBYTE
     MOV RCX, [R15]
     MOVZX RCX, BYTE PTR [RCX]
     MOV [R15], RCX
     JMP CONTINUE
-    ALIGN 8
 
 ; ( -- ch )
 ;
 ; ch is either the next character from stdin, or null on EOF
-GET:
-    DQ DOTHREAD
+NEWWORD GET, DOTHREAD
     DQ PEEKCHAR ; ( lb[iop] -- )
     DQ NEXTCHAR
     DQ RETURN
 
-IOPOINTER:
-    DQ DOVARIABLE
+NEWWORD IOPOINTER, DOVARIABLE
     DQ 0
 
-FILLED:
-    DQ DOVARIABLE
+NEWWORD FILLED, DOVARIABLE
     DQ 1
 
-PEEKCHAR:
-    DQ DOTHREAD
+NEWWORD PEEKCHAR, DOTHREAD
     DQ FILLIFEMPTY ; ( -- !iseof )
     DQ BRANCH
     DQ 2
@@ -276,8 +268,7 @@ PEEKCHAR:
     DQ PEEKBYTE ; ( lb[iop] -- )
     DQ RETURN
 
-NEXTCHAR:
-    DQ DOTHREAD
+NEWWORD NEXTCHAR, DOTHREAD
     DQ ZERO
     DQ ISFRESHLINE
     DQ POKE
@@ -289,13 +280,11 @@ NEXTCHAR:
     DQ POKE ; ( -- )
     DQ RETURN
 
-ISFRESHLINE:
-    DQ DOVARIABLE
+NEWWORD ISFRESHLINE, DOVARIABLE
     DQ 0
 
 ; ( -- !iseof )
-FILLIFEMPTY:
-    DQ DOTHREAD
+NEWWORD FILLIFEMPTY, DOTHREAD
     DQ FILLED
     DQ PEEK
     DQ BRANCH
@@ -324,15 +313,13 @@ FILLIFEMPTY:
     DQ 1
     DQ RETURN
 
-INCREMENT:
-    DQ DOTHREAD
+NEWWORD INCREMENT, DOTHREAD
     DQ LITERAL
     DQ 1
     DQ SUM
     DQ RETURN
 
-ZERO:
-    DQ DOCONSTANT
+NEWWORD ZERO, DOCONSTANT
     DQ 0
 
 DOCONSTANT:
@@ -340,52 +327,42 @@ DOCONSTANT:
     SUB R15, 8
     MOV [R15], RCX
     JMP CONTINUE
-    ALIGN 8
 
 ; ( b a -- mod )
 ;
 ; mod = a % b
-MODULUS:
-    DQ MODULUS+8
+NEWCODE MODULUS
     XOR RDX, RDX
     MOV RAX, [R15]
     DIV QWORD PTR [R15+8]
     ADD R15, 8
     MOV [R15], EDX
     JMP CONTINUE
-    ALIGN 8
 
 ; ( a -- a a )
-COPY:
-    DQ COPY+8
+NEWCODE COPY
     MOV RCX, [R15]
     SUB R15, 8
     MOV [R15], RCX
     JMP CONTINUE
-    ALIGN 8
 
 ; ( b a -- a b )
-SWAP:
-    DQ SWAP+8
+NEWCODE SWAP
     MOV RCX, [R15]
     XCHG [R15+8], RCX
     MOV [R15], RCX
     JMP CONTINUE
-    ALIGN 8
 
 ; ( b a -- c )
 ;
 ; c = a + b
-SUM:
-    DQ SUM+8
+NEWCODE SUM
     MOV RCX, [R15]
     ADD R15, 8
     ADD [R15], RCX
     JMP CONTINUE
-    ALIGN 8
 
-ECHOTOKENS:
-    DQ DOTHREAD
+NEWWORD ECHOTOKENS, DOTHREAD
     DQ GETTOKEN
     DQ COPY
     DQ BRANCH
@@ -396,35 +373,25 @@ ECHOTOKENS:
     DQ JUMP
     DQ -9
 
-PRINTLINE:
-    DQ DOTHREAD
+NEWWORD PRINTLINE, DOTHREAD
     DQ PRINT
     DQ LITERAL
     DQ 10
     DQ PUT
     DQ RETURN
 
-BREAK:
-    DQ BREAK+8
-    INT 3
-    JMP CONTINUE
-    ALIGN 8
-
-TOKENBUFFER:
-    DQ DOVARIABLE
+NEWWORD TOKENBUFFER, DOVARIABLE
 REPEAT 64
     DB 0
 ENDM
 
-TOKENPOINTER:
-    DQ DOVARIABLE
+NEWWORD TOKENPOINTER, DOVARIABLE
     DQ 0
 
 ; ( -- token )
 ;
 ; `token` points to a null-terminated token
-GETTOKEN:
-    DQ DOTHREAD
+NEWWORD GETTOKEN, DOTHREAD
     DQ SKIPSPACE
     DQ LITERAL
     DQ 0
@@ -467,8 +434,7 @@ GETTOKEN:
     DQ POKEBYTE
     DQ RETURN
 
-SKIPSPACE:
-    DQ DOTHREAD
+NEWWORD SKIPSPACE, DOTHREAD
     DQ PEEKCHAR
     DQ ISSPACE
     DQ BRANCH
@@ -481,8 +447,7 @@ SKIPSPACE:
 ; ( ch -- sp )
 ;
 ; sp = ch in ['\r', '\n', '\t', ' ']
-ISSPACE:
-    DQ DOTHREAD
+NEWWORD ISSPACE, DOTHREAD
     DQ COPY ; ( ch ch -- )
     DQ LITERAL
     DQ " "
@@ -506,8 +471,7 @@ ISSPACE:
     DQ BITOR
     DQ RETURN
 
-EQUALSBYTE:
-    DQ EQUALSBYTE+8
+NEWCODE EQUALSBYTE
     MOV CL, [R15]
     ADD R15, 8
     CMP CL, [R15]
@@ -515,37 +479,29 @@ EQUALSBYTE:
     MOVZX RCX, CL
     MOV [R15], RCX
     JMP CONTINUE
-    ALIGN 8
 
-BITOR:
-    DQ BITOR+8
+NEWCODE BITOR
     MOV RCX, [R15]
     ADD R15, 8
     OR [R15], RCX
     JMP CONTINUE
-    ALIGN 8
 
-LOGICNOT:
-    DQ LOGICNOT+8
+NEWCODE LOGICNOT
     MOV RCX, [R15]
     TEST RCX, RCX
     SETZ CL
     MOVZX RCX, CL
     MOV [R15], RCX
     JMP CONTINUE
-    ALIGN 8
 
-POKEBYTE:
-    DQ POKEBYTE+8
+NEWCODE POKEBYTE
     MOV RCX, [R15]
     MOVZX RDX, BYTE PTR [R15+8]
     MOV [RCX], RDX
     ADD R15, 16
     JMP CONTINUE
-    ALIGN 8
 
-PRINT:
-    DQ DOTHREAD
+NEWWORD PRINT, DOTHREAD
     DQ COPY
     DQ PEEKBYTE
     DQ COPY
@@ -559,16 +515,12 @@ PRINT:
     DQ JUMP
     DQ -12
 
-GREETING:
-    DQ DOVARIABLE
+NEWWORD GREETING, DOVARIABLE
     DB "SILICON (C) 2022 DAVID DETWEILER", 10, 10, 0
-    ALIGN 8
 
-DROP:
-    DQ DROP+8
+NEWCODE DROP
     ADD R15, 8
     JMP CONTINUE
-    ALIGN 8
 
 SILICON ENDS
 
