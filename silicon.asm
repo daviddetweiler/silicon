@@ -490,48 +490,53 @@ constants segment readonly alias(".rdata") 'CONST'
 		dq newline
 		dq return
 
-	; ( -- token ) `token` points to the next null-terminated token
+	; ( buffer -- token ) `token` points to the next null-terminated token
 	make_thread get_token
-		dq skip_space
-		dq zero
-		dq token_ptr
-		dq poke
+		dq skip_space ; ( buf -- buf )
+		dq zero ; ( buf -- buf 0 )
+		dq token_ptr ; ( buf 0 -- buf 0 &i )
+		dq poke ; ( buf 0 &i -- buf )
 		get_token_loop:
-			dq key ; ( ch -- )
-			dq to_upper ; ( ch -- ch )
-			dq copy ; ( ch ch -- )
-			make_branch get_token_ok
-			dq drop ; ( -- )
-			dq zero
-			dq return
+			dq key ; ( buf -- buf ch )
+			dq to_upper ; ( buf ch -- buf ch )
+			dq copy ; ( buf ch -- buf ch ch )
+			make_branch get_token_ok ; ( buf ch ch -- buf ch )
+			dq two_drop ; ( buf ch -- )
+			dq zero ; ( -- 0 )
+			dq return ; ( 0 -- 0 )
 		get_token_ok:
-			dq copy ; ( ch ch -- )
-			dq token_buffer ; ( ch ch &tb -- )
+			dq two_copy ; ( buf ch -- buf ch buf ch )
+			dq swap ; ( buf ch buf ch -- buf ch ch buf )
 			dq token_ptr ; ( * &tp -- )
 			dq copy ; ( * &tp &tp -- )
 			dq peek ; ( * &tp tp -- )
 			dq swap ; ( * tp &tp -- )
 			dq copy ; ( * tp &tp &tp -- )
 			dq peek ; ( * tp &tp tp -- )
-			dq increment ; ( * tp &tp tp + 1 -- )
-			dq swap ; ( * tp tp + 1 &tp -- )
-			dq poke ; ( * &tb tp -- )
-			dq stack_add ; ( ch ch &tb[tp] -- )
-			dq poke_byte ; ( ch -- )
-			dq is_space ; ( sp -- )
-			dq stack_not ; ( !sp -- )
-			make_branch get_token_loop
-		dq token_buffer
-		dq copy
-		dq token_ptr
-		dq peek
+			dq increment ; ( * tp &tp tp+1 -- )
+			dq swap ; ( * tp tp+1 &tp -- )
+			dq poke ; ( * buf tp -- )
+			dq stack_add ; ( buf ch ch &buf[tp] -- )
+			dq poke_byte ; ( buf ch -- )
+			dq is_space ; ( buf sp -- )
+			dq stack_not ; ( buf !sp -- )
+			make_branch get_token_loop ; ( buf -- )
+		dq copy ; ( buf buf -- )
+		dq token_ptr ; ( buf buf &tp -- )
+		dq peek ; ( buf buf tp -- )
 		dq literal
 		dq -1
-		dq stack_add
-		dq stack_add
-		dq zero
+		dq stack_add ; ( buf buf tp-1 -- )
+		dq stack_add ; ( buf &buf[tp-1] -- )
+		dq zero ; ( buf &buf[tp-1] 0 -- )
 		dq swap
 		dq poke_byte
+		dq return
+
+	make_header "TOKEN"
+	make_thread get_repl_token
+		dq repl_token_buffer
+		dq get_token
 		dq return
 
 	make_thread to_upper
@@ -618,6 +623,7 @@ constants segment readonly alias(".rdata") 'CONST'
 	; error
 	make_thread interpret
 		interpret_loop:
+			dq token_buffer
 			dq get_token ; ( -- token )
 			dq copy ; ( token -- token token )
 			make_branch interpret_token ; ( token token -- token )
@@ -781,12 +787,12 @@ constants segment readonly alias(".rdata") 'CONST'
 constants ends
 
 data segment alias(".data") 'DATA'
-		repeat 64
+		repeat 512
 			dq 0
 		endm
 	dstack:
 
-		repeat 64
+		repeat 512
 			dq 0
 		endm
 	rstack:
@@ -828,6 +834,11 @@ data segment alias(".data") 'DATA'
 	make_header "DONE"
 	make_variable done
 		dq 0
+
+	make_variable repl_token_buffer
+		repeat 64
+			db 0
+		endm
 data ends
 
 dictionary = latest_header
