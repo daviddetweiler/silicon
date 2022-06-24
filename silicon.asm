@@ -8,19 +8,23 @@ extern ReadFile: proc
 latest_header = 0
 
 make_header macro id
-	local header, name, padding
-	header:
-		dq latest_header
+	local link, name, padding, len
+	align 8
+	len:
+		db link - len
 
 	name:
 		db id, 0
 
 	padding:
-		repeat (8 - ((padding - name) mod 8)) mod 8
+		repeat (8 - ((padding - len) mod 8)) mod 8
 			db 0
 		endm
 
-	latest_header = header
+	link:
+		dq latest_header
+
+	latest_header = len
 endm
 
 make_word macro name, code
@@ -115,6 +119,7 @@ primitives segment alias(".text") 'CODE'
 		jmp continue
 
 	; ( -- ) Exits the host process
+	make_header "BYE"
 	make_code_word exit
 		xor rcx, rcx
 		call ExitProcess
@@ -249,6 +254,15 @@ primitives segment alias(".text") 'CODE'
 		add [r15], rcx
 		jmp continue
 
+	; ( b a -- c ) c = a * b
+	make_header "*"
+	make_code_word stack_mul
+		mov rcx, [r15]
+		add r15, 8
+		imul rcx, qword ptr [r15]
+		mov [r15], rcx
+		jmp continue
+
 	; ( a -- )
 	make_header "DROP"
 	make_code_word drop
@@ -329,19 +343,14 @@ primitives segment alias(".text") 'CODE'
 		sub r15, 8
 		mov [r15], rcx
 		jmp continue
-
 primitives ends
 
 constants segment readonly alias(".rdata") 'CONST'
 	; The initial thread executed by `start`
 	thread:
 		dq init_io
-		dq greeting
-		dq print
-		dq literal
-		dq dictionary
-		dq walk
-		dq echo_tokens
+		dq greet
+		dq interpret
 		dq exit
 
 	; ( -- ) Set values of `stdin` and `stdout`
@@ -445,18 +454,6 @@ constants segment readonly alias(".rdata") 'CONST'
 	make_header "FALSE"
 	make_constant zero
 		dq 0
-
-	; ( -- ) Runs in a loop, accepting input from `stdin`, and writing out tokens, one on each line. Returns at EOF.
-	make_thread echo_tokens
-		echo_tokens_next:
-			dq get_token
-			dq copy
-			make_branch echo_tokens_echo
-		dq drop
-		dq return
-		echo_tokens_echo:
-			dq println
-			make_jump echo_tokens_next
 
 	; ( -- ) Emits a newline
 	make_thread newline
@@ -575,19 +572,84 @@ constants segment readonly alias(".rdata") 'CONST'
 	make_constant true
 		dq 0ffffffffffffffffh
 
-	; ( head -- ) Walks a dictionary list at `head`, printing each word to its own line
-	make_thread walk
-		walk_next:
-			dq copy ; ( head -- head head )
-			make_branch walk_continue
-		dq drop ; ( head -- )
-		dq newline
-		dq return ; ( -- )
-		walk_continue:
-			dq copy ; ( head -- head head )
-			dq print_name ; ( head head -- head )
-			dq peek ; ( head -- head.next )
-			make_jump walk_next
+	; ( -- ) Runs in a loop, consuming tokens, finding them in the dictionary, executing them, and bailing on the first
+	; unrecognized token
+	make_thread interpret
+		interpret_loop:
+			dq get_token
+			dq copy
+			make_branch interpret_token
+		dq drop
+		dq return
+		interpret_token:
+			dq find
+			dq copy
+			make_branch interpret_good
+		dq drop
+		dq return
+		interpret_good:
+			dq execute
+			make_jump interpret_loop
+
+	; ( name -- token ) Queries the dictionary for the word with the name `name`, returning its token
+	make_thread find
+		dq literal	; ( name -- name dict )
+		dq dictionary
+		find_next:
+			dq copy ; ( name dict -- name dict dict )
+			make_branch find_continue ; ( name dict dict -- name dict )
+		dq drop ; ( name dict -- name )
+		dq drop ; ( name -- )
+		dq zero ; ( -- zero )
+		dq return ; ( zero -- zero )
+		find_continue:
+			dq copy ; ( name dict -- name dict dict )
+			dq push_cell ; ( name dict dict -- name dict )
+			dq swap ; ( name dict -- dict name )
+			dq copy ; ( dict name -- dict name name )
+			dq push_cell ; ( dict name name -- dict name )
+			dq swap ; ( dict name -- name dict )
+			dq get_dict_name
+			dq string_equals ; ( name &dict.name -- name===&dict.name )
+			make_branch find_found ; ( name===&dict.name -- )
+		dq pop_cell ; ( -- name )
+		dq pop_cell ; ( name -- name dict )
+		dq get_dict_link
+		make_jump find_next
+		find_found:
+			dq pop_cell
+			dq drop
+			dq pop_cell
+			dq get_dict_token
+			dq return
+
+	; ( dict -- dict->link )
+	make_thread get_dict_link
+		dq copy
+		dq peek_byte
+		dq stack_add
+		dq peek
+		dq return
+
+	; ( dict -- &dict->name )
+	make_thread get_dict_name
+		dq increment
+		dq return
+
+	; ( dict -- &dict->word )
+	make_thread get_dict_token
+		dq copy
+		dq peek_byte
+		dq cell_size
+		dq stack_add
+		dq stack_add
+		dq return
+
+	; ( -- )
+	make_thread greet
+		dq greeting
+		dq print
+		dq return
 
 	; ( head -- ) Prints the name of the dictionary entry at `head`
 	make_thread print_name
@@ -600,6 +662,7 @@ constants segment readonly alias(".rdata") 'CONST'
 	make_constant cell_size
 		dq 8
 
+	; ( a b -- a===b ) String comparison of null-terminated strings; surprisingly difficult
 	make_thread string_equals
 		string_equals_loop:
 			dq copy ; ( a b -- a b b )
@@ -654,7 +717,7 @@ data segment alias(".data") 'DATA'
 
 	make_variable stdout
 		dq 0
-	
+
 	make_variable stdin
 		dq 0
 
