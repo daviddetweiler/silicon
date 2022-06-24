@@ -366,6 +366,11 @@ primitives segment alias(".text") 'CODE'
 		mov [r15 + 8], rdx
 		mov [r15], rcx
 		jmp continue
+
+	make_header "2DROP"
+	make_code_word two_drop
+		add r15, 16
+		jmp continue
 primitives ends
 
 constants segment readonly alias(".rdata") 'CONST'
@@ -591,8 +596,7 @@ constants segment readonly alias(".rdata") 'CONST'
 			dq peek_byte ; ( str str -- str ch )
 			dq copy ; ( str ch -- str ch ch )
 			make_branch print_continue
-		dq drop ; ( str ch -- str )
-		dq drop ; ( str -- )
+		dq two_drop ; ( str ch -- )
 		dq return
 		print_continue:
 			dq emit ; ( str ch -- str )
@@ -629,34 +633,25 @@ constants segment readonly alias(".rdata") 'CONST'
 
 	; ( name -- token ) Queries the dictionary for the word with the name `name`, returning its token
 	make_thread find
-		dq literal	; ( name -- name dict )
+		dq literal ; ( name -- name dict )
 		dq dictionary
 		find_next:
 			dq copy ; ( name dict -- name dict dict )
 			make_branch find_continue ; ( name dict dict -- name dict )
-		dq drop ; ( name dict -- name )
-		dq drop ; ( name -- )
+		dq two_drop ; ( name dict -- )
 		dq zero ; ( -- zero )
 		dq return ; ( zero -- zero )
 		find_continue:
-			dq copy ; ( name dict -- name dict dict )
-			dq push_cell ; ( name dict dict -- name dict )
-			dq swap ; ( name dict -- dict name )
-			dq copy ; ( dict name -- dict name name )
-			dq push_cell ; ( dict name name -- dict name )
-			dq swap ; ( dict name -- name dict )
-			dq get_dict_name
-			dq string_equals ; ( name &dict.name -- name===&dict.name )
-			make_branch find_found ; ( name===&dict.name -- )
-		dq pop_cell ; ( -- name )
-		dq pop_cell ; ( name -- name dict )
-		dq get_dict_link
+			dq two_copy ; ( name dict -- name dict name dict )
+			dq get_dict_name ; ( name dict name dict -- name dict name &dict->name )
+			dq string_equals ; ( name dict name &dict->name -- name dict name===&dict->name )
+			make_branch find_found ; ( name dict name===&dict.name -- name dict )
+		dq get_dict_link ; ( name dict -- name dict->link )
 		make_jump find_next
 		find_found:
-			dq pop_cell
-			dq drop
-			dq pop_cell
-			dq get_dict_token
+			dq swap ; ( name dict -- dict name )
+			dq drop ; ( dict name -- dict )
+			dq get_dict_token ; ( dict -- &dict->word )
 			dq return
 
 	; ( dict -- dict->link )
@@ -709,7 +704,7 @@ constants segment readonly alias(".rdata") 'CONST'
 			dq copy ; ( b a -- b a a )
 			dq peek_byte ; ( b a a -- b a *a )
 			dq pop_cell ; ( b a *a -- b a *a *b )
-			dq two_copy	; ( b a *a *b -- b a *a *b *a *b )
+			dq two_copy ; ( b a *a *b -- b a *a *b *a *b )
 			dq is_zero ; (  b a *a *b *a *b --  b a *a *b *a *b==0 )
 			dq swap ; ( b a *a *b *a *b==0 -- b a *a *b *b==0 *a )
 			dq is_zero ; ( b a *a *b *b==0 *a -- b a *a *b *b==0 *a==0 )
@@ -717,8 +712,7 @@ constants segment readonly alias(".rdata") 'CONST'
 			make_branch string_equals_done ; ( b a *a *b !*a||!*b -- b a *a *b )
 		dq equals ; ( b a *a *b -- b a *a==*b )
 		make_branch string_equals_continue ; ( b a *a==*b -- b a )
-		dq drop ; ( b a -- b )
-		dq drop ; ( b -- )
+		dq two_drop ; ( b a -- )
 		dq zero ; ( -- false )
 		dq return ; ( false -- false )
 		string_equals_continue:
