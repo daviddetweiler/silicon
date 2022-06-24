@@ -59,7 +59,7 @@ make_jump macro name
 	next:
 endm
 
-primitives segment alias(".primitives") 'CODE'
+primitives segment alias(".text") 'CODE'
 	start proc
 		sub rsp, 88h ; Stack alignment + 16 parameters
 		mov r12, thread
