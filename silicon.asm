@@ -357,6 +357,15 @@ primitives segment alias(".text") 'CODE'
 		imul rcx, rdx
 		mov [r15], rcx
 		jmp continue
+
+	make_header "2DUP"
+	make_code_word two_copy
+		mov rcx, [r15]
+		mov rdx, [r15 + 8]
+		sub r15, 16
+		mov [r15 + 8], rdx
+		mov [r15], rcx
+		jmp continue
 primitives ends
 
 constants segment readonly alias(".rdata") 'CONST'
@@ -690,6 +699,7 @@ constants segment readonly alias(".rdata") 'CONST'
 		dq 8
 
 	; ( a b -- a===b ) String comparison of null-terminated strings; surprisingly difficult
+	make_header "S="
 	make_thread string_equals
 		string_equals_loop:
 			dq copy ; ( a b -- a b b )
@@ -698,16 +708,13 @@ constants segment readonly alias(".rdata") 'CONST'
 			dq swap ; ( a b -- b a )
 			dq copy ; ( b a -- b a a )
 			dq peek_byte ; ( b a a -- b a *a )
-			dq copy ; ( b a *a -- b a *a *a )
-			dq pop_cell ; ( b a *a *a -- b a *a *a *b )
-			dq copy	; ( b a *a *a *b -- b a *a *a *b *b )
-			dq push_cell ; (  b a *a *a *b *b --  b a *a *a *b )
-			dq is_zero ; (  b a *a *a *b --  b a *a *a *b==0 )
-			dq swap ; ( b a *a *a *b==0 -- b a *a *b==0 *a )
-			dq is_zero ; ( b a *a *b==0 *a -- b a *a *b==0 *a==0 )
-			dq stack_or ; ( b a *a *b==0 *a==0 -- b a *a !*a||!*b )
-			make_branch string_equals_done ; ( b a *a !*a||!*b -- b a *a )
-		dq pop_cell	; ( b a *a -- b a *a *b )
+			dq pop_cell ; ( b a *a -- b a *a *b )
+			dq two_copy	; ( b a *a *b -- b a *a *b *a *b )
+			dq is_zero ; (  b a *a *b *a *b --  b a *a *b *a *b==0 )
+			dq swap ; ( b a *a *b *a *b==0 -- b a *a *b *b==0 *a )
+			dq is_zero ; ( b a *a *b *b==0 *a -- b a *a *b *b==0 *a==0 )
+			dq stack_or ; ( b a *a *b *b==0 *a==0 -- b a *a *b !*a||!*b )
+			make_branch string_equals_done ; ( b a *a *b !*a||!*b -- b a *a *b )
 		dq equals ; ( b a *a *b -- b a *a==*b )
 		make_branch string_equals_continue ; ( b a *a==*b -- b a )
 		dq drop ; ( b a -- b )
@@ -720,10 +727,10 @@ constants segment readonly alias(".rdata") 'CONST'
 			dq increment ; ( a+1 b -- a+1 b+1)
 			make_jump string_equals_loop
 		string_equals_done:
-			dq is_zero ; ( b a *a -- b a !*a )
-			dq pop_cell ; ( b a !*a -- b a !*a *b )
-			dq is_zero ; ( b a !*a *b -- b a !*a !*b )
-			dq stack_and ; ( b a !*a !*b -- b a !*a&&!*b )
+			dq is_zero ; ( b a *a *b -- b a *a !*b )
+			dq swap ; ( b a *a !*b -- b a !*b *a )
+			dq is_zero ; ( b a !*b *a -- b a !*b !*a )
+			dq stack_and ; ( b a !*b !*a -- b a !*a&&!*b )
 			dq swap
 			dq drop
 			dq swap
