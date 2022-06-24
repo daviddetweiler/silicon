@@ -1,8 +1,9 @@
 # Silicon
 
-A Forth implementation for Windows, written in MASM64. Currently, only the token-based REPL is complete; it will
-tokenize an input line by whitespace and print each token on its own line. Pressing `Ctrl+Z`, `Enter` on its own line
-will exit the REPL.
+A Forth implementation for Windows, written in MASM64. Currently, we have a small set of words exposed to the
+interpreter, but no literals support. Pressing `Ctrl+Z`, `Enter` on its own line will exit the REPL. Try:
+
+    > cat fancy.f | .\silicon.exe
 
 ## Building
 

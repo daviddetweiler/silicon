@@ -343,6 +343,20 @@ primitives segment alias(".text") 'CODE'
 		sub r15, 8
 		mov [r15], rcx
 		jmp continue
+
+	make_code_word is_lower
+		mov r8, [r15]
+		cmp r8, 96
+		setg cl
+		cmp r8, 123
+		setl dl
+		and cl, dl
+		xor rdx, rdx
+		not rdx
+		movzx rcx, cl
+		imul rcx, rdx
+		mov [r15], rcx
+		jmp continue
 primitives ends
 
 constants segment readonly alias(".rdata") 'CONST'
@@ -476,6 +490,7 @@ constants segment readonly alias(".rdata") 'CONST'
 		dq poke
 		get_token_loop:
 			dq key ; ( ch -- )
+			dq to_upper ; ( ch -- ch )
 			dq copy ; ( ch ch -- )
 			make_branch get_token_ok
 			dq drop ; ( -- )
@@ -510,6 +525,18 @@ constants segment readonly alias(".rdata") 'CONST'
 		dq swap
 		dq poke_byte
 		dq return
+
+	make_thread to_upper
+		dq copy
+		dq is_lower
+		dq stack_not
+		make_branch to_upper_done
+		dq literal
+		dq 20h
+		dq stack_not
+		dq stack_and
+		to_upper_done:
+			dq return
 
 	; ( -- ) Skip whitespace in input buffer.
 	make_thread skip_space
