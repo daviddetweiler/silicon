@@ -277,6 +277,14 @@ primitives segment alias(".text") 'CODE'
 		or [r15], rcx
 		jmp continue
 
+	; ( a b -- c ) c = a & b
+	make_header "AND"
+	make_code_word stack_and
+		mov rcx, [r15]
+		add r15, 8
+		and [r15], rcx
+		jmp continue
+
 	; ( a -- ~a )
 	make_header "NOT"
 	make_code_word stack_not
@@ -290,6 +298,38 @@ primitives segment alias(".text") 'CODE'
 	make_code_word increment
 		add qword ptr [r15], 1
 		jmp continue
+
+	; ( a -- a==0 )
+	make_header "0="
+	make_code_word is_zero
+		mov rcx, [r15]
+		test rcx, rcx
+		setz cl
+		movzx rcx, cl
+		xor rdx, rdx
+		not rdx
+		imul rcx, rdx
+		mov [r15], rcx
+		jmp continue
+
+	; ( a -- ) Moves `a` onto the return stack
+	make_header ">R"
+	make_code_word push_cell
+		mov rcx, [r15]
+		add r15, 8
+		sub r14, 8
+		mov [r14], rcx
+		jmp continue
+
+	; ( -- a ) Pops `a` from the return stack
+	make_header "<R"
+	make_code_word pop_cell
+		mov rcx, [r14]
+		add r14, 8
+		sub r15, 8
+		mov [r15], rcx
+		jmp continue
+
 primitives ends
 
 constants segment readonly alias(".rdata") 'CONST'
@@ -418,12 +458,17 @@ constants segment readonly alias(".rdata") 'CONST'
 			dq println
 			make_jump echo_tokens_next
 
-	; ( string -- ) Prints `string` with a terminal newline.
-	make_thread println
-		dq print
+	; ( -- ) Emits a newline
+	make_thread newline
 		dq literal
 		dq 10
 		dq emit
+		dq return
+
+	; ( string -- ) Prints `string` with a terminal newline.
+	make_thread println
+		dq print
+		dq newline
 		dq return
 
 	; ( -- token ) `token` points to the next null-terminated token.
@@ -523,7 +568,7 @@ constants segment readonly alias(".rdata") 'CONST'
 
 	; This is the banner
 	make_variable greeting
-		db "SILICON (C) 2022 DAVID DETWEILER", 10, 10, 0
+		db "SILICON FORTH (C) 2022 DAVID DETWEILER", 10, 10, 0
 
 	; The ANSI Forth standard value for `TRUE`
 	make_header "TRUE"
@@ -536,6 +581,7 @@ constants segment readonly alias(".rdata") 'CONST'
 			dq copy ; ( head -- head head )
 			make_branch walk_continue
 		dq drop ; ( head -- )
+		dq newline
 		dq return ; ( -- )
 		walk_continue:
 			dq copy ; ( head -- head head )
@@ -553,6 +599,46 @@ constants segment readonly alias(".rdata") 'CONST'
 	; ( -- 8 ) Implementation cell size
 	make_constant cell_size
 		dq 8
+
+	make_thread string_equals
+		string_equals_loop:
+			dq copy ; ( a b -- a b b )
+			dq peek_byte ; ( a b b -- a b *b )
+			dq push_cell ; ( a b *b -- a b )
+			dq swap ; ( a b -- b a )
+			dq copy ; ( b a -- b a a )
+			dq peek_byte ; ( b a a -- b a *a )
+			dq copy ; ( b a *a -- b a *a *a )
+			dq pop_cell ; ( b a *a *a -- b a *a *a *b )
+			dq copy	; ( b a *a *a *b -- b a *a *a *b *b )
+			dq push_cell ; (  b a *a *a *b *b --  b a *a *a *b )
+			dq is_zero ; (  b a *a *a *b --  b a *a *a *b==0 )
+			dq swap ; ( b a *a *a *b==0 -- b a *a *b==0 *a )
+			dq is_zero ; ( b a *a *b==0 *a -- b a *a *b==0 *a==0 )
+			dq stack_or ; ( b a *a *b==0 *a==0 -- b a *a !*a||!*b )
+			make_branch string_equals_done ; ( b a *a !*a||!*b -- b a *a )
+		dq pop_cell	; ( b a *a -- b a *a *b )
+		dq equals ; ( b a *a *b -- b a *a==*b )
+		make_branch string_equals_continue ; ( b a *a==*b -- b a )
+		dq drop ; ( b a -- b )
+		dq drop ; ( b -- )
+		dq zero ; ( -- false )
+		dq return ; ( false -- false )
+		string_equals_continue:
+			dq increment ; ( b a -- b a+1 )
+			dq swap ; ( b a+1 -- a+1 b )
+			dq increment ; ( a+1 b -- a+1 b+1)
+			make_jump string_equals_loop
+		string_equals_done:
+			dq is_zero ; ( b a *a -- b a !*a )
+			dq pop_cell ; ( b a !*a -- b a !*a *b )
+			dq is_zero ; ( b a !*a *b -- b a !*a !*b )
+			dq stack_and ; ( b a !*a !*b -- b a !*a&&!*b )
+			dq swap
+			dq drop
+			dq swap
+			dq drop
+			dq return ; ( !*a&&!*b -- !*a&&!*b )
 constants ends
 
 data segment alias(".data") 'DATA'
