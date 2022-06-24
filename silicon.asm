@@ -605,31 +605,52 @@ constants segment readonly alias(".rdata") 'CONST'
 
 	; This is the banner
 	make_variable greeting
-		db "SILICON FORTH (C) 2022 DAVID DETWEILER", 10, 10, 0
+		db "Silicon Forth (c) 2022 David Detweiler", 10, 10, 0
 
 	; The ANSI Forth standard value for `TRUE`
 	make_header "TRUE"
 	make_constant true
 		dq 0ffffffffffffffffh
 
-	; ( -- ) Runs in a loop, consuming tokens, finding them in the dictionary, executing them, and bailing on the first
-	; unrecognized token
+	make_variable not_a_word
+		db " not a word", 10
+
+	; ( -- ) Runs in a loop, consuming tokens, finding them in the dictionary, executing them, and purging the line on
+	; error
 	make_thread interpret
 		interpret_loop:
-			dq get_token
-			dq copy
-			make_branch interpret_token
-		dq drop
-		dq return
+			dq get_token ; ( -- token )
+			dq copy ; ( token -- token token )
+			make_branch interpret_token ; ( token token -- token )
+		dq drop ; ( token -- )
+		dq return ; ( -- )
 		interpret_token:
-			dq find
-			dq copy
-			make_branch interpret_good
-		dq drop
-		dq return
+			dq copy ; ( token -- token token )
+			dq find ; ( token -- token word )
+			dq copy ; ( token word -- token word word )
+			make_branch interpret_good ; ( token word word -- token word )
+		dq drop ; ( token word -- token )
+		dq print ; ( token -- )
+		dq not_a_word 
+		dq println
+		dq purge_line
+		make_jump interpret_loop
 		interpret_good:
+			dq swap
+			dq drop
 			dq execute
 			make_jump interpret_loop
+
+	make_thread purge_line
+		purge_line_loop:
+			dq key
+			dq literal
+			dq 10
+			dq equals
+			make_branch purge_line_done
+		make_jump purge_line_loop
+		purge_line_done:
+			dq return
 
 	; ( name -- token ) Queries the dictionary for the word with the name `name`, returning its token
 	make_thread find
