@@ -746,16 +746,23 @@ constants segment readonly alias(".rdata") 'CONST'
 		dq true
 		dq return
 
-	make_thread purge_line
-	purge_line_loop:
+	; ( ch -- )
+	make_thread purge_until
+	purge_until_loop:
+		dq copy
 		dq key
+		dq equals
+		make_branch purge_until_done
+		make_jump purge_until_loop
+
+	purge_until_done:
+		dq drop
+		dq return
+
+	make_thread purge_line
 		dq literal
 		dq 10
-		dq equals
-		make_branch purge_line_done
-		make_jump purge_line_loop
-
-	purge_line_done:
+		dq purge_until
 		dq return
 
 	; ( name -- token ) Queries the dictionary for the word with the name `name`, returning its token
@@ -894,6 +901,18 @@ constants segment readonly alias(".rdata") 'CONST'
 		dq true
 		dq done
 		dq poke
+		dq return
+
+	make_header "/"
+	make_thread line_comment
+		dq purge_line
+		dq return
+
+	make_header "("
+	make_thread block_comment
+		dq literal
+		dq 41
+		dq purge_until
 		dq return
 constants ends
 
