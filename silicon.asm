@@ -121,6 +121,7 @@ primitives segment alias(".text") 'CODE'
 		jmp continue
 
 	; ( -- ) Exits the host process
+	make_header "exit"
 	make_code_word exit
 		xor rcx, rcx
 		call ExitProcess
@@ -691,19 +692,13 @@ constants segment readonly alias(".rdata") 'CONST'
 	interpret_stash_num:
 		dq swap ; number? token
 		dq drop ; number?
-		make_jump interpret_continue
+		make_jump interpret_loop
 
 	interpret_good:
 		dq swap
 		dq drop
 		dq execute
-
-	interpret_continue:
-		dq done
-		dq peek
-		dq stack_not
-		make_branch interpret_loop
-		dq return
+		make_jump interpret_loop
 
 	; ( token -- n )
 	make_thread to_number
@@ -896,13 +891,6 @@ constants segment readonly alias(".rdata") 'CONST'
 		dq drop
 		dq return
 
-	make_header "quit"
-	make_thread quit
-		dq true
-		dq done
-		dq poke
-		dq return
-
 	make_header "/"
 	make_thread line_comment
 		dq purge_line
@@ -959,9 +947,6 @@ data segment alias(".data") 'DATA'
 
 	; Index into token_buffer
 	make_variable token_ptr
-		dq 0
-
-	make_variable done
 		dq 0
 
 	make_variable repl_token_buffer
