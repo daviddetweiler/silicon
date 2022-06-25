@@ -10,27 +10,29 @@ latest_header = 0
 make_header macro id
 	local link, name, padding, len
 	align 8
-	len:
-		db link - len
+	
+len:
+	db link - len
 
-	name:
-		db id, 0
+name:
+	db id, 0
 
-	padding:
-		repeat (8 - ((padding - len) mod 8)) mod 8
-			db 0
-		endm
+padding:
+	repeat (8 - ((padding - len) mod 8)) mod 8
+		db 0
+	endm
 
-	link:
-		dq latest_header
+link:
+	dq latest_header
 
 	latest_header = len
 endm
 
 make_word macro name, code
 	align 8
-	name:
-		dq code
+
+name:
+	dq code
 endm
 
 make_code_word macro name
@@ -53,14 +55,14 @@ make_branch macro name
 	local next
 	dq branch
 	dq (name - next) / 8
-	next:
+next:
 endm
 
 make_jump macro name
 	local next
 	dq jump
 	dq (name - next) / 8
-	next:
+next:
 endm
 
 primitives segment alias(".text") 'CODE'
@@ -433,13 +435,14 @@ constants segment readonly alias(".rdata") 'CONST'
 		make_branch peek_char_read
 		dq zero
 		dq return
-		peek_char_read:
-			dq line_ptr ; ( &iop -- )
-			dq peek ; ( iop -- )
-			dq line_buffer ; ( iop &lb -- )
-			dq stack_add ; ( &lb[iop] -- )
-			dq peek_byte ; ( lb[iop] -- )
-			dq return
+
+	peek_char_read:
+		dq line_ptr ; ( &iop -- )
+		dq peek ; ( iop -- )
+		dq line_buffer ; ( iop &lb -- )
+		dq stack_add ; ( &lb[iop] -- )
+		dq peek_byte ; ( lb[iop] -- )
+		dq return
 
 	; ( -- ) Advances the input pointer
 	make_thread next_char
@@ -461,21 +464,23 @@ constants segment readonly alias(".rdata") 'CONST'
 		make_branch fill_if_empty_fill
 		dq zero
 		dq return
-		fill_if_empty_fill:
-			dq is_fresh_line
-			dq peek
-			make_branch fill_if_empty_done
-			dq filled ; ( &fill -- )
-			dq peek ; ( fill -- )
-			dq line_ptr ; ( fill &iop -- )
-			dq peek ; ( fill iop -- )
-			dq modulus ; ( iop%fill -- )
-			make_branch fill_if_empty_done
-			dq refill ; ( -- !iseof )
-			dq return
-		fill_if_empty_done:
-			dq true
-			dq return
+
+	fill_if_empty_fill:
+		dq is_fresh_line
+		dq peek
+		make_branch fill_if_empty_done
+		dq filled ; ( &fill -- )
+		dq peek ; ( fill -- )
+		dq line_ptr ; ( fill &iop -- )
+		dq peek ; ( fill iop -- )
+		dq modulus ; ( iop%fill -- )
+		make_branch fill_if_empty_done
+		dq refill ; ( -- !iseof )
+		dq return
+
+	fill_if_empty_done:
+		dq true
+		dq return
 
 	; ( -- ) Emits a newline
 	make_header "CR"
@@ -497,13 +502,14 @@ constants segment readonly alias(".rdata") 'CONST'
 		dq zero ; ( buf -- buf 0 )
 		dq token_ptr ; ( buf 0 -- buf 0 &i )
 		dq poke ; ( buf 0 &i -- buf )
-		get_token_loop:
-			dq token_ptr
-			dq peek
-			dq literal
-			dq 64
-			dq equals
-			make_branch get_token_full
+
+	get_token_loop:
+		dq token_ptr
+		dq peek
+		dq literal
+		dq 64
+		dq equals
+		make_branch get_token_full
 		dq key ; ( buf -- buf ch )
 		dq to_upper ; ( buf ch -- buf ch )
 		dq copy ; ( buf ch -- buf ch ch )
@@ -511,23 +517,24 @@ constants segment readonly alias(".rdata") 'CONST'
 		dq two_drop ; ( buf ch -- )
 		dq zero ; ( -- 0 )
 		dq return ; ( 0 -- 0 )
-		get_token_ok:
-			dq two_copy ; ( buf ch -- buf ch buf ch )
-			dq swap ; ( buf ch buf ch -- buf ch ch buf )
-			dq token_ptr ; ( * &tp -- )
-			dq copy ; ( * &tp &tp -- )
-			dq peek ; ( * &tp tp -- )
-			dq swap ; ( * tp &tp -- )
-			dq copy ; ( * tp &tp &tp -- )
-			dq peek ; ( * tp &tp tp -- )
-			dq increment ; ( * tp &tp tp+1 -- )
-			dq swap ; ( * tp tp+1 &tp -- )
-			dq poke ; ( * buf tp -- )
-			dq stack_add ; ( buf ch ch &buf[tp] -- )
-			dq poke_byte ; ( buf ch -- )
-			dq is_space ; ( buf sp -- )
-			dq stack_not ; ( buf !sp -- )
-			make_branch get_token_loop ; ( buf -- )
+
+	get_token_ok:
+		dq two_copy ; ( buf ch -- buf ch buf ch )
+		dq swap ; ( buf ch buf ch -- buf ch ch buf )
+		dq token_ptr ; ( * &tp -- )
+		dq copy ; ( * &tp &tp -- )
+		dq peek ; ( * &tp tp -- )
+		dq swap ; ( * tp &tp -- )
+		dq copy ; ( * tp &tp &tp -- )
+		dq peek ; ( * tp &tp tp -- )
+		dq increment ; ( * tp &tp tp+1 -- )
+		dq swap ; ( * tp tp+1 &tp -- )
+		dq poke ; ( * buf tp -- )
+		dq stack_add ; ( buf ch ch &buf[tp] -- )
+		dq poke_byte ; ( buf ch -- )
+		dq is_space ; ( buf sp -- )
+		dq stack_not ; ( buf !sp -- )
+		make_branch get_token_loop ; ( buf -- )
 		dq copy ; ( buf buf -- )
 		dq token_ptr ; ( buf buf &tp -- )
 		dq peek ; ( buf buf tp -- )
@@ -539,12 +546,13 @@ constants segment readonly alias(".rdata") 'CONST'
 		dq swap
 		dq poke_byte
 		dq return
-		get_token_full:
-			dq copy
-			dq zero
-			dq swap
-			dq poke_byte
-			dq return
+
+	get_token_full:
+		dq copy
+		dq zero
+		dq swap
+		dq poke_byte
+		dq return
 
 	make_header "TOKEN"
 	make_thread get_repl_token
@@ -561,19 +569,21 @@ constants segment readonly alias(".rdata") 'CONST'
 		dq 20h
 		dq stack_not
 		dq stack_and
-		to_upper_done:
-			dq return
+
+	to_upper_done:
+		dq return
 
 	; ( -- ) Skip whitespace in input buffer.
 	make_thread skip_space
-		skip_space_next:
-			dq peek_char
-			dq is_space
-			make_branch skip_space_continue
+	skip_space_next:
+		dq peek_char
+		dq is_space
+		make_branch skip_space_continue
 		dq return
-		skip_space_continue:
-			dq next_char
-			make_jump skip_space_next
+
+	skip_space_continue:
+		dq next_char
+		make_jump skip_space_next
 
 	; ( ch -- sp ) sp = ch in ['\r', '\n', '\t', ' ']
 	make_thread is_space
@@ -603,17 +613,18 @@ constants segment readonly alias(".rdata") 'CONST'
 	; ( string -- ) Write `string` to `stdin`.
 	make_header "TYPE"
 	make_thread print
-		print_next:
-			dq copy ; ( str -- str str )
-			dq peek_byte ; ( str str -- str ch )
-			dq copy ; ( str ch -- str ch ch )
-			make_branch print_continue
+	print_next:
+		dq copy ; ( str -- str str )
+		dq peek_byte ; ( str str -- str ch )
+		dq copy ; ( str ch -- str ch ch )
+		make_branch print_continue
 		dq two_drop ; ( str ch -- )
 		dq return
-		print_continue:
-			dq emit ; ( str ch -- str )
-			dq increment ; ( str -- str + 1 )
-			make_jump print_next
+
+	print_continue:
+		dq emit ; ( str ch -- str )
+		dq increment ; ( str -- str + 1 )
+		make_jump print_next
 
 	; This is the banner
 	make_variable greeting
@@ -635,68 +646,74 @@ constants segment readonly alias(".rdata") 'CONST'
 	; ( -- ) Runs in a loop, consuming tokens, finding them in the dictionary, executing them, and purging the line on
 	; error
 	make_thread interpret
-		interpret_loop:
-			dq token_buffer
-			dq get_token ; ( -- token )
-			dq copy ; ( token -- token token )
-			make_branch interpret_token ; ( token token -- token )
+	interpret_loop:
+		dq token_buffer
+		dq get_token ; ( -- token )
+		dq copy ; ( token -- token token )
+		make_branch interpret_token ; ( token token -- token )
 		dq drop ; ( token -- )
 		dq return ; ( -- )
-		interpret_token:
-			dq copy ; ( token -- token token )
-			dq find ; ( token -- token word )
-			dq copy ; ( token word -- token word word )
-			make_branch interpret_good ; ( token word word -- token word )
+
+	interpret_token:
+		dq copy ; ( token -- token token )
+		dq find ; ( token -- token word )
+		dq copy ; ( token word -- token word word )
+		make_branch interpret_good ; ( token word word -- token word )
 		dq drop ; ( token word -- token )
 		dq print ; ( token -- )
 		dq not_a_word 
 		dq println
 		dq purge_line
 		make_jump interpret_loop
-		interpret_good:
-			dq swap
-			dq drop
-			dq execute
-			dq done
-			dq peek
-			dq stack_not
-			make_branch interpret_loop
+
+	interpret_good:
+		dq swap
+		dq drop
+		dq execute
+		dq done
+		dq peek
+		dq stack_not
+		make_branch interpret_loop
 		dq return
 
 	make_thread purge_line
-		purge_line_loop:
-			dq key
-			dq literal
-			dq 10
-			dq equals
-			make_branch purge_line_done
+	purge_line_loop:
+		dq key
+		dq literal
+		dq 10
+		dq equals
+		make_branch purge_line_done
 		make_jump purge_line_loop
-		purge_line_done:
-			dq return
+
+	purge_line_done:
+		dq return
 
 	; ( name -- token ) Queries the dictionary for the word with the name `name`, returning its token
 	make_header "FIND"
 	make_thread find
 		dq literal ; ( name -- name dict )
 		dq dictionary
-		find_next:
-			dq copy ; ( name dict -- name dict dict )
-			make_branch find_continue ; ( name dict dict -- name dict )
+
+	find_next:
+		dq copy ; ( name dict -- name dict dict )
+		make_branch find_continue ; ( name dict dict -- name dict )
 		dq two_drop ; ( name dict -- )
 		dq zero ; ( -- zero )
 		dq return ; ( zero -- zero )
-		find_continue:
-			dq two_copy ; ( name dict -- name dict name dict )
-			dq get_dict_name ; ( name dict name dict -- name dict name &dict->name )
-			dq string_equals ; ( name dict name &dict->name -- name dict name===&dict->name )
-			make_branch find_found ; ( name dict name===&dict.name -- name dict )
+
+	find_continue:
+		dq two_copy ; ( name dict -- name dict name dict )
+		dq get_dict_name ; ( name dict name dict -- name dict name &dict->name )
+		dq string_equals ; ( name dict name &dict->name -- name dict name===&dict->name )
+		make_branch find_found ; ( name dict name===&dict.name -- name dict )
 		dq get_dict_link ; ( name dict -- name dict->link )
 		make_jump find_next
-		find_found:
-			dq swap ; ( name dict -- dict name )
-			dq drop ; ( dict name -- dict )
-			dq get_dict_token ; ( dict -- &dict->word )
-			dq return
+
+	find_found:
+		dq swap ; ( name dict -- dict name )
+		dq drop ; ( dict name -- dict )
+		dq get_dict_token ; ( dict -- &dict->word )
+		dq return
 
 	; ( dict -- dict->link )
 	make_thread get_dict_link
@@ -740,60 +757,64 @@ constants segment readonly alias(".rdata") 'CONST'
 	; ( a b -- a===b ) String comparison of null-terminated strings; surprisingly difficult
 	make_header "S="
 	make_thread string_equals
-		string_equals_loop:
-			dq copy ; ( a b -- a b b )
-			dq peek_byte ; ( a b b -- a b *b )
-			dq push_cell ; ( a b *b -- a b )
-			dq swap ; ( a b -- b a )
-			dq copy ; ( b a -- b a a )
-			dq peek_byte ; ( b a a -- b a *a )
-			dq pop_cell ; ( b a *a -- b a *a *b )
-			dq two_copy ; ( b a *a *b -- b a *a *b *a *b )
-			dq is_zero ; (  b a *a *b *a *b --  b a *a *b *a *b==0 )
-			dq swap ; ( b a *a *b *a *b==0 -- b a *a *b *b==0 *a )
-			dq is_zero ; ( b a *a *b *b==0 *a -- b a *a *b *b==0 *a==0 )
-			dq stack_or ; ( b a *a *b *b==0 *a==0 -- b a *a *b !*a||!*b )
-			make_branch string_equals_done ; ( b a *a *b !*a||!*b -- b a *a *b )
+	string_equals_loop:
+		dq copy ; ( a b -- a b b )
+		dq peek_byte ; ( a b b -- a b *b )
+		dq push_cell ; ( a b *b -- a b )
+		dq swap ; ( a b -- b a )
+		dq copy ; ( b a -- b a a )
+		dq peek_byte ; ( b a a -- b a *a )
+		dq pop_cell ; ( b a *a -- b a *a *b )
+		dq two_copy ; ( b a *a *b -- b a *a *b *a *b )
+		dq is_zero ; (  b a *a *b *a *b --  b a *a *b *a *b==0 )
+		dq swap ; ( b a *a *b *a *b==0 -- b a *a *b *b==0 *a )
+		dq is_zero ; ( b a *a *b *b==0 *a -- b a *a *b *b==0 *a==0 )
+		dq stack_or ; ( b a *a *b *b==0 *a==0 -- b a *a *b !*a||!*b )
+		make_branch string_equals_done ; ( b a *a *b !*a||!*b -- b a *a *b )
 		dq equals ; ( b a *a *b -- b a *a==*b )
 		make_branch string_equals_continue ; ( b a *a==*b -- b a )
 		dq two_drop ; ( b a -- )
 		dq zero ; ( -- false )
 		dq return ; ( false -- false )
-		string_equals_continue:
-			dq increment ; ( b a -- b a+1 )
-			dq swap ; ( b a+1 -- a+1 b )
-			dq increment ; ( a+1 b -- a+1 b+1)
-			make_jump string_equals_loop
-		string_equals_done:
-			dq is_zero ; ( b a *a *b -- b a *a !*b )
-			dq swap ; ( b a *a !*b -- b a !*b *a )
-			dq is_zero ; ( b a !*b *a -- b a !*b !*a )
-			dq stack_and ; ( b a !*b !*a -- b a !*a&&!*b )
-			dq swap
-			dq drop
-			dq swap
-			dq drop
-			dq return ; ( !*a&&!*b -- !*a&&!*b )
+
+	string_equals_continue:
+		dq increment ; ( b a -- b a+1 )
+		dq swap ; ( b a+1 -- a+1 b )
+		dq increment ; ( a+1 b -- a+1 b+1)
+		make_jump string_equals_loop
+
+	string_equals_done:
+		dq is_zero ; ( b a *a *b -- b a *a !*b )
+		dq swap ; ( b a *a !*b -- b a !*b *a )
+		dq is_zero ; ( b a !*b *a -- b a !*b !*a )
+		dq stack_and ; ( b a !*b !*a -- b a !*a&&!*b )
+		dq swap
+		dq drop
+		dq swap
+		dq drop
+		dq return ; ( !*a&&!*b -- !*a&&!*b )
 
 	make_header "WORDS"
 	make_thread words
 		dq literal
 		dq dictionary
 		make_jump walk_no_comma
-		walk_loop:
-			dq literal
-			dq ","
-			dq emit
-			dq literal
-			dq " "
-			dq emit
-		walk_no_comma:
-			dq copy
-			dq increment
-			dq print
-			dq get_dict_link
-			dq copy
-			make_branch walk_loop
+		
+	walk_loop:
+		dq literal
+		dq ","
+		dq emit
+		dq literal
+		dq " "
+		dq emit
+
+	walk_no_comma:
+		dq copy
+		dq increment
+		dq print
+		dq get_dict_link
+		dq copy
+		make_branch walk_loop
 		dq newline
 		dq drop
 		dq return
