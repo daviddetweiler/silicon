@@ -66,11 +66,22 @@ next:
 endm
 
 primitives segment alias(".text") 'CODE'
-	start proc
+	start proc frame
+		push r12
+		.pushreg r12
+		push r13
+		.pushreg r13
+		push r14
+		.pushreg r14
+		push r15
+		.pushreg r15
 		sub rsp, 88h ; Stack alignment + 16 parameters
+		.allocstack 88h
+		.endprolog ; Why not play nice?
+
 		mov r12, thread
-		mov r14, rstack
-		mov r15, dstack
+		mov r14, return_stack
+		mov r15, data_stack
 		jmp continue
 	start endp
 
@@ -90,8 +101,8 @@ primitives segment alias(".text") 'CODE'
 
 	; Runs the word referenced at the current IP, advances IP
 	continue:
+		mov r13, [r12]
 		add r12, 8
-		mov r13, [r12 - 8]
 
 	; Runs a word, setting WA to point to the data field
 	run:
@@ -908,12 +919,12 @@ data segment alias(".data") 'DATA'
 		repeat 512
 			dq 0
 		endm
-	dstack:
+	data_stack:
 
 		repeat 512
 			dq 0
 		endm
-	rstack:
+	return_stack:
 
 	make_variable stdout
 		dq 0

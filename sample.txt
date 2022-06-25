@@ -1,12 +1,18 @@
-true ! ++ ++
-copy copy copy * *
-copy copy
-* put
-+ put
+/ A really fancy way of outputting the string "@\n"
+true ( 0xffffffffffffffff ) ! ( 0 ) ++ ( 1 ) ++ ( 2 )
+copy copy copy ( 2 2 2 2 ) * ( 2 2 4 ) * ( 2 8 )
+copy copy ( 2 8 8 8 )
+* ( 2 8 64 ) put ( 2 8 )
++ ( 10 ) put ( )
 
-64 10 swap put put
+/ A less fancy way of doing the same thing
+64 10 swap ( 10 64 ) put put
 
-endl endl
+/ Some space
+endl
 
+/ Dynamic invocation of "help"
 next-token help look-up invoke
+
+/ Static invocation
 help
