@@ -203,8 +203,8 @@ primitives segment alias(".text") 'CODE'
 	; ( byte address -- ) Similar to `poke`, but only writes the first byte of `byte`
 	make_code_word poke_byte
 		mov rcx, [r15]
-		movzx rdx, byte ptr [r15 + 8]
-		mov [rcx], rdx
+		mov dl, byte ptr [r15 + 8]
+		mov byte ptr [rcx], dl
 		add r15, 16
 		jmp continue
 
@@ -498,13 +498,19 @@ constants segment readonly alias(".rdata") 'CONST'
 		dq token_ptr ; ( buf 0 -- buf 0 &i )
 		dq poke ; ( buf 0 &i -- buf )
 		get_token_loop:
-			dq key ; ( buf -- buf ch )
-			dq to_upper ; ( buf ch -- buf ch )
-			dq copy ; ( buf ch -- buf ch ch )
-			make_branch get_token_ok ; ( buf ch ch -- buf ch )
-			dq two_drop ; ( buf ch -- )
-			dq zero ; ( -- 0 )
-			dq return ; ( 0 -- 0 )
+			dq token_ptr
+			dq peek
+			dq literal
+			dq 64
+			dq equals
+			make_branch get_token_full
+		dq key ; ( buf -- buf ch )
+		dq to_upper ; ( buf ch -- buf ch )
+		dq copy ; ( buf ch -- buf ch ch )
+		make_branch get_token_ok ; ( buf ch ch -- buf ch )
+		dq two_drop ; ( buf ch -- )
+		dq zero ; ( -- 0 )
+		dq return ; ( 0 -- 0 )
 		get_token_ok:
 			dq two_copy ; ( buf ch -- buf ch buf ch )
 			dq swap ; ( buf ch buf ch -- buf ch ch buf )
@@ -533,6 +539,12 @@ constants segment readonly alias(".rdata") 'CONST'
 		dq swap
 		dq poke_byte
 		dq return
+		get_token_full:
+			dq copy
+			dq zero
+			dq swap
+			dq poke_byte
+			dq return
 
 	make_header "TOKEN"
 	make_thread get_repl_token

@@ -5,5 +5,3 @@ dup dup
 + emit
 
 cr token words find execute
-
-bye
