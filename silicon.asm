@@ -670,7 +670,10 @@ constants segment readonly alias(".rdata") 'CONST'
 		dq 0ffffffffffffffffh
 
 	make_variable not_a_word
-		db " not a word", 10
+		db " is not a word", 10
+
+	make_variable invalid_token
+		db "Token was too big", 10
 
 	; ( -- ) Runs in a loop, consuming tokens, finding them in the dictionary, executing them, and purging the line on
 	; error
@@ -684,6 +687,15 @@ constants segment readonly alias(".rdata") 'CONST'
 		dq return ; ( -- )
 
 	interpret_token:
+		dq copy
+		dq peek_byte
+		make_branch interpret_token_valid
+		dq invalid_token
+		dq print
+		dq purge_line
+		make_jump interpret_loop
+
+	interpret_token_valid:
 		dq copy ; token token
 		dq to_number ; token number?
 		dq copy ; token number? number?
