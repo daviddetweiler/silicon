@@ -99,7 +99,7 @@ primitives segment alias(".text") 'CODE'
 		jmp qword ptr [r13 - 8]
 
 	; ( word-address -- ) Executes the word at `word-address`
-	make_header "EXECUTE"
+	make_header "invoke"
 	make_code_word execute
 		mov r13, [r15]
 		add r15, 8
@@ -142,7 +142,7 @@ primitives segment alias(".text") 'CODE'
 		jmp continue
 
 	; ( a -- )
-	make_header "DROP"
+	make_header "drop"
 	make_code_word drop
 		add r15, 8
 		jmp continue
@@ -211,7 +211,7 @@ primitives segment alias(".text") 'CODE'
 		jmp continue
 
 	; ( a -- a a )
-	make_header "DUP"
+	make_header "copy"
 	make_code_word copy
 		mov rcx, [r15]
 		sub r15, 8
@@ -219,7 +219,7 @@ primitives segment alias(".text") 'CODE'
 		jmp continue
 
 	; ( b a -- a b )
-	make_header "SWAP"
+	make_header "swap"
 	make_code_word swap
 		mov rcx, [r15]
 		xchg [r15 + 8], rcx
@@ -227,7 +227,7 @@ primitives segment alias(".text") 'CODE'
 		jmp continue
 
 	; ( a -- ) Moves `a` onto the return stack
-	make_header ">R"
+	make_header "push-cell"
 	make_code_word push_cell
 		mov rcx, [r15]
 		add r15, 8
@@ -236,7 +236,7 @@ primitives segment alias(".text") 'CODE'
 		jmp continue
 
 	; ( -- a ) Pops `a` from the return stack
-	make_header "<R"
+	make_header "pop-cell"
 	make_code_word pop_cell
 		mov rcx, [r14]
 		add r14, 8
@@ -244,21 +244,7 @@ primitives segment alias(".text") 'CODE'
 		mov [r15], rcx
 		jmp continue
 
-	make_code_word is_lower
-		mov r8, [r15]
-		cmp r8, 96
-		setg cl
-		cmp r8, 123
-		setl dl
-		and cl, dl
-		xor rdx, rdx
-		not rdx
-		movzx rcx, cl
-		imul rcx, rdx
-		mov [r15], rcx
-		jmp continue
-
-	make_header "2DUP"
+	make_header "copy-two"
 	make_code_word two_copy
 		mov rcx, [r15]
 		mov rdx, [r15 + 8]
@@ -267,13 +253,13 @@ primitives segment alias(".text") 'CODE'
 		mov [r15], rcx
 		jmp continue
 
-	make_header "2DROP"
+	make_header "drop-two"
 	make_code_word two_drop
 		add r15, 16
 		jmp continue
 
 	; ( b a -- mod ) mod = a % b
-	make_header "MOD"
+	make_header "%"
 	make_code_word modulus
 		xor rdx, rdx
 		mov rax, [r15]
@@ -283,7 +269,7 @@ primitives segment alias(".text") 'CODE'
 		jmp continue
 
 	; ( address -- *address )
-	make_header "@"
+	make_header "peek"
 	make_code_word peek
 		mov rcx, [r15]
 		mov rcx, [rcx]
@@ -291,7 +277,7 @@ primitives segment alias(".text") 'CODE'
 		jmp continue
 
 	; ( value address -- ) `*address = value`
-	make_header "!"
+	make_header "poke"
 	make_code_word poke
 		mov rcx, [r15]
 		mov rdx, [r15 + 8]
@@ -340,7 +326,7 @@ primitives segment alias(".text") 'CODE'
 		jmp continue
 
 	; ( a b -- c ) c = a | b
-	make_header "OR"
+	make_header "|"
 	make_code_word stack_or
 		mov rcx, [r15]
 		add r15, 8
@@ -348,7 +334,7 @@ primitives segment alias(".text") 'CODE'
 		jmp continue
 
 	; ( a b -- c ) c = a & b
-	make_header "AND"
+	make_header "&"
 	make_code_word stack_and
 		mov rcx, [r15]
 		add r15, 8
@@ -356,7 +342,7 @@ primitives segment alias(".text") 'CODE'
 		jmp continue
 
 	; ( a -- ~a )
-	make_header "NOT"
+	make_header "!"
 	make_code_word stack_not
 		mov rcx, [r15]
 		not rcx
@@ -364,13 +350,13 @@ primitives segment alias(".text") 'CODE'
 		jmp continue
 
 	; ( a -- b ) b = a + 1
-	make_header "+1"
+	make_header "++"
 	make_code_word increment
 		add qword ptr [r15], 1
 		jmp continue
 
 	; ( a -- a==0 )
-	make_header "0="
+	make_header "is-zero"
 	make_code_word is_zero
 		mov rcx, [r15]
 		test rcx, rcx
@@ -426,7 +412,7 @@ constants segment readonly alias(".rdata") 'CONST'
 		dq return
 
 	; ( ch -- ) Write `ch` to `stdout`
-	make_header "EMIT"
+	make_header "put"
 	make_thread emit
 		dq stdout
 		dq peek
@@ -452,7 +438,6 @@ constants segment readonly alias(".rdata") 'CONST'
 		dq return
 
 	; ( -- ch ) `ch` is either the next character from stdin, or null on EOF
-	make_header "KEY"
 	make_thread key
 		dq peek_char ; ( lb[iop] -- )
 		dq next_char
@@ -512,7 +497,7 @@ constants segment readonly alias(".rdata") 'CONST'
 		dq return
 
 	; ( -- ) Emits a newline
-	make_header "CR"
+	make_header "endl"
 	make_thread newline
 		dq literal
 		dq 10
@@ -540,7 +525,6 @@ constants segment readonly alias(".rdata") 'CONST'
 		dq equals
 		make_branch get_token_full
 		dq key ; ( buf -- buf ch )
-		dq to_upper ; ( buf ch -- buf ch )
 		dq copy ; ( buf ch -- buf ch ch )
 		make_branch get_token_ok ; ( buf ch ch -- buf ch )
 		dq two_drop ; ( buf ch -- )
@@ -583,21 +567,11 @@ constants segment readonly alias(".rdata") 'CONST'
 		dq poke_byte
 		dq return
 
-	make_header "TOKEN"
+	make_header "next-token"
 	make_thread get_repl_token
 		dq repl_token_buffer
 		dq get_token
 		dq return
-
-	make_thread to_upper
-		dq copy
-		dq is_lower
-		dq stack_not
-		make_branch to_upper_done
-		dq literal
-		dq 20h
-		dq stack_not
-		dq stack_and
 
 	to_upper_done:
 		dq return
@@ -640,7 +614,7 @@ constants segment readonly alias(".rdata") 'CONST'
 		dq return
 
 	; ( string -- ) Write `string` to `stdin`.
-	make_header "TYPE"
+	make_header "print"
 	make_thread print
 	print_next:
 		dq copy ; ( str -- str str )
@@ -657,15 +631,14 @@ constants segment readonly alias(".rdata") 'CONST'
 
 	; This is the banner
 	make_variable greeting
-		db "Silicon Forth (c) 2022 David Detweiler", 10, 10, 0
+		db "Silicon (c) 2022 David Detweiler", 10, 10, 0
 
 	; ( -- 0 )
-	make_header "FALSE"
+	make_header "false"
 	make_constant zero
 		dq 0
 
-	; The ANSI Forth standard value for `TRUE`
-	make_header "TRUE"
+	make_header "true"
 	make_constant true
 		dq 0ffffffffffffffffh
 
@@ -786,7 +759,7 @@ constants segment readonly alias(".rdata") 'CONST'
 		dq return
 
 	; ( name -- token ) Queries the dictionary for the word with the name `name`, returning its token
-	make_header "FIND"
+	make_header "look-up"
 	make_thread find
 		dq literal ; ( name -- name dict )
 		dq dictionary
@@ -852,7 +825,7 @@ constants segment readonly alias(".rdata") 'CONST'
 		dq 8
 
 	; ( a b -- a===b ) String comparison of null-terminated strings; surprisingly difficult
-	make_header "S="
+	make_header "string-eq"
 	make_thread string_equals
 	string_equals_loop:
 		dq copy ; ( a b -- a b b )
@@ -891,7 +864,7 @@ constants segment readonly alias(".rdata") 'CONST'
 		dq drop
 		dq return ; ( !*a&&!*b -- !*a&&!*b )
 
-	make_header "WORDS"
+	make_header "help"
 	make_thread words
 		dq literal
 		dq dictionary
@@ -916,8 +889,8 @@ constants segment readonly alias(".rdata") 'CONST'
 		dq drop
 		dq return
 
-	make_header "BYE"
-	make_thread bye
+	make_header "quit"
+	make_thread quit
 		dq true
 		dq done
 		dq poke
