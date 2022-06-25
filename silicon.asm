@@ -643,10 +643,10 @@ constants segment readonly alias(".rdata") 'CONST'
 		dq 0ffffffffffffffffh
 
 	make_variable not_a_word
-		db " is not a word", 10
+		db " is not a word", 10, 0
 
 	make_variable invalid_token
-		db "Token was too big", 10
+		db "token was too big", 10, 0
 
 	; ( -- ) Runs in a loop, consuming tokens, finding them in the dictionary, executing them, and purging the line on
 	; error
