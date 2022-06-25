@@ -4,6 +4,9 @@ dup dup
 * emit
 + emit
 
-64 emit 10 emit
+64 10 swap emit emit
 
-cr token words find execute
+cr cr
+
+token words find execute
+words
