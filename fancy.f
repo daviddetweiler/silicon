@@ -4,6 +4,6 @@ dup dup
 * emit
 + emit
 
-words
+cr token words find execute
 
-false not done !
+bye

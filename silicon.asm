@@ -478,6 +478,7 @@ constants segment readonly alias(".rdata") 'CONST'
 			dq return
 
 	; ( -- ) Emits a newline
+	make_header "CR"
 	make_thread newline
 		dq literal
 		dq 10
@@ -784,6 +785,13 @@ constants segment readonly alias(".rdata") 'CONST'
 		dq newline
 		dq drop
 		dq return
+
+	make_header "BYE"
+	make_thread bye
+		dq true
+		dq done
+		dq poke
+		dq return
 constants ends
 
 data segment alias(".data") 'DATA'
@@ -831,7 +839,6 @@ data segment alias(".data") 'DATA'
 	make_variable token_ptr
 		dq 0
 
-	make_header "DONE"
 	make_variable done
 		dq 0
 
