@@ -4,4 +4,6 @@ dup dup
 * emit
 + emit
 
+64 emit 10 emit
+
 cr token words find execute

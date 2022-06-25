@@ -10,7 +10,7 @@ latest_header = 0
 make_header macro id
 	local link, name, padding, len
 	align 8
-	
+
 len:
 	db link - len
 
@@ -307,6 +307,15 @@ primitives segment alias(".text") 'CODE'
 		add [r15], rcx
 		jmp continue
 
+	; ( b a -- c ) c = a - b
+	make_header "-"
+	make_code_word stack_sub
+		mov rcx, [r15]
+		add r15, 8
+		xchg [r15], rcx
+		sub [r15], rcx
+		jmp continue
+
 	; ( b a -- c ) c = a * b
 	make_header "*"
 	make_code_word stack_mul
@@ -371,6 +380,26 @@ primitives segment alias(".text") 'CODE'
 		not rdx
 		imul rcx, rdx
 		mov [r15], rcx
+		jmp continue
+
+	make_code_word is_digit
+		mov r8, [r15]
+		mov r9, r8		
+		cmp r8, "0"
+		setl cl
+		cmp r9, "9"
+		setg dl
+		or cl, dl
+		movzx rcx, cl
+		xor rdx, rdx
+		not rdx
+		imul rcx, rdx
+		not rcx
+		mov [r15], rcx
+		jmp continue
+
+	make_code_word break
+		int 3
 		jmp continue
 primitives ends
 
@@ -655,25 +684,81 @@ constants segment readonly alias(".rdata") 'CONST'
 		dq return ; ( -- )
 
 	interpret_token:
+		dq copy ; token token
+		dq to_number ; token number?
+		dq copy ; token number? number?
+		dq true ; token number? number? true
+		dq equals ; token number? not_number
+		dq stack_not ; token number? !not_number
+		make_branch interpret_stash_num ; token number?
+		dq drop	; token
 		dq copy ; ( token -- token token )
 		dq find ; ( token -- token word )
 		dq copy ; ( token word -- token word word )
 		make_branch interpret_good ; ( token word word -- token word )
 		dq drop ; ( token word -- token )
 		dq print ; ( token -- )
-		dq not_a_word 
+		dq not_a_word
 		dq println
 		dq purge_line
 		make_jump interpret_loop
+
+	interpret_stash_num:
+		dq swap ; number? token
+		dq drop ; number?
+		make_jump interpret_continue
 
 	interpret_good:
 		dq swap
 		dq drop
 		dq execute
+
+	interpret_continue:
 		dq done
 		dq peek
 		dq stack_not
 		make_branch interpret_loop
+		dq return
+
+	; ( token -- n )
+	make_thread to_number
+		dq zero ; token 0
+
+	to_number_loop:
+		dq swap ; n token
+		dq copy ; n token token
+		dq increment ; n token token+1
+		dq push_cell ; n token R: token+1
+		dq peek_byte ; n *token R: token+1
+		dq copy	; n *token *token R: token+1
+		make_branch to_number_continue ; n *token R: token+1
+		dq pop_cell ; n *token token+1
+		dq two_drop ; n
+		dq return
+
+	to_number_continue:
+		dq copy ; n *token *token R: token+1
+		dq is_digit ; n *token is_digit(*token) R: token+1
+		dq stack_not ; n *token !is_digit(*token) R: token+1
+		make_branch to_number_error ; n *token R: token+1
+		dq literal ; n *token '0' R: token+1
+		dq "0"
+		dq swap ; n '0' *token R: token+1
+		dq stack_sub ; n *token-'0' R: token+1
+		dq swap ; *token-'0' n R: token+1
+		dq literal ; *token-'0' n 10 R: token+1
+		dq 10
+		dq stack_mul ; *token-'0' n*10 R: token+1
+		dq stack_add ; n R: token+1
+		dq pop_cell ; n token+1
+		dq swap ; token+1 n
+		make_jump to_number_loop
+
+	to_number_error:
+		dq two_drop ; R: token+1
+		dq pop_cell
+		dq drop
+		dq true
 		dq return
 
 	make_thread purge_line
@@ -799,7 +884,7 @@ constants segment readonly alias(".rdata") 'CONST'
 		dq literal
 		dq dictionary
 		make_jump walk_no_comma
-		
+
 	walk_loop:
 		dq literal
 		dq ","
