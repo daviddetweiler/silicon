@@ -1,3 +1,23 @@
+; If you want to learn more, I suggest you read the book "Threaded Interpretive Languages."
+
+; Long-term goals (some of these are mutually exclusive):
+;   - Provide an ANSI Forth environment in here (as in, passing an official test suite)
+;   - Provide a self-hosting metacompiler version of it, throw away the assembly
+;   - Implement a variety of interesting languages:
+;       - Write a Windows x64 assembler
+;           - Possibly reimplement the TIL kernel in this assembly language
+;           - Folds into writing a generally useful PE linker, or some custom loader (see other languages)
+;       - Lisp (probably Scheme, and both source and image-based)
+;       - Smalltalk (duh)
+
+; Short-term tasks:
+;   - Though we have basic execution of words and parsing of numbers, we need a compile mode
+;       - Needs words to enter/exit this mode (enter word should take an address to write the thread to as an argument)
+;       - Current thread pointer should be available as a variable
+;   - At the very least, a variable indicating the current dictionary head, if not words to query the dictionary, create
+;     headers, etc.
+;   - Essentially, we need to figure out what kind of API the system actually exposes
+
 public start
 
 extern ExitProcess: proc
@@ -91,7 +111,7 @@ primitives segment alias(".text") 'CODE'
 
 	; Begin inner interpreter components
 
-	; Procedure implementing threaded words
+	; Procedure implementing threaded list-words
 	call_thread:
 		sub r14, 8
 		mov [r14], r12
@@ -368,7 +388,7 @@ primitives segment alias(".text") 'CODE'
 	; ( a -- b ) b = a + 1
 	make_header "++"
 	make_code_word increment
-		add qword ptr [r15], 1
+		inc qword ptr [r15]
 		jmp continue
 
 	; ( a -- a==0 )
@@ -429,11 +449,27 @@ constants segment readonly alias(".rdata") 'CONST'
 
 	; ( ch -- ) Write `ch` to `stdout`
 	make_header "put"
-	make_thread emit
+	make_thread put
 		dq stdout
 		dq peek
 		dq write_byte
 		dq return
+
+	; ( string -- ) Write `string` to `stdin`.
+	make_header "print"
+	make_thread print
+	print_next:
+		dq copy ; ( str -- str str )
+		dq peek_byte ; ( str str -- str ch )
+		dq copy ; ( str ch -- str ch ch )
+		make_branch print_continue
+		dq two_drop ; ( str ch -- )
+		dq return
+
+	print_continue:
+		dq put ; ( str ch -- str )
+		dq increment ; ( str -- str + 1 )
+		make_jump print_next
 
 	; ( -- !iseof ) Refills the line buffer from `stdin`, indicating if EOF has been reached. Note that we do not return
 	; the standard `TRUE` / `FALSE` values, but the zero / non-zero expected by `branch`.
@@ -517,7 +553,7 @@ constants segment readonly alias(".rdata") 'CONST'
 	make_thread newline
 		dq literal
 		dq 10
-		dq emit
+		dq put
 		dq return
 
 	; ( string -- ) Prints `string` with a terminal newline.
@@ -629,22 +665,6 @@ constants segment readonly alias(".rdata") 'CONST'
 		dq stack_or
 		dq return
 
-	; ( string -- ) Write `string` to `stdin`.
-	make_header "print"
-	make_thread print
-	print_next:
-		dq copy ; ( str -- str str )
-		dq peek_byte ; ( str str -- str ch )
-		dq copy ; ( str ch -- str ch ch )
-		make_branch print_continue
-		dq two_drop ; ( str ch -- )
-		dq return
-
-	print_continue:
-		dq emit ; ( str ch -- str )
-		dq increment ; ( str -- str + 1 )
-		make_jump print_next
-
 	; This is the banner
 	make_variable greeting
 		db "Silicon (c) 2022 David Detweiler", 10, 10, 0
@@ -665,7 +685,17 @@ constants segment readonly alias(".rdata") 'CONST'
 		db "token was too big", 10, 0
 
 	; ( -- ) Runs in a loop, consuming tokens, finding them in the dictionary, executing them, and purging the line on
-	; error
+	; error. Returns on EOF.
+	;
+	; Right now we suffer from an issue: our input method is more stream-oriented than line-oriented. This is quite
+	; convenient to avoid dealing with buffer size issues (as we do need to deal with with tokenization), but it makes
+	; end-of-line actions difficult, as the triggering newline will only be seen by skip_spaces inside of get_token.
+	;
+	; The flow is fairly simple: we read in a token. If this token is too long (marked by being empty), we say so and
+	; purge the line. Then we try and interpret it as an unsigned decimal number (to_number). If we succeed, we push it
+	; and continue. If we don't, we then look it up in the dictionary. If we found it, we invoke it and loop. If we
+	; didn't, we print an error and purge the line. A compile mode could be implemented by a variable, which we then use
+	; to determine what to do.
 	make_thread interpret
 	interpret_loop:
 		dq token_buffer
@@ -678,25 +708,25 @@ constants segment readonly alias(".rdata") 'CONST'
 	interpret_token:
 		dq copy
 		dq peek_byte
-		make_branch interpret_token_valid
+		make_branch interpret_valid_token
 		dq invalid_token
 		dq println
 		dq purge_line
 		make_jump interpret_loop
 
-	interpret_token_valid:
+	interpret_valid_token:
 		dq copy ; token token
 		dq to_number ; token number?
 		dq copy ; token number? number?
 		dq true ; token number? number? true
 		dq equals ; token number? not_number
 		dq stack_not ; token number? !not_number
-		make_branch interpret_stash_num ; token number?
+		make_branch interpret_number ; token number?
 		dq drop	; token
 		dq copy ; ( token -- token token )
-		dq find ; ( token -- token word )
+		dq look_up ; ( token -- token word )
 		dq copy ; ( token word -- token word word )
-		make_branch interpret_good ; ( token word word -- token word )
+		make_branch interpret_word ; ( token word word -- token word )
 		dq drop ; ( token word -- token )
 		dq print ; ( token -- )
 		dq not_a_word
@@ -704,15 +734,31 @@ constants segment readonly alias(".rdata") 'CONST'
 		dq purge_line
 		make_jump interpret_loop
 
-	interpret_stash_num:
-		dq swap ; number? token
-		dq drop ; number?
-		make_jump interpret_loop
-
-	interpret_good:
+	interpret_number:
 		dq swap
 		dq drop
+		dq compiling
+		dq peek
+		make_branch interpret_compile_number
+		make_jump interpret_loop
+
+	interpret_word:
+		dq swap
+		dq drop
+		dq compiling
+		dq peek
+		make_branch interpret_compile_word
 		dq execute
+		make_jump interpret_loop
+
+	; TODO
+	interpret_compile_word:
+		dq drop
+		make_jump interpret_loop
+
+	; TODO
+	interpret_compile_number:
+		dq drop
 		make_jump interpret_loop
 
 	; ( token -- n )
@@ -777,7 +823,7 @@ constants segment readonly alias(".rdata") 'CONST'
 
 	; ( name -- token ) Queries the dictionary for the word with the name `name`, returning its token
 	make_header "look-up"
-	make_thread find
+	make_thread look_up
 		dq literal ; ( name -- name dict )
 		dq dictionary
 
@@ -881,8 +927,8 @@ constants segment readonly alias(".rdata") 'CONST'
 		dq drop
 		dq return ; ( !*a&&!*b -- !*a&&!*b )
 
-	make_header "help"
-	make_thread words
+	make_header "list-words"
+	make_thread list_words
 		dq literal
 		dq dictionary
 		make_jump walk_no_comma
@@ -890,10 +936,10 @@ constants segment readonly alias(".rdata") 'CONST'
 	walk_loop:
 		dq literal
 		dq ","
-		dq emit
+		dq put
 		dq literal
 		dq " "
-		dq emit
+		dq put
 
 	walk_no_comma:
 		dq copy
@@ -968,6 +1014,9 @@ data segment alias(".data") 'DATA'
 		repeat 64
 			db 0
 		endm
+
+	make_variable compiling
+		dq 0
 data ends
 
 dictionary = latest_header
