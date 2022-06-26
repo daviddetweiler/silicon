@@ -88,9 +88,6 @@ header:
 %%next:
 %endmacro
 
-section .drectve info
-	db "/defaultlib:kernel32.lib /entry:start /subsystem:console"
-
 section .text
 	start:
 		push r12
