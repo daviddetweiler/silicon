@@ -88,6 +88,18 @@ header:
 %%next:
 %endmacro
 
+%macro native 1
+	section .rdata
+		make_constant native_%1
+			dq %1
+	
+	section .text
+		%1:
+%endmacro
+
+; Exactly 5 labels are exported as "native" to the REPL: continue, run, call_thread, call_variable, call_constant, for
+; their general usefulness. These form the "native kernel", subroutines that are extensively used, but are not
+; threaded-code words. We expose them to the REPL as constants holding their addresses.
 section .text
 	start:
 		push r12
@@ -100,30 +112,30 @@ section .text
 		mov r15, data_stack
 
 	; Runs the word referenced at the current IP, advances IP
-	continue:
+	native continue
 		mov r13, [r12]
 		add r12, 8
 
 	; Runs a word, setting WA to point to the data field
-	run:
+	native run
 		add r13, 8
 		jmp qword [r13 - 8]
 
 	; Procedure implementing threaded list-words
-	call_thread:
+	native call_thread
 		sub r14, 8
 		mov [r14], r12
 		mov r12, r13
 		jmp continue
 
 	; Pushes the address of the word data field
-	call_variable:
+	native call_variable
 		sub r15, 8
 		mov [r15], r13
 		jmp continue
 
 	; Pushes the first cell of the word data field
-	call_constant:
+	native call_constant
 		mov rcx, [r13]
 		sub r15, 8
 		mov [r15], rcx
@@ -586,9 +598,6 @@ section .rdata
 		dq get_token
 		dq return
 
-	to_upper_done:
-		dq return
-
 	; ( -- ) Skip whitespace in input buffer.
 	make_thread skip_space
 	skip_space_next:
@@ -785,22 +794,22 @@ section .rdata
 		dq dictionary
 		dq peek
 
-	find_next:
+	look_up_next:
 		dq copy ; ( name dict -- name dict dict )
-		make_branch find_continue ; ( name dict dict -- name dict )
+		make_branch look_up_continue ; ( name dict dict -- name dict )
 		dq two_drop ; ( name dict -- )
 		dq zero ; ( -- zero )
 		dq return ; ( zero -- zero )
 
-	find_continue:
+	look_up_continue:
 		dq two_copy ; ( name dict -- name dict name dict )
 		dq get_dict_name ; ( name dict name dict -- name dict name &dict->name )
 		dq string_equals ; ( name dict name &dict->name -- name dict name===&dict->name )
-		make_branch find_found ; ( name dict name===&dict.name -- name dict )
+		make_branch look_up_found ; ( name dict name===&dict.name -- name dict )
 		dq get_dict_link ; ( name dict -- name dict->link )
-		make_jump find_next
+		make_jump look_up_next
 
-	find_found:
+	look_up_found:
 		dq swap ; ( name dict -- dict name )
 		dq drop ; ( dict name -- dict )
 		dq get_dict_token ; ( dict -- &dict->word )
