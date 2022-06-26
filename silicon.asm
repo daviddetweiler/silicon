@@ -97,6 +97,14 @@ header:
 		%1:
 %endmacro
 
+%macro make_continue 0
+	jmp continue
+%endmacro
+
+%macro make_run 0
+	jmp run
+%endmacro
+
 ; Exactly 5 labels are exported as "kernel" to the REPL: continue, run, call_thread, call_variable, call_constant, for
 ; their general usefulness. These form the "native kernel", subroutines that are extensively used, but are not
 ; threaded-code words. We expose them to the REPL as constants holding their addresses.
@@ -126,26 +134,26 @@ section .text
 		sub r14, 8
 		mov [r14], r12
 		mov r12, r13
-		jmp continue
+		make_continue
 
 	; Pushes the address of the word data field
 	kernel call_variable
 		sub r15, 8
 		mov [r15], r13
-		jmp continue
+		make_continue
 
 	; Pushes the first cell of the word data field
 	kernel call_constant
 		mov rcx, [r13]
 		sub r15, 8
 		mov [r15], rcx
-		jmp continue
+		make_continue
 		
 	; ( -- ) Returns control from a thread
 	make_code_word return
 		mov r12, [r14]
 		add r14, 8
-		jmp continue
+		make_continue
 
 	; ( -- ) Exits the host process
 	make_code_word exit
@@ -156,7 +164,7 @@ section .text
 	make_code_word execute
 		mov r13, [r15]
 		add r15, 8
-		jmp run
+		make_run
 
 	; ( -- value ) Where `value` is the value of the cell immediately following `literal` in the instruction stream.
 	; `literal` resumes execution at the cell following it.
@@ -165,19 +173,19 @@ section .text
 		add r12, 8
 		sub r15, 8
 		mov [r15], rcx
-		jmp continue
+		make_continue
 
 	; ( id -- handle ) Retrieves the handle specified by `id`; see the Windows API documentation
 	make_code_word get_std_handle
 		mov rcx, [r15]
 		call GetStdHandle
 		mov [r15], rax
-		jmp continue
+		make_continue
 
 	; ( a -- )
 	make_code_word drop
 		add r15, 8
-		jmp continue
+		make_continue
 
 	; ( byte handle -- ) Writes the first byte of `byte` to `handle`
 	make_code_word write_byte
@@ -188,7 +196,7 @@ section .text
 		mov qword [rsp + 8 * 4], 0
 		call WriteFile
 		add r15, 16
-		jmp continue
+		make_continue
 
 	; ( flag -- ) Expects a literal signed branch constant following it in the instruction stream; if `flag` is zero,
 	; resumes execution after the constant, else it adjusts the IP by the branch offset in units of cells.
@@ -203,7 +211,7 @@ section .text
 		imul rcx, rdx
 		imul rcx, 8
 		add r12, rcx
-		jmp continue
+		make_continue
 
 	; ( -- ) Similar to `branch`, but does not take a flag, and always jumps
 	make_code_word jump
@@ -211,7 +219,7 @@ section .text
 		add r12, 8
 		imul rcx, 8
 		add r12, rcx
-		jmp continue
+		make_continue
 
 	; ( buffer handle -- filled ) Read bytes from `handle` into `buffer`; `filled` is the number of bytes actually
 	; read
@@ -225,14 +233,14 @@ section .text
 		mov rcx, [r15]
 		mov [r15 + 8], rcx
 		add r15, 8
-		jmp continue
+		make_continue
 
 	; ( address -- byte ) Similar to `peek`, but only reads one byte, instead of a full cell
 	make_code_word peek_byte
 		mov rcx, [r15]
 		movzx rcx, byte [rcx]
 		mov [r15], rcx
-		jmp continue
+		make_continue
 
 	; ( byte address -- ) Similar to `poke`, but only writes the first byte of `byte`
 	make_code_word poke_byte
@@ -240,21 +248,21 @@ section .text
 		mov dl, byte [r15 + 8]
 		mov byte [rcx], dl
 		add r15, 16
-		jmp continue
+		make_continue
 
 	; ( a -- a a )
 	make_code_word copy
 		mov rcx, [r15]
 		sub r15, 8
 		mov [r15], rcx
-		jmp continue
+		make_continue
 
 	; ( b a -- a b )
 	make_code_word swap
 		mov rcx, [r15]
 		xchg [r15 + 8], rcx
 		mov [r15], rcx
-		jmp continue
+		make_continue
 
 	; ( a -- ) Moves `a` onto the return stack
 	make_code_word push_cell
@@ -262,7 +270,7 @@ section .text
 		add r15, 8
 		sub r14, 8
 		mov [r14], rcx
-		jmp continue
+		make_continue
 
 	; ( -- a ) Pops `a` from the return stack
 	make_code_word pop_cell
@@ -270,7 +278,7 @@ section .text
 		add r14, 8
 		sub r15, 8
 		mov [r15], rcx
-		jmp continue
+		make_continue
 
 	make_code_word two_copy
 		mov rcx, [r15]
@@ -278,27 +286,27 @@ section .text
 		sub r15, 16
 		mov [r15 + 8], rdx
 		mov [r15], rcx
-		jmp continue
+		make_continue
 
 	make_code_word two_drop
 		add r15, 16
-		jmp continue
+		make_continue
 
 	; ( b a -- mod ) mod = a % b
 	make_code_word modulus
 		xor rdx, rdx
 		mov rax, [r15]
-		div qword [r15 + 8]
 		add r15, 8
-		mov [r15], edx
-		jmp continue
+		div qword [r15]
+		mov [r15], rdx
+		make_continue
 
 	; ( address -- *address )
 	make_code_word peek
 		mov rcx, [r15]
 		mov rcx, [rcx]
 		mov [r15], rcx
-		jmp continue
+		make_continue
 
 	; ( value address -- ) `*address = value`
 	make_code_word poke
@@ -306,14 +314,14 @@ section .text
 		mov rdx, [r15 + 8]
 		mov [rcx], rdx
 		add r15, 16
-		jmp continue
+		make_continue
 
 	; ( b a -- c ) c = a + b
 	make_code_word stack_add
 		mov rcx, [r15]
 		add r15, 8
 		add [r15], rcx
-		jmp continue
+		make_continue
 
 	; ( b a -- c ) c = a - b
 	make_code_word stack_sub
@@ -321,17 +329,26 @@ section .text
 		add r15, 8
 		xchg [r15], rcx
 		sub [r15], rcx
-		jmp continue
+		make_continue
 
 	; ( b a -- c ) c = a * b
 	make_code_word stack_mul
-		mov rcx, [r15]
+		mov rax, [r15]
 		add r15, 8
-		imul rcx, qword [r15]
-		mov [r15], rcx
-		jmp continue
+		mul qword [r15]
+		mov [r15], rax
+		make_continue
 
-	; ( a b -- c ) c = a == b
+	; ( b a -- c ) c = a / b
+	make_code_word stack_div
+		xor rdx, rdx
+		mov rax, [r15]
+		add r15, 8
+		div qword [r15]
+		mov [r15], rax
+		make_continue
+
+	; ( b a -- c ) c = a == b
 	make_code_word equals
 		mov rcx, [r15]
 		add r15, 8
@@ -342,33 +359,46 @@ section .text
 		not rdx
 		imul rcx, rdx
 		mov [r15], rcx
-		jmp continue
+		make_continue
+
+	; ( b a -- c ) c = a > b
+	make_code_word greater_than
+		mov rcx, [r15]
+		add r15, 8
+		cmp rcx, [r15]
+		setg cl
+		movzx rcx, cl
+		xor rdx, rdx
+		not rdx
+		imul rcx, rdx
+		mov [r15], rcx
+		make_continue
 
 	; ( a b -- c ) c = a | b
 	make_code_word stack_or
 		mov rcx, [r15]
 		add r15, 8
 		or [r15], rcx
-		jmp continue
+		make_continue
 
 	; ( a b -- c ) c = a & b
 	make_code_word stack_and
 		mov rcx, [r15]
 		add r15, 8
 		and [r15], rcx
-		jmp continue
+		make_continue
 
 	; ( a -- ~a )
 	make_code_word stack_not
 		mov rcx, [r15]
 		not rcx
 		mov [r15], rcx
-		jmp continue
+		make_continue
 
 	; ( a -- b ) b = a + 1
 	make_code_word increment
 		inc qword [r15]
-		jmp continue
+		make_continue
 
 	; ( a -- a==0 )
 	make_code_word is_zero
@@ -380,7 +410,7 @@ section .text
 		not rdx
 		imul rcx, rdx
 		mov [r15], rcx
-		jmp continue
+		make_continue
 
 	make_code_word is_digit
 		mov r8, [r15]
@@ -396,11 +426,31 @@ section .text
 		imul rcx, rdx
 		not rcx
 		mov [r15], rcx
-		jmp continue
+		make_continue
+
+	make_code_word do_rdtsc
+		sub r15, 8
+		xor eax, eax
+		cpuid
+		rdtsc
+		shl rdx, 32
+		or rax, rdx
+		mov [r15], rax
+		make_continue
+
+	make_code_word do_rdtscp
+		rdtscp
+		shl rdx, 32
+		or rax, rdx
+		sub r15, 8
+		mov [r15], rax
+		xor eax, eax
+		cpuid		
+		make_continue
 
 	make_code_word break
-		int 3
-		jmp continue
+		int3
+		make_continue
 
 section .rdata
 	; The initial thread executed by `start`
@@ -921,6 +971,93 @@ section .rdata
 		dq newline
 		dq newline
 		dq drop
+		dq return
+
+	make_thread print_number
+		dq copy ; n n
+		dq biggest_pow10 ; n p10
+
+	print_number_loop:
+		dq swap ; p10 n
+		dq two_copy ; p10 n p10 n
+		dq stack_div ; p10 n n/p10
+		dq literal ; p10 n n/p10 '0'
+		dq '0'
+		dq stack_add ; p10 n n/p10+'0'
+		dq put ; p10 n
+		dq two_copy ; p10 n p10 n
+		dq modulus ; p10 n n%p10
+		dq swap ; p10 n%p10 n
+		dq drop ; p10 n%10
+		dq swap ; n%10 p10
+		dq literal ; n%10 p10 10
+		dq 10
+		dq swap ; n%10 10 p10
+		dq stack_div ; n%10 p10/10
+		dq copy ; n%10 p10/10 p10/10
+		make_branch print_number_loop
+		dq two_drop
+		dq return
+
+	make_thread biggest_pow10
+		dq literal ; n 1
+		dq 1
+
+	biggest_pow10_loop:
+		dq two_copy ; n p n p
+		dq greater_than ; n p p>n
+		make_branch biggest_pow10_done ; n p
+		dq literal ; n p 10
+		dq 10
+		dq stack_mul ; n p*10
+		make_jump biggest_pow10_loop
+
+	biggest_pow10_done:
+		dq swap ; p n
+		dq drop ; p
+		dq literal ; p 10
+		dq 10
+		dq swap ; 10 p
+		dq stack_div ; p/10
+		dq return
+
+	make_variable benchmark_message0
+		db `Benchmark averaged \0`
+
+	make_variable benchmark_message1
+		db ` cycles/iteration\n\0`
+
+	make_constant benchmark_iterations
+		dq 1 << 16
+
+	make_thread benchmark
+		dq zero
+		dq push_cell
+		dq benchmark_iterations
+	
+	benchmark_loop:
+		dq do_rdtsc
+		dq do_rdtscp
+		dq stack_sub
+		dq pop_cell
+		dq stack_add
+		dq push_cell
+		dq literal
+		dq 1
+		dq swap
+		dq stack_sub
+		dq copy
+		make_branch benchmark_loop
+		dq drop
+		dq benchmark_iterations
+		dq pop_cell
+		dq stack_div
+		dq benchmark_message0
+		dq print
+		dq print_number
+		dq benchmark_message1
+		dq print
+		dq newline
 		dq return
 
 section .data
