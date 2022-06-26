@@ -3,7 +3,7 @@ import json
 
 
 def main():
-    makes = ['make_thread', 'make_variable', 'make_constant', 'make_code_word']
+    makes = ['make_thread', 'make_variable', 'make_constant', 'make_code_word', 'make_native']
     stripped = filter(lambda line: len(line), (line.split() for line in open(
         'silicon.asm').readlines()))
 
