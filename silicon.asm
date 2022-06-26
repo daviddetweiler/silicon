@@ -27,8 +27,8 @@ extern GetStdHandle
 extern WriteFile
 extern ReadFile
 
-%define line_buffer_size 32
-%define token_max_len 32
+%define line_buffer_size 128
+%define token_max_len 64
 
 %assign latest_header 0
 %define header_0 0
@@ -260,6 +260,13 @@ section .text
 	make_code_word swap
 		mov rcx, [r15]
 		xchg [r15 + 8], rcx
+		mov [r15], rcx
+		make_continue
+
+	; ( b a -- a )
+	make_code_word nip
+		mov rcx, [r15]
+		add r15, 8
 		mov [r15], rcx
 		make_continue
 
@@ -753,16 +760,14 @@ section .rdata
 		make_jump interpret_loop
 
 	interpret_number:
-		dq swap
-		dq drop
+		dq nip
 		dq compiling
 		dq peek
 		make_branch interpret_compile_number
 		make_jump interpret_loop
 
 	interpret_word:
-		dq swap
-		dq drop
+		dq nip
 		dq compiling
 		dq peek
 		make_branch interpret_compile_word
@@ -860,8 +865,7 @@ section .rdata
 		make_jump look_up_next
 
 	look_up_found:
-		dq swap ; ( name dict -- dict name )
-		dq drop ; ( dict name -- dict )
+		dq nip ; ( name dict -- dict )
 		dq get_dict_token ; ( dict -- &dict->word )
 		dq return
 
@@ -937,10 +941,8 @@ section .rdata
 		dq swap ; ( b a *a !*b -- b a !*b *a )
 		dq is_zero ; ( b a !*b *a -- b a !*b !*a )
 		dq stack_and ; ( b a !*b !*a -- b a !*a&&!*b )
-		dq swap
-		dq drop
-		dq swap
-		dq drop
+		dq nip
+		dq nip
 		dq return ; ( !*a&&!*b -- !*a&&!*b )
 
 	make_variable list_words_msg
@@ -987,8 +989,7 @@ section .rdata
 		dq put ; p10 n
 		dq two_copy ; p10 n p10 n
 		dq modulus ; p10 n n%p10
-		dq swap ; p10 n%p10 n
-		dq drop ; p10 n%10
+		dq nip ; p10 n%10
 		dq swap ; n%10 p10
 		dq literal ; n%10 p10 10
 		dq 10
@@ -1013,8 +1014,7 @@ section .rdata
 		make_jump biggest_pow10_loop
 
 	biggest_pow10_done:
-		dq swap ; p n
-		dq drop ; p
+		dq nip ; p
 		dq literal ; p 10
 		dq 10
 		dq swap ; 10 p
@@ -1080,10 +1080,10 @@ section .rdata
 		dq return
 
 section .data
-		times 32 dq 0
+		times 128 dq 0
 	data_stack:
 
-		times 32 dq 0
+		times 128 dq 0
 	return_stack:
 
 	make_variable stdout
