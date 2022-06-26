@@ -88,16 +88,16 @@ header:
 %%next:
 %endmacro
 
-%macro native 1
+%macro kernel 1
 	section .rdata
-		make_constant native_%1
+		make_constant kernel_%1
 			dq %1
 	
 	section .text
 		%1:
 %endmacro
 
-; Exactly 5 labels are exported as "native" to the REPL: continue, run, call_thread, call_variable, call_constant, for
+; Exactly 5 labels are exported as "kernel" to the REPL: continue, run, call_thread, call_variable, call_constant, for
 ; their general usefulness. These form the "native kernel", subroutines that are extensively used, but are not
 ; threaded-code words. We expose them to the REPL as constants holding their addresses.
 section .text
@@ -112,30 +112,30 @@ section .text
 		mov r15, data_stack
 
 	; Runs the word referenced at the current IP, advances IP
-	native continue
+	kernel continue
 		mov r13, [r12]
 		add r12, 8
 
 	; Runs a word, setting WA to point to the data field
-	native run
+	kernel run
 		add r13, 8
 		jmp qword [r13 - 8]
 
 	; Procedure implementing threaded list-words
-	native call_thread
+	kernel call_thread
 		sub r14, 8
 		mov [r14], r12
 		mov r12, r13
 		jmp continue
 
 	; Pushes the address of the word data field
-	native call_variable
+	kernel call_variable
 		sub r15, 8
 		mov [r15], r13
 		jmp continue
 
 	; Pushes the first cell of the word data field
-	native call_constant
+	kernel call_constant
 		mov rcx, [r13]
 		sub r15, 8
 		mov [r15], rcx
