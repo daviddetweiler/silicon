@@ -65,6 +65,10 @@ make_jump macro name
 next:
 endm
 
+directive segment info alias(".drectve")
+	db "/defaultlib:kernel32.lib /entry:start /subsystem:console", 0
+directive ends
+
 primitives segment alias(".text") 'CODE'
 	start proc frame
 		push r12
