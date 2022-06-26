@@ -18,110 +18,84 @@
 ;     headers, etc.
 ;   - Essentially, we need to figure out what kind of API the system actually exposes
 
-public start
+bits 64
 
-extern ExitProcess: proc
-extern GetStdHandle: proc
-extern WriteFile: proc
-extern ReadFile: proc
+global start
 
-latest_header = 0
+extern ExitProcess
+extern GetStdHandle
+extern WriteFile
+extern ReadFile
 
-make_header macro id
-	local link, name, padding, len
+%assign latest_header 0
+%define header_0 0
+
+%macro make_header 1
 	align 8
 
-len:
-	db link - len
+%assign next_header latest_header + 1
+%define header header_ %+ next_header
+header:
+	db %%link - header
 
-name:
-	db id, 0
-
-padding:
-	repeat (8 - ((padding - len) mod 8)) mod 8
-		db 0
-	endm
-
-link:
-	dq latest_header
-
-	latest_header = len
-endm
-
-make_word macro name, code
+%%name:
+	db %1, 0
 	align 8
 
-name:
-	dq code
-endm
+%%link:
+	dq header_ %+ latest_header
 
-make_code_word macro name
-	make_word name, name + 8
-endm
+	%assign latest_header next_header
+%endmacro
 
-make_thread macro name
-	make_word name, call_thread
-endm
+%macro make_word 2
+	align 8
 
-make_variable macro name
-	make_word name, call_variable
-endm
+%1:
+	dq %2
+%endmacro
 
-make_constant macro name
-	make_word name, call_constant
-endm
+%macro make_code_word 1
+	make_word %1, %1 + 8
+%endmacro
 
-make_branch macro name
-	local next
+%macro make_thread 1
+	make_word %1, call_thread
+%endmacro
+
+%macro make_variable 1
+	make_word %1, call_variable
+%endmacro
+
+%macro make_constant 1
+	make_word %1, call_constant
+%endmacro
+
+%macro make_branch 1
 	dq branch
-	dq (name - next) / 8
-next:
-endm
+	dq (%1 - %%next) / 8
+%%next:
+%endmacro
 
-make_jump macro name
-	local next
+%macro make_jump 1
 	dq jump
-	dq (name - next) / 8
-next:
-endm
+	dq (%1 - %%next) / 8
+%%next:
+%endmacro
 
-directive segment info alias(".drectve")
+section .drectve info
 	db "/defaultlib:kernel32.lib /entry:start /subsystem:console", 0
-directive ends
 
-primitives segment alias(".text") 'CODE'
-	start proc frame
+section .text
+	start:
 		push r12
-		.pushreg r12
 		push r13
-		.pushreg r13
 		push r14
-		.pushreg r14
 		push r15
-		.pushreg r15
-		sub rsp, 88h ; Stack alignment + 16 parameters
-		.allocstack 88h
-		.endprolog ; Why not play nice?
-
+		sub rsp, 0x88 ; Stack alignment + 16 parameters
 		mov r12, thread
 		mov r14, return_stack
 		mov r15, data_stack
-		jmp continue
-	start endp
-
-	; Begin inner interpreter components
-
-	; Procedure implementing threaded list-words
-	call_thread:
-		sub r14, 8
-		mov [r14], r12
-		mov r12, r13
-		jmp continue
-
-	; ( -- ) Returns control from a thread
-	make_code_word return
-		mov r12, [r14]
-		add r14, 8
 
 	; Runs the word referenced at the current IP, advances IP
 	continue:
@@ -131,16 +105,14 @@ primitives segment alias(".text") 'CODE'
 	; Runs a word, setting WA to point to the data field
 	run:
 		add r13, 8
-		jmp qword ptr [r13 - 8]
+		jmp qword [r13 - 8]
 
-	; ( word-address -- ) Executes the word at `word-address`
-	make_header "invoke"
-	make_code_word execute
-		mov r13, [r15]
-		add r15, 8
-		jmp run
-
-	; End inner interpreter components
+	; Procedure implementing threaded list-words
+	call_thread:
+		sub r14, 8
+		mov [r14], r12
+		mov r12, r13
+		jmp continue
 
 	; Pushes the address of the word data field
 	call_variable:
@@ -154,12 +126,25 @@ primitives segment alias(".text") 'CODE'
 		sub r15, 8
 		mov [r15], rcx
 		jmp continue
+		
+	; ( -- ) Returns control from a thread
+	make_code_word return
+		mov r12, [r14]
+		add r14, 8
+		jmp continue
 
 	; ( -- ) Exits the host process
 	make_header "exit"
 	make_code_word exit
 		xor rcx, rcx
 		call ExitProcess
+
+	; ( word-address -- ) Executes the word at `word-address`
+	make_header "invoke"
+	make_code_word execute
+		mov r13, [r15]
+		add r15, 8
+		jmp run
 
 	; ( -- value ) Where `value` is the value of the cell immediately following `literal` in the instruction stream.
 	; `literal` resumes execution at the cell following it.
@@ -189,7 +174,7 @@ primitives segment alias(".text") 'CODE'
 		lea rdx, [r15 + 8]
 		mov r8, 1
 		mov r9, r15
-		mov qword ptr [rsp + 8 * 4], 0
+		mov qword [rsp + 8 * 4], 0
 		call WriteFile
 		add r15, 16
 		jmp continue
@@ -224,7 +209,7 @@ primitives segment alias(".text") 'CODE'
 		mov rdx, [r15 + 8]
 		mov r8, 128
 		mov r9, r15
-		mov qword ptr [rsp + 8 * 4], 0
+		mov qword [rsp + 8 * 4], 0
 		call ReadFile
 		mov rcx, [r15]
 		mov [r15 + 8], rcx
@@ -234,15 +219,15 @@ primitives segment alias(".text") 'CODE'
 	; ( address -- byte ) Similar to `peek`, but only reads one byte, instead of a full cell
 	make_code_word peek_byte
 		mov rcx, [r15]
-		movzx rcx, byte ptr [rcx]
+		movzx rcx, byte [rcx]
 		mov [r15], rcx
 		jmp continue
 
 	; ( byte address -- ) Similar to `poke`, but only writes the first byte of `byte`
 	make_code_word poke_byte
 		mov rcx, [r15]
-		mov dl, byte ptr [r15 + 8]
-		mov byte ptr [rcx], dl
+		mov dl, byte [r15 + 8]
+		mov byte [rcx], dl
 		add r15, 16
 		jmp continue
 
@@ -299,7 +284,7 @@ primitives segment alias(".text") 'CODE'
 	make_code_word modulus
 		xor rdx, rdx
 		mov rax, [r15]
-		div qword ptr [r15 + 8]
+		div qword [r15 + 8]
 		add r15, 8
 		mov [r15], edx
 		jmp continue
@@ -343,7 +328,7 @@ primitives segment alias(".text") 'CODE'
 	make_code_word stack_mul
 		mov rcx, [r15]
 		add r15, 8
-		imul rcx, qword ptr [r15]
+		imul rcx, qword [r15]
 		mov [r15], rcx
 		jmp continue
 
@@ -388,7 +373,7 @@ primitives segment alias(".text") 'CODE'
 	; ( a -- b ) b = a + 1
 	make_header "++"
 	make_code_word increment
-		inc qword ptr [r15]
+		inc qword [r15]
 		jmp continue
 
 	; ( a -- a==0 )
@@ -423,9 +408,8 @@ primitives segment alias(".text") 'CODE'
 	make_code_word break
 		int 3
 		jmp continue
-primitives ends
 
-constants segment readonly alias(".rdata") 'CONST'
+section .rdata
 	; The initial thread executed by `start`
 	thread:
 		dq init_io
@@ -824,8 +808,8 @@ constants segment readonly alias(".rdata") 'CONST'
 	; ( name -- token ) Queries the dictionary for the word with the name `name`, returning its token
 	make_header "look-up"
 	make_thread look_up
-		dq literal ; ( name -- name dict )
 		dq dictionary
+		dq peek
 
 	find_next:
 		dq copy ; ( name dict -- name dict dict )
@@ -929,8 +913,8 @@ constants segment readonly alias(".rdata") 'CONST'
 
 	make_header "list-words"
 	make_thread list_words
-		dq literal
 		dq dictionary
+		dq peek
 		make_jump walk_no_comma
 
 	walk_loop:
@@ -963,17 +947,12 @@ constants segment readonly alias(".rdata") 'CONST'
 		dq 125
 		dq purge_until
 		dq return
-constants ends
 
-data segment alias(".data") 'DATA'
-		repeat 512
-			dq 0
-		endm
+section .data
+		times 512 dq 0
 	data_stack:
 
-		repeat 512
-			dq 0
-		endm
+		times 512 dq 0
 	return_stack:
 
 	make_variable stdout
@@ -984,9 +963,7 @@ data segment alias(".data") 'DATA'
 
 	; Holds lines of input as they are received
 	make_variable line_buffer
-		repeat 128
-			db 0
-		endm
+		times 128 db 0
 
 	; Contains the next position to read from in the line buffer
 	make_variable line_ptr
@@ -1002,23 +979,17 @@ data segment alias(".data") 'DATA'
 
 	; Memory to hold token strings
 	make_variable token_buffer
-		repeat 64
-			db 0
-		endm
+		times 64 db 0
 
 	; Index into token_buffer
 	make_variable token_ptr
 		dq 0
 
 	make_variable repl_token_buffer
-		repeat 64
-			db 0
-		endm
+		times 64 db 0
 
 	make_variable compiling
 		dq 0
-data ends
 
-dictionary = latest_header
-
-end
+	make_variable dictionary
+		dq header_ %+ latest_header

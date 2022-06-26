@@ -1,7 +1,7 @@
 # Silicon
 
-In an x64 Visual Studio developer command prompt:
+In an x64 Visual Studio developer command prompt, with `nasm` in your `PATH`:
 
-    > ML64 .\silicon.asm
+    > nasm -fwin64 .\silicon.asm && link silicon.obj
 
 See `sample.txt` for a syntax sample.
