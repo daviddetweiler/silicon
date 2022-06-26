@@ -47,9 +47,8 @@ header:
 
 %macro make_word 2
 	make_header %1
-
-%1:
-	dq %2
+	%1:
+		dq %2
 %endmacro
 
 %macro make_code_word 1
@@ -71,13 +70,13 @@ header:
 %macro make_branch 1
 	dq branch
 	dq (%1 - %%next) / 8
-%%next:
+	%%next:
 %endmacro
 
 %macro make_jump 1
 	dq jump
 	dq (%1 - %%next) / 8
-%%next:
+	%%next:
 %endmacro
 
 %macro make_native_code 1
@@ -502,18 +501,18 @@ section .rdata
 
 	; ( string -- ) Write `string` to `stdin`.
 	make_thread print
-	print_next:
-		dq copy ; ( str -- str str )
-		dq peek_byte ; ( str str -- str ch )
-		dq copy ; ( str ch -- str ch ch )
-		make_branch print_continue
+		print_next:
+			dq copy ; ( str -- str str )
+			dq peek_byte ; ( str str -- str ch )
+			dq copy ; ( str ch -- str ch ch )
+			make_branch print_continue
+		
 		dq two_drop ; ( str ch -- )
 		dq return
-
-	print_continue:
-		dq put ; ( str ch -- str )
-		dq increment ; ( str -- str + 1 )
-		make_jump print_next
+		print_continue:
+			dq put ; ( str ch -- str )
+			dq increment ; ( str -- str + 1 )
+			make_jump print_next
 
 	; ( -- !iseof ) Refills the line buffer from `stdin`, indicating if EOF has been reached. Note that we do not return
 	; the standard `TRUE` / `FALSE` values, but the zero / non-zero expected by `branch`.
@@ -545,14 +544,13 @@ section .rdata
 		make_branch peek_char_read
 		dq zero
 		dq return
-
-	peek_char_read:
-		dq line_ptr ; ( &iop -- )
-		dq peek ; ( iop -- )
-		dq line_buffer ; ( iop &lb -- )
-		dq stack_add ; ( &lb[iop] -- )
-		dq peek_byte ; ( lb[iop] -- )
-		dq return
+		peek_char_read:
+			dq line_ptr ; ( &iop -- )
+			dq peek ; ( iop -- )
+			dq line_buffer ; ( iop &lb -- )
+			dq stack_add ; ( &lb[iop] -- )
+			dq peek_byte ; ( lb[iop] -- )
+			dq return
 
 	; ( -- ) Advances the input pointer
 	make_thread next_char
@@ -574,11 +572,11 @@ section .rdata
 		make_branch fill_if_empty_fill
 		dq zero
 		dq return
+		fill_if_empty_fill:
+			dq is_fresh_line
+			dq peek
+			make_branch fill_if_empty_done
 
-	fill_if_empty_fill:
-		dq is_fresh_line
-		dq peek
-		make_branch fill_if_empty_done
 		dq filled ; ( &fill -- )
 		dq peek ; ( fill -- )
 		dq line_ptr ; ( fill &iop -- )
@@ -587,10 +585,9 @@ section .rdata
 		make_branch fill_if_empty_done
 		dq refill ; ( -- !iseof )
 		dq return
-
-	fill_if_empty_done:
-		dq true
-		dq return
+		fill_if_empty_done:
+			dq true
+			dq return
 
 	; ( -- ) Emits a newline
 	make_thread newline
@@ -611,38 +608,38 @@ section .rdata
 		dq zero ; ( buf -- buf 0 )
 		dq token_ptr ; ( buf 0 -- buf 0 &i )
 		dq poke ; ( buf 0 &i -- buf )
+		get_token_loop:
+			dq token_ptr
+			dq peek
+			dq literal
+			dq token_max_len
+			dq equals
+			make_branch get_token_full
 
-	get_token_loop:
-		dq token_ptr
-		dq peek
-		dq literal
-		dq token_max_len
-		dq equals
-		make_branch get_token_full
 		dq key ; ( buf -- buf ch )
 		dq copy ; ( buf ch -- buf ch ch )
 		make_branch get_token_ok ; ( buf ch ch -- buf ch )
 		dq two_drop ; ( buf ch -- )
 		dq zero ; ( -- 0 )
 		dq return ; ( 0 -- 0 )
+		get_token_ok:
+			dq two_copy ; ( buf ch -- buf ch buf ch )
+			dq swap ; ( buf ch buf ch -- buf ch ch buf )
+			dq token_ptr ; ( * &tp -- )
+			dq copy ; ( * &tp &tp -- )
+			dq peek ; ( * &tp tp -- )
+			dq swap ; ( * tp &tp -- )
+			dq copy ; ( * tp &tp &tp -- )
+			dq peek ; ( * tp &tp tp -- )
+			dq increment ; ( * tp &tp tp+1 -- )
+			dq swap ; ( * tp tp+1 &tp -- )
+			dq poke ; ( * buf tp -- )
+			dq stack_add ; ( buf ch ch &buf[tp] -- )
+			dq poke_byte ; ( buf ch -- )
+			dq is_space ; ( buf sp -- )
+			dq stack_not ; ( buf !sp -- )
+			make_branch get_token_loop ; ( buf -- )
 
-	get_token_ok:
-		dq two_copy ; ( buf ch -- buf ch buf ch )
-		dq swap ; ( buf ch buf ch -- buf ch ch buf )
-		dq token_ptr ; ( * &tp -- )
-		dq copy ; ( * &tp &tp -- )
-		dq peek ; ( * &tp tp -- )
-		dq swap ; ( * tp &tp -- )
-		dq copy ; ( * tp &tp &tp -- )
-		dq peek ; ( * tp &tp tp -- )
-		dq increment ; ( * tp &tp tp+1 -- )
-		dq swap ; ( * tp tp+1 &tp -- )
-		dq poke ; ( * buf tp -- )
-		dq stack_add ; ( buf ch ch &buf[tp] -- )
-		dq poke_byte ; ( buf ch -- )
-		dq is_space ; ( buf sp -- )
-		dq stack_not ; ( buf !sp -- )
-		make_branch get_token_loop ; ( buf -- )
 		dq copy ; ( buf buf -- )
 		dq token_ptr ; ( buf buf &tp -- )
 		dq peek ; ( buf buf tp -- )
@@ -654,13 +651,12 @@ section .rdata
 		dq swap
 		dq poke_byte
 		dq return
-
-	get_token_full:
-		dq copy
-		dq zero
-		dq swap
-		dq poke_byte
-		dq return
+		get_token_full:
+			dq copy
+			dq zero
+			dq swap
+			dq poke_byte
+			dq return
 
 	make_thread get_repl_token
 		dq repl_token_buffer
@@ -669,15 +665,15 @@ section .rdata
 
 	; ( -- ) Skip whitespace in input buffer.
 	make_thread skip_space
-	skip_space_next:
-		dq peek_char
-		dq is_space
-		make_branch skip_space_continue
-		dq return
+		skip_space_next:
+			dq peek_char
+			dq is_space
+			make_branch skip_space_continue
 
-	skip_space_continue:
-		dq next_char
-		make_jump skip_space_next
+		dq return
+		skip_space_continue:
+			dq next_char
+			make_jump skip_space_next
 
 	; ( ch -- sp ) sp = ch in ['\r', '\n', '\t', ' ']
 	make_thread is_space
@@ -734,31 +730,32 @@ section .rdata
 	; didn't, we print an error and purge the line. A compile mode could be implemented by a variable, which we then use
 	; to determine what to do.
 	make_thread interpret
-	interpret_loop:
-		dq token_buffer
-		dq get_token ; ( -- token )
-		dq copy ; ( token -- token token )
-		make_branch interpret_token ; ( token token -- token )
+		interpret_loop:
+			dq token_buffer
+			dq get_token ; ( -- token )
+			dq copy ; ( token -- token token )
+			make_branch interpret_token ; ( token token -- token )
+
 		dq drop ; ( token -- )
 		dq return ; ( -- )
+		interpret_token:
+			dq copy
+			dq peek_byte
+			make_branch interpret_valid_token
 
-	interpret_token:
-		dq copy
-		dq peek_byte
-		make_branch interpret_valid_token
 		dq invalid_token
 		dq println
 		dq purge_line
 		make_jump interpret_loop
+		interpret_valid_token:
+			dq copy ; token token
+			dq to_number ; token number?
+			dq copy ; token number? number?
+			dq true ; token number? number? true
+			dq equals ; token number? not_number
+			dq stack_not ; token number? !not_number
+			make_branch interpret_number ; token number?
 
-	interpret_valid_token:
-		dq copy ; token token
-		dq to_number ; token number?
-		dq copy ; token number? number?
-		dq true ; token number? number? true
-		dq equals ; token number? not_number
-		dq stack_not ; token number? !not_number
-		make_branch interpret_number ; token number?
 		dq drop	; token
 		dq copy ; ( token -- token token )
 		dq look_up ; ( token -- token word )
@@ -770,53 +767,52 @@ section .rdata
 		dq println
 		dq purge_line
 		make_jump interpret_loop
+		interpret_number:
+			dq nip
+			dq compiling
+			dq peek
+			make_branch interpret_compile_number
 
-	interpret_number:
-		dq nip
-		dq compiling
-		dq peek
-		make_branch interpret_compile_number
 		make_jump interpret_loop
+		interpret_word:
+			dq nip
+			dq compiling
+			dq peek
+			make_branch interpret_compile_word
 
-	interpret_word:
-		dq nip
-		dq compiling
-		dq peek
-		make_branch interpret_compile_word
 		dq execute
 		make_jump interpret_loop
+		interpret_compile_word:
+			; TODO
+			dq drop
+			make_jump interpret_loop
 
-	; TODO
-	interpret_compile_word:
-		dq drop
-		make_jump interpret_loop
-
-	; TODO
-	interpret_compile_number:
-		dq drop
-		make_jump interpret_loop
+		interpret_compile_number:
+			; TODO
+			dq drop
+			make_jump interpret_loop
 
 	; ( token -- n )
 	make_thread to_number
 		dq zero ; token 0
+		to_number_loop:
+			dq swap ; n token
+			dq copy ; n token token
+			dq increment ; n token token+1
+			dq push_cell ; n token R: token+1
+			dq peek_byte ; n *token R: token+1
+			dq copy	; n *token *token R: token+1
+			make_branch to_number_continue ; n *token R: token+1
 
-	to_number_loop:
-		dq swap ; n token
-		dq copy ; n token token
-		dq increment ; n token token+1
-		dq push_cell ; n token R: token+1
-		dq peek_byte ; n *token R: token+1
-		dq copy	; n *token *token R: token+1
-		make_branch to_number_continue ; n *token R: token+1
 		dq pop_cell ; n *token token+1
 		dq two_drop ; n
 		dq return
+		to_number_continue:
+			dq copy ; n *token *token R: token+1
+			dq is_digit ; n *token is_digit(*token) R: token+1
+			dq stack_not ; n *token !is_digit(*token) R: token+1
+			make_branch to_number_error ; n *token R: token+1
 
-	to_number_continue:
-		dq copy ; n *token *token R: token+1
-		dq is_digit ; n *token is_digit(*token) R: token+1
-		dq stack_not ; n *token !is_digit(*token) R: token+1
-		make_branch to_number_error ; n *token R: token+1
 		dq literal ; n *token '0' R: token+1
 		dq "0"
 		dq swap ; n '0' *token R: token+1
@@ -829,26 +825,25 @@ section .rdata
 		dq pop_cell ; n token+1
 		dq swap ; token+1 n
 		make_jump to_number_loop
-
-	to_number_error:
-		dq two_drop ; R: token+1
-		dq pop_cell
-		dq drop
-		dq true
-		dq return
+		to_number_error:
+			dq two_drop ; R: token+1
+			dq pop_cell
+			dq drop
+			dq true
+			dq return
 
 	; ( ch -- )
 	make_thread purge_until
-	purge_until_loop:
-		dq copy
-		dq key
-		dq equals
-		make_branch purge_until_done
-		make_jump purge_until_loop
+		purge_until_loop:
+			dq copy
+			dq key
+			dq equals
+			make_branch purge_until_done
 
-	purge_until_done:
-		dq drop
-		dq return
+		make_jump purge_until_loop
+		purge_until_done:
+			dq drop
+			dq return
 
 	make_thread purge_line
 		dq literal
@@ -860,26 +855,26 @@ section .rdata
 	make_thread look_up
 		dq dictionary
 		dq peek
+		look_up_next:
+			dq copy ; ( name dict -- name dict dict )
+			make_branch look_up_continue ; ( name dict dict -- name dict )
 
-	look_up_next:
-		dq copy ; ( name dict -- name dict dict )
-		make_branch look_up_continue ; ( name dict dict -- name dict )
 		dq two_drop ; ( name dict -- )
 		dq zero ; ( -- zero )
 		dq return ; ( zero -- zero )
 
-	look_up_continue:
-		dq two_copy ; ( name dict -- name dict name dict )
-		dq get_dict_name ; ( name dict name dict -- name dict name &dict->name )
-		dq string_equals ; ( name dict name &dict->name -- name dict name===&dict->name )
-		make_branch look_up_found ; ( name dict name===&dict.name -- name dict )
+		look_up_continue:
+			dq two_copy ; ( name dict -- name dict name dict )
+			dq get_dict_name ; ( name dict name dict -- name dict name &dict->name )
+			dq string_equals ; ( name dict name &dict->name -- name dict name===&dict->name )
+			make_branch look_up_found ; ( name dict name===&dict.name -- name dict )
+
 		dq get_dict_link ; ( name dict -- name dict->link )
 		make_jump look_up_next
-
-	look_up_found:
-		dq nip ; ( name dict -- dict )
-		dq get_dict_token ; ( dict -- &dict->word )
-		dq return
+		look_up_found:
+			dq nip ; ( name dict -- dict )
+			dq get_dict_token ; ( dict -- &dict->word )
+			dq return
 
 	; ( dict -- dict->link )
 	make_thread get_dict_link
@@ -922,40 +917,40 @@ section .rdata
 
 	; ( a b -- a===b ) String comparison of null-terminated strings; surprisingly difficult
 	make_thread string_equals
-	string_equals_loop:
-		dq copy ; ( a b -- a b b )
-		dq peek_byte ; ( a b b -- a b *b )
-		dq push_cell ; ( a b *b -- a b )
-		dq swap ; ( a b -- b a )
-		dq copy ; ( b a -- b a a )
-		dq peek_byte ; ( b a a -- b a *a )
-		dq pop_cell ; ( b a *a -- b a *a *b )
-		dq two_copy ; ( b a *a *b -- b a *a *b *a *b )
-		dq is_zero ; (  b a *a *b *a *b --  b a *a *b *a *b==0 )
-		dq swap ; ( b a *a *b *a *b==0 -- b a *a *b *b==0 *a )
-		dq is_zero ; ( b a *a *b *b==0 *a -- b a *a *b *b==0 *a==0 )
-		dq stack_or ; ( b a *a *b *b==0 *a==0 -- b a *a *b !*a||!*b )
-		make_branch string_equals_done ; ( b a *a *b !*a||!*b -- b a *a *b )
+		string_equals_loop:
+			dq copy ; ( a b -- a b b )
+			dq peek_byte ; ( a b b -- a b *b )
+			dq push_cell ; ( a b *b -- a b )
+			dq swap ; ( a b -- b a )
+			dq copy ; ( b a -- b a a )
+			dq peek_byte ; ( b a a -- b a *a )
+			dq pop_cell ; ( b a *a -- b a *a *b )
+			dq two_copy ; ( b a *a *b -- b a *a *b *a *b )
+			dq is_zero ; (  b a *a *b *a *b --  b a *a *b *a *b==0 )
+			dq swap ; ( b a *a *b *a *b==0 -- b a *a *b *b==0 *a )
+			dq is_zero ; ( b a *a *b *b==0 *a -- b a *a *b *b==0 *a==0 )
+			dq stack_or ; ( b a *a *b *b==0 *a==0 -- b a *a *b !*a||!*b )
+			make_branch string_equals_done ; ( b a *a *b !*a||!*b -- b a *a *b )
+
 		dq equals ; ( b a *a *b -- b a *a==*b )
 		make_branch string_equals_continue ; ( b a *a==*b -- b a )
 		dq two_drop ; ( b a -- )
 		dq zero ; ( -- false )
 		dq return ; ( false -- false )
+		string_equals_continue:
+			dq increment ; ( b a -- b a+1 )
+			dq swap ; ( b a+1 -- a+1 b )
+			dq increment ; ( a+1 b -- a+1 b+1)
+			make_jump string_equals_loop
 
-	string_equals_continue:
-		dq increment ; ( b a -- b a+1 )
-		dq swap ; ( b a+1 -- a+1 b )
-		dq increment ; ( a+1 b -- a+1 b+1)
-		make_jump string_equals_loop
-
-	string_equals_done:
-		dq is_zero ; ( b a *a *b -- b a *a !*b )
-		dq swap ; ( b a *a !*b -- b a !*b *a )
-		dq is_zero ; ( b a !*b *a -- b a !*b !*a )
-		dq stack_and ; ( b a !*b !*a -- b a !*a&&!*b )
-		dq nip
-		dq nip
-		dq return ; ( !*a&&!*b -- !*a&&!*b )
+		string_equals_done:
+			dq is_zero ; ( b a *a *b -- b a *a !*b )
+			dq swap ; ( b a *a !*b -- b a !*b *a )
+			dq is_zero ; ( b a !*b *a -- b a !*b !*a )
+			dq stack_and ; ( b a !*b !*a -- b a !*a&&!*b )
+			dq nip
+			dq nip
+			dq return ; ( !*a&&!*b -- !*a&&!*b )
 
 	make_variable list_words_msg
 		db `Silicon's internal word list contains:\n\n\0`
@@ -966,22 +961,22 @@ section .rdata
 		dq dictionary
 		dq peek
 		make_jump list_words_no_comma
+		list_words_loop:
+			dq literal
+			dq ","
+			dq put
+			dq literal
+			dq `\n`
+			dq put
 
-	list_words_loop:
-		dq literal
-		dq ","
-		dq put
-		dq literal
-		dq `\n`
-		dq put
-
-	list_words_no_comma:
-		dq copy
-		dq increment
-		dq print
-		dq get_dict_link
-		dq copy
-		make_branch list_words_loop
+		list_words_no_comma:
+			dq copy
+			dq increment
+			dq print
+			dq get_dict_link
+			dq copy
+			make_branch list_words_loop
+		
 		dq newline
 		dq newline
 		dq drop
@@ -990,54 +985,52 @@ section .rdata
 	make_thread print_number
 		dq copy ; n n
 		dq biggest_pow10 ; n p10
-
-	print_number_loop:
-		dq swap ; p10 n
-		dq two_copy ; p10 n p10 n
-		dq stack_div ; p10 n n/p10
-		dq literal ; p10 n n/p10 '0'
-		dq '0'
-		dq stack_add ; p10 n n/p10+'0'
-		dq put ; p10 n
-		dq two_copy ; p10 n p10 n
-		dq modulus ; p10 n n%p10
-		dq nip ; p10 n%10
-		dq swap ; n%10 p10
-		dq literal ; n%10 p10 10
-		dq 10
-		dq swap ; n%10 10 p10
-		dq stack_div ; n%10 p10/10
-		dq copy ; n%10 p10/10 p10/10
-		make_branch print_number_loop
-		dq two_drop
-		dq return
+		print_number_loop:
+			dq swap ; p10 n
+			dq two_copy ; p10 n p10 n
+			dq stack_div ; p10 n n/p10
+			dq literal ; p10 n n/p10 '0'
+			dq '0'
+			dq stack_add ; p10 n n/p10+'0'
+			dq put ; p10 n
+			dq two_copy ; p10 n p10 n
+			dq modulus ; p10 n n%p10
+			dq nip ; p10 n%10
+			dq swap ; n%10 p10
+			dq literal ; n%10 p10 10
+			dq 10
+			dq swap ; n%10 10 p10
+			dq stack_div ; n%10 p10/10
+			dq copy ; n%10 p10/10 p10/10
+			make_branch print_number_loop
+			dq two_drop
+			dq return
 
 	make_thread biggest_pow10
 		dq copy
 		make_branch biggest_pow10_non_zero
 		dq increment
 		dq return
+		biggest_pow10_non_zero:
+			dq literal ; n 1
+			dq 1
 
-	biggest_pow10_non_zero:
-		dq literal ; n 1
-		dq 1
-
-	biggest_pow10_loop:
-		dq two_copy ; n p n p
-		dq greater_than ; n p p>n
-		make_branch biggest_pow10_done ; n p
+		biggest_pow10_loop:
+			dq two_copy ; n p n p
+			dq greater_than ; n p p>n
+			make_branch biggest_pow10_done ; n p
+		
 		dq literal ; n p 10
 		dq 10
 		dq stack_mul ; n p*10
 		make_jump biggest_pow10_loop
-
-	biggest_pow10_done:
-		dq nip ; p
-		dq literal ; p 10
-		dq 10
-		dq swap ; 10 p
-		dq stack_div ; p/10
-		dq return
+		biggest_pow10_done:
+			dq nip ; p
+			dq literal ; p 10
+			dq 10
+			dq swap ; 10 p
+			dq stack_div ; p/10
+			dq return
 
 	make_variable benchmark_message0
 		db `Benchmark averaged \0`
@@ -1051,22 +1044,22 @@ section .rdata
 	make_thread benchmark
 		dq zero
 		dq push_cell
-		dq benchmark_iterations
-	
-	benchmark_loop:
-		dq do_rdtsc
-		dq do_nothing
-		dq do_rdtscp
-		dq stack_sub
-		dq pop_cell
-		dq stack_add
-		dq push_cell
-		dq literal
-		dq 1
-		dq swap
-		dq stack_sub
-		dq copy
-		make_branch benchmark_loop
+		dq benchmark_iterations	
+		benchmark_loop:
+			dq do_rdtsc
+			dq do_nothing
+			dq do_rdtscp
+			dq stack_sub
+			dq pop_cell
+			dq stack_add
+			dq push_cell
+			dq literal
+			dq 1
+			dq swap
+			dq stack_sub
+			dq copy
+			make_branch benchmark_loop
+
 		dq drop
 		dq benchmark_iterations
 		dq pop_cell
@@ -1082,18 +1075,18 @@ section .rdata
 	make_thread do_nothing
 		dq literal
 		dq 1024
-
-	do_nothing_loop:
-		dq benchmark_message0
-		dq benchmark_message1
-		dq string_equals
-		dq drop
-		dq literal
-		dq 1
-		dq swap
-		dq stack_sub
-		dq copy
-		make_branch do_nothing_loop
+		do_nothing_loop:
+			dq benchmark_message0
+			dq benchmark_message1
+			dq string_equals
+			dq drop
+			dq literal
+			dq 1
+			dq swap
+			dq stack_sub
+			dq copy
+			make_branch do_nothing_loop
+		
 		dq drop		
 		dq return
 
