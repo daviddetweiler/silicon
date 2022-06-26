@@ -17,4 +17,7 @@ debug: silicon-debug.exe
 	devenv /debugexe silicon-debug.exe
 
 clean:
-	del *.obj *.pdb *.ilk *.exe
+	del *.obj *.pdb *.ilk *.exe *.zip
+
+silicon.zip: silicon.exe
+	tar -a -c -f silicon.zip silicon.exe
