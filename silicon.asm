@@ -27,6 +27,9 @@ extern GetStdHandle
 extern WriteFile
 extern ReadFile
 
+%define line_buffer_size 32
+%define token_max_len 32
+
 %assign latest_header 0
 %define header_0 0
 
@@ -201,12 +204,12 @@ section .text
 		add r12, rcx
 		jmp continue
 
-	; ( buffer handle -- filled ) Read 128 bytes from `handle` into `buffer`; `filled` is the number of bytes actually
+	; ( buffer handle -- filled ) Read bytes from `handle` into `buffer`; `filled` is the number of bytes actually
 	; read
 	make_code_word read_line
 		mov rcx, [r15]
 		mov rdx, [r15 + 8]
-		mov r8, 128
+		mov r8, line_buffer_size
 		mov r9, r15
 		mov qword [rsp + 8 * 4], 0
 		call ReadFile
@@ -535,7 +538,7 @@ section .rdata
 		dq token_ptr
 		dq peek
 		dq literal
-		dq 64
+		dq token_max_len
 		dq equals
 		make_branch get_token_full
 		dq key ; ( buf -- buf ch )
@@ -915,10 +918,10 @@ section .rdata
 		dq return
 
 section .data
-		times 512 dq 0
+		times 32 dq 0
 	data_stack:
 
-		times 512 dq 0
+		times 32 dq 0
 	return_stack:
 
 	make_variable stdout
@@ -929,7 +932,7 @@ section .data
 
 	; Holds lines of input as they are received
 	make_variable line_buffer
-		times 128 db 0
+		times line_buffer_size db 0
 
 	; Contains the next position to read from in the line buffer
 	make_variable line_ptr
@@ -945,14 +948,14 @@ section .data
 
 	; Memory to hold token strings
 	make_variable token_buffer
-		times 64 db 0
+		times token_max_len db 0
 
 	; Index into token_buffer
 	make_variable token_ptr
 		dq 0
 
 	make_variable repl_token_buffer
-		times 64 db 0
+		times token_max_len db 0
 
 	make_variable compiling
 		dq 0
