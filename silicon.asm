@@ -88,26 +88,31 @@ header:
 %%next:
 %endmacro
 
-%macro kernel 1
+%macro make_native 1
 	section .rdata
-		make_constant kernel_%1
+		make_constant native_%1
 			dq %1
 	
 	section .text
 		%1:
 %endmacro
 
+; Runs the word referenced at the current IP, advances IP
 %macro make_continue 0
-	jmp continue
+	mov r13, [r12]
+	add r12, 8
+	make_run
 %endmacro
 
+; Runs a word, setting WA to point to the data field
 %macro make_run 0
-	jmp run
+	add r13, 8
+	jmp qword [r13 - 8]
 %endmacro
 
-; Exactly 5 labels are exported as "kernel" to the REPL: continue, run, call_thread, call_variable, call_constant, for
-; their general usefulness. These form the "native kernel", subroutines that are extensively used, but are not
-; threaded-code words. We expose them to the REPL as constants holding their addresses.
+; Exactly 3 labels are exported as "native" to the REPL: call_thread, call_variable, call_constant, for their general
+; usefulness. These form the "native kernel", subroutines that are extensively used, but are not threaded-code words. We
+; expose them to the REPL as constants holding their addresses.
 section .text
 	start:
 		push r12
@@ -116,37 +121,31 @@ section .text
 		push r15
 		sub rsp, 0x88 ; Stack alignment + 16 parameters
 		mov r12, thread
-		mov r14, return_stack
-		mov r15, data_stack
-
-	; Runs the word referenced at the current IP, advances IP
-	kernel continue
-		mov r13, [r12]
-		add r12, 8
-
-	; Runs a word, setting WA to point to the data field
-	kernel run
-		add r13, 8
-		jmp qword [r13 - 8]
+		make_continue
 
 	; Procedure implementing threaded list-words
-	kernel call_thread
+	make_native call_thread
 		sub r14, 8
 		mov [r14], r12
 		mov r12, r13
 		make_continue
 
 	; Pushes the address of the word data field
-	kernel call_variable
+	make_native call_variable
 		sub r15, 8
 		mov [r15], r13
 		make_continue
 
 	; Pushes the first cell of the word data field
-	kernel call_constant
+	make_native call_constant
 		mov rcx, [r13]
 		sub r15, 8
 		mov [r15], rcx
+		make_continue
+
+	make_code_word set_stacks
+		mov r14, return_stack
+		mov r15, data_stack
 		make_continue
 		
 	; ( -- ) Returns control from a thread
@@ -455,6 +454,7 @@ section .text
 section .rdata
 	; The initial thread executed by `start`
 	thread:
+		dq set_stacks
 		dq init_io
 		dq greet
 		dq interpret
@@ -1037,6 +1037,7 @@ section .rdata
 	
 	benchmark_loop:
 		dq do_rdtsc
+		dq do_nothing
 		dq do_rdtscp
 		dq stack_sub
 		dq pop_cell
@@ -1058,6 +1059,24 @@ section .rdata
 		dq benchmark_message1
 		dq print
 		dq newline
+		dq return
+
+	make_thread do_nothing
+		dq literal
+		dq 1024
+
+	do_nothing_loop:
+		dq benchmark_message0
+		dq benchmark_message1
+		dq string_equals
+		dq drop
+		dq literal
+		dq 1
+		dq swap
+		dq stack_sub
+		dq copy
+		make_branch do_nothing_loop
+		dq drop		
 		dq return
 
 section .data
