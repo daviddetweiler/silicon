@@ -1,7 +1,7 @@
 ; If you want to learn more, I suggest you read the book "Threaded Interpretive Languages."
 
 ; Long-term goals (some of these are mutually exclusive):
-;   - Provide an ANSI Forth environment in here (as in, passing an official test suite)
+;   - Provide an ANSI Forth environment in here (as in, data_stack an official test suite)
 ;   - Provide a self-hosting metacompiler version of it, throw away the assembly
 ;   - Implement a variety of interesting languages:
 ;       - Write a Windows x64 assembler
@@ -9,14 +9,6 @@
 ;           - Folds into writing a generally useful PE linker, or some custom loader (see other languages)
 ;       - Lisp (probably Scheme, and both source and image-based)
 ;       - Smalltalk (duh)
-
-; Short-term tasks:
-;   - Though we have basic execution of words and parsing of numbers, we need a compile mode
-;       - Needs words to enter/exit this mode (enter word should take an address to write the thread to as an argument)
-;       - Current thread pointer should be available as a variable
-;   - At the very least, a variable indicating the current dictionary head, if not words to query the dictionary, create
-;     headers, etc.
-;   - Essentially, we need to figure out what kind of API the system actually exposes
 
 bits 64
 
@@ -88,13 +80,29 @@ header:
 %%next:
 %endmacro
 
-%macro make_native 1
+%macro make_native_code 1
 	section .rdata
-		make_constant native_%1
+		make_constant native_code_%1
 			dq %1
 	
 	section .text
 		%1:
+%endmacro
+
+%macro make_native_data 1
+	section .rdata
+		make_constant native_data_%1
+			dq %1
+
+	section .data
+		%1:
+%endmacro
+
+%macro make_native_rdata 1
+	make_constant native_rdata_%1
+		dq %1
+
+	%1:
 %endmacro
 
 ; Runs the word referenced at the current IP, advances IP
@@ -110,45 +118,39 @@ header:
 	jmp qword [r13 - 8]
 %endmacro
 
-; Exactly 3 labels are exported as "native" to the REPL: call_thread, call_variable, call_constant, for their general
-; usefulness. These form the "native kernel", subroutines that are extensively used, but are not threaded-code words. We
-; expose them to the REPL as constants holding their addresses.
 section .text
-	start:
+	make_native_code start
 		push r12
 		push r13
 		push r14
 		push r15
 		sub rsp, 0x88 ; Stack alignment + 16 parameters
 		mov r12, thread
+		mov r14, return_stack
+		mov r15, data_stack
 		make_continue
 
 	; Procedure implementing threaded list-words
-	make_native call_thread
+	make_native_code call_thread
 		sub r14, 8
 		mov [r14], r12
 		mov r12, r13
 		make_continue
 
 	; Pushes the address of the word data field
-	make_native call_variable
+	make_native_code call_variable
 		sub r15, 8
 		mov [r15], r13
 		make_continue
 
 	; Pushes the first cell of the word data field
-	make_native call_constant
+	make_native_code call_constant
 		mov rcx, [r13]
 		sub r15, 8
 		mov [r15], rcx
 		make_continue
 
-	make_code_word set_stacks
-		mov r14, return_stack
-		mov r15, data_stack
-		make_continue
-		
-	; ( -- ) Returns control from a thread
+	; ( -- ) Returns return_stack from a thread
 	make_code_word return
 		mov r12, [r14]
 		add r14, 8
@@ -458,10 +460,20 @@ section .text
 		int3
 		make_continue
 
+	make_code_word get_data_stack
+		mov rcx, r15
+		sub r15, 8
+		mov [r15], rcx
+		make_continue
+
+	make_code_word get_return_stack
+		sub r15, 8
+		mov [r15], r14
+		make_continue
+
 section .rdata
 	; The initial thread executed by `start`
-	thread:
-		dq set_stacks
+	make_native_rdata thread
 		dq init_io
 		dq greet
 		dq interpret
@@ -1001,6 +1013,12 @@ section .rdata
 		dq return
 
 	make_thread biggest_pow10
+		dq copy
+		make_branch biggest_pow10_non_zero
+		dq increment
+		dq return
+
+	biggest_pow10_non_zero:
 		dq literal ; n 1
 		dq 1
 
@@ -1079,12 +1097,33 @@ section .rdata
 		dq drop		
 		dq return
 
+	make_thread get_data_depth
+		dq get_data_stack
+		dq native_data_data_stack
+		dq stack_sub
+		dq cell_size
+		dq swap
+		dq stack_div
+		dq return
+	
+	make_thread get_return_depth
+		dq cell_size
+		dq get_return_stack
+		dq native_data_return_stack
+		dq stack_sub
+		dq stack_div
+		dq literal
+		dq 1
+		dq swap
+		dq stack_sub
+		dq return
+
 section .data
 		times 128 dq 0
-	data_stack:
+	make_native_data data_stack
 
 		times 128 dq 0
-	return_stack:
+	make_native_data return_stack
 
 	make_variable stdout
 		dq 0

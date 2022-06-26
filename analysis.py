@@ -3,7 +3,9 @@ import json
 
 
 def main():
-    makes = ['make_thread', 'make_variable', 'make_constant', 'make_code_word', 'make_native']
+    makes = ['make_thread', 'make_variable', 'make_constant', 'make_code_word',
+             'make_native_code', 'make_native_rdata', 'make_native_data']
+
     stripped = filter(lambda line: len(line), (line.split() for line in open(
         'silicon.asm').readlines()))
 
@@ -22,7 +24,7 @@ def main():
         word_map[make[5:]].append(word)
         count_map[make[5:]] += 1
         word_map['count'] += 1
-    
+
     json.dump(word_map, open('words.json', 'w'))
 
 
