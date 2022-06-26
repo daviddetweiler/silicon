@@ -31,15 +31,17 @@ extern ReadFile
 %define header_0 0
 
 %macro make_header 1
+	%assign next_header latest_header + 1
+	%define header header_ %+ next_header
+	%defstr name_string %1
+
 	align 8
 
-%assign next_header latest_header + 1
-%define header header_ %+ next_header
 header:
 	db %%link - header
 
 %%name:
-	db %1, 0
+	db name_string, 0
 	align 8
 
 %%link:
@@ -49,7 +51,7 @@ header:
 %endmacro
 
 %macro make_word 2
-	align 8
+	make_header %1
 
 %1:
 	dq %2
@@ -84,7 +86,7 @@ header:
 %endmacro
 
 section .drectve info
-	db "/defaultlib:kernel32.lib /entry:start /subsystem:console", 0
+	db "/defaultlib:kernel32.lib /entry:start /subsystem:console"
 
 section .text
 	start:
@@ -134,13 +136,11 @@ section .text
 		jmp continue
 
 	; ( -- ) Exits the host process
-	make_header "exit"
 	make_code_word exit
 		xor rcx, rcx
 		call ExitProcess
 
 	; ( word-address -- ) Executes the word at `word-address`
-	make_header "invoke"
 	make_code_word execute
 		mov r13, [r15]
 		add r15, 8
@@ -163,7 +163,6 @@ section .text
 		jmp continue
 
 	; ( a -- )
-	make_header "drop"
 	make_code_word drop
 		add r15, 8
 		jmp continue
@@ -232,7 +231,6 @@ section .text
 		jmp continue
 
 	; ( a -- a a )
-	make_header "copy"
 	make_code_word copy
 		mov rcx, [r15]
 		sub r15, 8
@@ -240,7 +238,6 @@ section .text
 		jmp continue
 
 	; ( b a -- a b )
-	make_header "swap"
 	make_code_word swap
 		mov rcx, [r15]
 		xchg [r15 + 8], rcx
@@ -248,7 +245,6 @@ section .text
 		jmp continue
 
 	; ( a -- ) Moves `a` onto the return stack
-	make_header "push-cell"
 	make_code_word push_cell
 		mov rcx, [r15]
 		add r15, 8
@@ -257,7 +253,6 @@ section .text
 		jmp continue
 
 	; ( -- a ) Pops `a` from the return stack
-	make_header "pop-cell"
 	make_code_word pop_cell
 		mov rcx, [r14]
 		add r14, 8
@@ -265,7 +260,6 @@ section .text
 		mov [r15], rcx
 		jmp continue
 
-	make_header "copy-two"
 	make_code_word two_copy
 		mov rcx, [r15]
 		mov rdx, [r15 + 8]
@@ -274,13 +268,11 @@ section .text
 		mov [r15], rcx
 		jmp continue
 
-	make_header "drop-two"
 	make_code_word two_drop
 		add r15, 16
 		jmp continue
 
 	; ( b a -- mod ) mod = a % b
-	make_header "%"
 	make_code_word modulus
 		xor rdx, rdx
 		mov rax, [r15]
@@ -290,7 +282,6 @@ section .text
 		jmp continue
 
 	; ( address -- *address )
-	make_header "peek"
 	make_code_word peek
 		mov rcx, [r15]
 		mov rcx, [rcx]
@@ -298,7 +289,6 @@ section .text
 		jmp continue
 
 	; ( value address -- ) `*address = value`
-	make_header "poke"
 	make_code_word poke
 		mov rcx, [r15]
 		mov rdx, [r15 + 8]
@@ -307,7 +297,6 @@ section .text
 		jmp continue
 
 	; ( b a -- c ) c = a + b
-	make_header "+"
 	make_code_word stack_add
 		mov rcx, [r15]
 		add r15, 8
@@ -315,7 +304,6 @@ section .text
 		jmp continue
 
 	; ( b a -- c ) c = a - b
-	make_header "-"
 	make_code_word stack_sub
 		mov rcx, [r15]
 		add r15, 8
@@ -324,7 +312,6 @@ section .text
 		jmp continue
 
 	; ( b a -- c ) c = a * b
-	make_header "*"
 	make_code_word stack_mul
 		mov rcx, [r15]
 		add r15, 8
@@ -333,7 +320,6 @@ section .text
 		jmp continue
 
 	; ( a b -- c ) c = a == b
-	make_header "="
 	make_code_word equals
 		mov rcx, [r15]
 		add r15, 8
@@ -347,7 +333,6 @@ section .text
 		jmp continue
 
 	; ( a b -- c ) c = a | b
-	make_header "|"
 	make_code_word stack_or
 		mov rcx, [r15]
 		add r15, 8
@@ -355,7 +340,6 @@ section .text
 		jmp continue
 
 	; ( a b -- c ) c = a & b
-	make_header "&"
 	make_code_word stack_and
 		mov rcx, [r15]
 		add r15, 8
@@ -363,7 +347,6 @@ section .text
 		jmp continue
 
 	; ( a -- ~a )
-	make_header "!"
 	make_code_word stack_not
 		mov rcx, [r15]
 		not rcx
@@ -371,13 +354,11 @@ section .text
 		jmp continue
 
 	; ( a -- b ) b = a + 1
-	make_header "++"
 	make_code_word increment
 		inc qword [r15]
 		jmp continue
 
 	; ( a -- a==0 )
-	make_header "is-zero"
 	make_code_word is_zero
 		mov rcx, [r15]
 		test rcx, rcx
@@ -432,7 +413,6 @@ section .rdata
 		dq return
 
 	; ( ch -- ) Write `ch` to `stdout`
-	make_header "put"
 	make_thread put
 		dq stdout
 		dq peek
@@ -440,7 +420,6 @@ section .rdata
 		dq return
 
 	; ( string -- ) Write `string` to `stdin`.
-	make_header "print"
 	make_thread print
 	print_next:
 		dq copy ; ( str -- str str )
@@ -533,7 +512,6 @@ section .rdata
 		dq return
 
 	; ( -- ) Emits a newline
-	make_header "endl"
 	make_thread newline
 		dq literal
 		dq 10
@@ -603,7 +581,6 @@ section .rdata
 		dq poke_byte
 		dq return
 
-	make_header "next-token"
 	make_thread get_repl_token
 		dq repl_token_buffer
 		dq get_token
@@ -633,16 +610,16 @@ section .rdata
 		dq swap ; ( ch==' ' ch -- )
 		dq copy
 		dq literal
-		dq 9
+		dq `\r`
 		dq equals
 		dq swap
 		dq copy
 		dq literal
-		dq 13
+		dq `\t`
 		dq equals
 		dq swap
 		dq literal
-		dq 10
+		dq `\n`
 		dq equals
 		dq stack_or
 		dq stack_or
@@ -651,22 +628,20 @@ section .rdata
 
 	; This is the banner
 	make_variable greeting
-		db "Silicon (c) 2022 David Detweiler", 10, 10, 0
+		db `Silicon (c) 2022 David Detweiler\n\n\0`
 
 	; ( -- 0 )
-	make_header "false"
 	make_constant zero
 		dq 0
 
-	make_header "true"
 	make_constant true
 		dq 0ffffffffffffffffh
 
 	make_variable not_a_word
-		db " is not a word", 10, 0
+		db ` is not a word\n\n\0`
 
 	make_variable invalid_token
-		db "token was too big", 10, 0
+		db `token was too big\n\n\0`
 
 	; ( -- ) Runs in a loop, consuming tokens, finding them in the dictionary, executing them, and purging the line on
 	; error. Returns on EOF.
@@ -806,7 +781,6 @@ section .rdata
 		dq return
 
 	; ( name -- token ) Queries the dictionary for the word with the name `name`, returning its token
-	make_header "look-up"
 	make_thread look_up
 		dq dictionary
 		dq peek
@@ -872,7 +846,6 @@ section .rdata
 		dq 8
 
 	; ( a b -- a===b ) String comparison of null-terminated strings; surprisingly difficult
-	make_header "string-eq"
 	make_thread string_equals
 	string_equals_loop:
 		dq copy ; ( a b -- a b b )
@@ -911,41 +884,34 @@ section .rdata
 		dq drop
 		dq return ; ( !*a&&!*b -- !*a&&!*b )
 
-	make_header "list-words"
+	make_variable list_words_msg
+		db `Silicon's internal word list contains:\n\n\0`
+
 	make_thread list_words
+		dq list_words_msg
+		dq print
 		dq dictionary
 		dq peek
-		make_jump walk_no_comma
+		make_jump list_words_no_comma
 
-	walk_loop:
+	list_words_loop:
 		dq literal
 		dq ","
 		dq put
 		dq literal
-		dq " "
+		dq `\n`
 		dq put
 
-	walk_no_comma:
+	list_words_no_comma:
 		dq copy
 		dq increment
 		dq print
 		dq get_dict_link
 		dq copy
-		make_branch walk_loop
+		make_branch list_words_loop
+		dq newline
 		dq newline
 		dq drop
-		dq return
-
-	make_header "#"
-	make_thread line_comment
-		dq purge_line
-		dq return
-
-	make_header "{"
-	make_thread block_comment
-		dq literal
-		dq 125
-		dq purge_until
 		dq return
 
 section .data

@@ -1,18 +1,13 @@
-# A really fancy way of outputting the string "@\n"
-true { 0xffffffffffffffff } ! { 0 } ++ { 1 } ++ { 2 }
-copy copy copy { 2 2 2 2 } * { 2 2 4 } * { 2 8 }
-copy copy { 2 8 8 8 }
-* { 2 8 64 } put { 2 8 }
-+ { 10 } put { }
+true stack_not increment increment
+copy copy copy stack_mul stack_mul
+copy copy
+stack_mul put
+stack_add put
 
-# A less fancy way of doing the same thing
-64 10 swap { 10 64 } put put
+64 10 swap put put
 
-# Some space
-endl
+newline
 
-# Dynamic invocation of "list-words"
-next-token list-words look-up invoke
+get_repl_token list_words look_up execute
 
-# Static invocation
-list-words
+list_words
