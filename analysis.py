@@ -22,15 +22,8 @@ def main():
         word_map[make[5:]].append(word)
         count_map[make[5:]] += 1
         word_map['count'] += 1
-
-    header_map = {'count': 0}
-    for n, line in enumerate(filtered):
-        if line[0] == 'make_header':
-            header_map[line[1][1:-1]] = filtered[n + 1][1]
-            header_map['count'] += 1
-
-    source_map = {'headers': header_map, 'words': word_map}
-    json.dump(source_map, open('words.json', 'w'))
+    
+    json.dump(word_map, open('words.json', 'w'))
 
 
 if __name__ == '__main__':
