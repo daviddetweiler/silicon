@@ -906,15 +906,15 @@ constants segment readonly alias(".rdata") 'CONST'
 		dq drop
 		dq return
 
-	make_header "/"
+	make_header "#"
 	make_thread line_comment
 		dq purge_line
 		dq return
 
-	make_header "("
+	make_header "{"
 	make_thread block_comment
 		dq literal
-		dq 41
+		dq 125
 		dq purge_until
 		dq return
 constants ends

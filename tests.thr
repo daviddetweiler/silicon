@@ -1,0 +1,33 @@
+{
+    If you want to learn more, I suggest you read the book "Threaded Interpretive Languages." Comment syntax in here is
+    braces for block comments, and # for line comments.
+
+    Long-term goals (some of these are mutually exclusive):
+        - Provide an ANSI Forth environment in here (as in, passing an official test suite)
+        - Provide a self-hosting metacompiler version of it, throw away the assembly
+        - Implement a variety of interesting languages:
+            - Write a Windows x64 assembler
+                - Possibly reimplement the TIL kernel in this assembly language
+                - Folds into writing a generally useful PE linker, or some custom loader (see other languages)
+            - Lisp (probably Scheme, and both source and image-based)
+            - Smalltalk (duh)
+}
+
+# A really fancy way of outputting the string "@\n"
+true { 0xffffffffffffffff } ! { 0 } ++ { 1 } ++ { 2 }
+copy copy copy { 2 2 2 2 } * { 2 2 4 } * { 2 8 }
+copy copy { 2 8 8 8 }
+* { 2 8 64 } put { 2 8 }
++ { 10 } put { }
+
+# A less fancy way of doing the same thing
+64 10 swap { 10 64 } put put
+
+# Some space
+endl
+
+# Dynamic invocation of "help"
+next-token help look-up invoke
+
+# Static invocation
+help
