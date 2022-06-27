@@ -38,3 +38,29 @@ define nop
 finish
 
 nop
+
+define defer
+    get_repl_token			# otherwise, the word would be executed
+    look_up get_dict_token	# straightforward, get the word itself by name
+    compile_cell			# and add it on
+finish
+
+# Need to make sure it gets executed during compilation
+immediate defer
+
+# Define more Forth-like concepts
+define : define finish
+define ; defer finish finish
+
+# Otherwise `:` would eat it
+immediate ;
+
+# Classic forth-like BS
+: * stack_mul ;
+: dup copy ;
+: square dup * ;
+: cr newline ;
+: . print_number cr ;
+
+# And a demo
+13 square .
