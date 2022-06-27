@@ -63,4 +63,24 @@ immediate ;
 : . print_number cr ;
 
 # And a demo
-13 square .
+132 square .
+
+# In theory, we're completely feature-complete (with the exception of GetProcAddress/LoadLibrary/UnloadLibrary). The
+# questions now are:
+# - What is the minimal word list we need to expose to the user?
+# - Is there a way to improve the kernel itself?
+# - Is it worth it to become self-hosting? (our surveys say: "probably lol")
+# - How best to reduce the binary size? (almost definitely requires self-hosting tricks)
+
+# What really defines a TIL? What are the key characteristics of the interpreter?
+# - RPN
+# - The dictionary
+# - Literals
+# - The ability to define new words, including immediate words
+# - Actually that last part just falls into general reflection capabilities (for instance, how would you go about
+#   defining something like Forth's `VARIABLE`?)
+# - Something about being to arbitrarily self-extend (immediate flag, compile mode, dictionary format...)
+# - I think the self-extension thing just screams for self-hosting. The core characteristics of the language are
+#   ultimately defined by that of the inner interpreter
+
+benchmark
