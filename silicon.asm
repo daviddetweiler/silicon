@@ -376,7 +376,7 @@ section .text
 		mov rcx, [r15]
 		add r15, 8
 		cmp rcx, [r15]
-		setg cl
+		seta cl
 		movzx rcx, cl
 		xor rdx, rdx
 		not rdx
@@ -822,16 +822,16 @@ section .rdata
 			make_jump interpret_loop
 
 	make_thread compile_cell
-		dq free_ptr
-		dq peek
-		dq copy
-		dq push_cell
-		dq poke
-		dq pop_cell
-		dq cell_size
-		dq stack_add
-		dq free_ptr
-		dq poke
+		dq free_ptr ; cell &free
+		dq peek ; cell free
+		dq copy ; cell free free
+		dq push_cell ; cell free R: free
+		dq poke ; R: free
+		dq pop_cell ; free
+		dq cell_size ; free 8
+		dq stack_add ; free+8
+		dq free_ptr ; free+8 &free
+		dq poke ;
 		dq return
 
 	; ( token -- n )
@@ -1075,7 +1075,11 @@ section .rdata
 
 		biggest_pow10_loop:
 			dq two_copy ; n p n p
-			dq greater_than ; n p p>n
+			dq swap ; n p p n
+			dq stack_div ; n p n/p
+			dq literal
+			dq 10
+			dq greater_than ; n p 10>n/p
 			make_branch biggest_pow10_done ; n p
 		
 		dq literal ; n p 10
@@ -1084,10 +1088,6 @@ section .rdata
 		make_jump biggest_pow10_loop
 		biggest_pow10_done:
 			dq nip ; p
-			dq literal ; p 10
-			dq 10
-			dq swap ; 10 p
-			dq stack_div ; p/10
 			dq return
 
 	make_variable benchmark_message0
@@ -1260,10 +1260,21 @@ section .rdata
 		dq copy ; free free
 		dq dictionary ; free free &dict
 		dq poke ; free
-		dq copy ; free free
-		dq get_dict_token ; free &free->word
-		dq free_ptr ; free &free->word &free
-		dq poke ; free
+		dq get_dict_token ; &free->word
+		dq free_ptr ; &free->word &free
+		dq poke
+		dq return
+
+	make_thread define
+		dq create_word
+		dq enter_compiler
+		dq return
+	
+	make_thread finish, true
+		dq literal
+		dq return
+		dq compile_cell
+		dq exit_compiler
 		dq return
 
 section .data
