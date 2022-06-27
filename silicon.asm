@@ -807,17 +807,32 @@ section .rdata
 			make_jump interpret_loop
 
 		interpret_compile_word:
-			; TODO
 			dq copy
 			dq get_dict_immediate
 			make_branch interpret_execute_word
-			dq drop
+			dq get_dict_token
+			dq compile_cell
 			make_jump interpret_loop
 
 		interpret_compile_number:
-			; TODO
-			dq drop
+			dq literal
+			dq literal
+			dq compile_cell
+			dq compile_cell
 			make_jump interpret_loop
+
+	make_thread compile_cell
+		dq free_ptr
+		dq peek
+		dq copy
+		dq push_cell
+		dq poke
+		dq pop_cell
+		dq cell_size
+		dq stack_add
+		dq free_ptr
+		dq poke
+		dq return
 
 	; ( token -- n )
 	make_thread to_number
@@ -1155,6 +1170,8 @@ section .rdata
 		dq return
 
 	make_thread enter_compiler
+		dq native_code_call_thread
+		dq compile_cell
 		dq true
 		dq compiling
 		dq poke

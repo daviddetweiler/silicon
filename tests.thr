@@ -20,3 +20,15 @@ swap poke
 free_ptr copy peek cell_size 2 stack_mul stack_add swap poke
 
 new-word
+
+create_word compiled-word
+enter_compiler
+greeting
+println
+1234567890
+print_number
+newline
+return
+exit_compiler
+
+compiled-word
