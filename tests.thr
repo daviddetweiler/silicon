@@ -8,6 +8,6 @@ stack_add put
 
 newline
 
-get_repl_token list_words look_up execute
+get_repl_token list_words look_up get_dict_token execute
 
 list_words

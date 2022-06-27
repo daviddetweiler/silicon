@@ -25,7 +25,9 @@ extern ReadFile
 %assign latest_header 0
 %define header_0 0
 
-%macro make_header 1
+%macro make_header 2
+	%define immediate_false 0
+	%define immediate_true 0x80
 	%assign next_header latest_header + 1
 	%define header header_ %+ next_header
 	%defstr name_string %1
@@ -33,7 +35,7 @@ extern ReadFile
 	align 8
 
 header:
-	db %%link - header
+	db (%%link - header) | (immediate_ %+ %2)
 
 %%name:
 	db name_string, 0
@@ -45,26 +47,26 @@ header:
 	%assign latest_header next_header
 %endmacro
 
-%macro make_word 2
-	make_header %1
+%macro make_word 3
+	make_header %1, %3
 	%1:
 		dq %2
 %endmacro
 
-%macro make_code_word 1
-	make_word %1, %1 + 8
+%macro make_code_word 1-2 false
+	make_word %1, %1 + 8, %2
 %endmacro
 
-%macro make_thread 1
-	make_word %1, call_thread
+%macro make_thread 1-2 false
+	make_word %1, call_thread, %2
 %endmacro
 
-%macro make_variable 1
-	make_word %1, call_variable
+%macro make_variable 1-2 false
+	make_word %1, call_variable, %2
 %endmacro
 
-%macro make_constant 1
-	make_word %1, call_constant
+%macro make_constant 1-2 false
+	make_word %1, call_constant, %2
 %endmacro
 
 %macro make_branch 1
@@ -79,26 +81,26 @@ header:
 	%%next:
 %endmacro
 
-%macro make_native_code 1
+%macro make_native_code 1-2 false
 	section .rdata
-		make_constant native_code_%1
+		make_constant native_code_%1, %2
 			dq %1
 	
 	section .text
 		%1:
 %endmacro
 
-%macro make_native_data 1
+%macro make_native_data 1-2 false
 	section .rdata
-		make_constant native_data_%1
+		make_constant native_data_%1, %2
 			dq %1
 
 	section .data
 		%1:
 %endmacro
 
-%macro make_native_rdata 1
-	make_constant native_rdata_%1
+%macro make_native_rdata 1-2 false
+	make_constant native_rdata_%1, %2
 		dq %1
 
 	%1:
@@ -780,10 +782,16 @@ section .rdata
 			dq peek
 			make_branch interpret_compile_word
 
-		dq execute
-		make_jump interpret_loop
+		interpret_execute_word:
+			dq get_dict_token
+			dq execute
+			make_jump interpret_loop
+
 		interpret_compile_word:
 			; TODO
+			dq copy
+			dq get_dict_immediate
+			make_branch interpret_execute_word
 			dq drop
 			make_jump interpret_loop
 
@@ -873,13 +881,29 @@ section .rdata
 		make_jump look_up_next
 		look_up_found:
 			dq nip ; ( name dict -- dict )
-			dq get_dict_token ; ( dict -- &dict->word )
 			dq return
+
+	make_thread get_dict_len
+		dq peek_byte
+		dq literal
+		dq 0x80
+		dq stack_not
+		dq stack_and
+		dq return
+
+	make_thread get_dict_immediate
+		dq peek_byte
+		dq literal
+		dq 0x80
+		dq stack_and
+		dq is_zero
+		dq stack_not
+		dq return
 
 	; ( dict -- dict->link )
 	make_thread get_dict_link
 		dq copy
-		dq peek_byte
+		dq get_dict_len
 		dq stack_add
 		dq peek
 		dq return
@@ -892,7 +916,7 @@ section .rdata
 	; ( dict -- &dict->word )
 	make_thread get_dict_token
 		dq copy
-		dq peek_byte
+		dq get_dict_len
 		dq cell_size
 		dq stack_add
 		dq stack_add
@@ -1109,6 +1133,18 @@ section .rdata
 		dq 1
 		dq swap
 		dq stack_sub
+		dq return
+
+	make_thread enter_compiler
+		dq true
+		dq compiling
+		dq poke
+		dq return
+
+	make_thread exit_compiler, true
+		dq zero
+		dq compiling
+		dq poke
 		dq return
 
 section .data
