@@ -6,3 +6,35 @@ define print-square
 finish
 
 10 print-square
+
+define #
+	purge_line
+finish
+
+# Now we should be able to support line comments
+
+# 41 encodes ')'
+define (
+	41 purge_until
+finish
+
+( How about these block comments though )
+
+# If you want to know how this works, you should look at the header format in the assembly file
+define immediate
+	get_repl_token
+	look_up
+	copy get_dict_len
+	128 stack_or swap poke_byte
+finish
+
+# Now these will work in compile mode too
+immediate #
+immediate (
+
+define nop
+	( look ma, immediate block comments )
+	# as well as line comments
+finish
+
+nop
