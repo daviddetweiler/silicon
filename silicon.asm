@@ -18,6 +18,7 @@ extern ExitProcess
 extern GetStdHandle
 extern WriteFile
 extern ReadFile
+extern VirtualAlloc
 
 %define line_buffer_size 128
 %define token_max_len 64
@@ -472,13 +473,31 @@ section .text
 		mov [r15], r14
 		make_continue
 
+	make_code_word alloc_rwe
+		xor rcx, rcx
+		mov rdx, [r15]
+		mov r8, 0x00001000
+		mov r9, 0x40
+		call VirtualAlloc
+		mov [r15], rax
+		make_continue
+
 section .rdata
 	; The initial thread executed by `start`
 	make_native_rdata thread
 		dq init_io
 		dq greet
+		dq set_up_data_space
 		dq interpret
 		dq exit
+
+	make_thread set_up_data_space
+		dq literal
+		dq 4096 * 16
+		dq alloc_rwe
+		dq free_ptr
+		dq poke
+		dq return
 
 	; ( -- ) Set values of `stdin` and `stdout`
 	make_thread init_io
@@ -1147,6 +1166,89 @@ section .rdata
 		dq poke
 		dq return
 
+	make_thread align_cell
+		dq copy ; n n
+		dq cell_size ; n n 8
+		dq swap ; n 8 n
+		dq modulus ; n n%8
+		dq cell_size
+		dq stack_sub
+		dq cell_size
+		dq swap
+		dq modulus
+		dq stack_add
+		dq return
+
+	make_thread string_length
+		dq copy
+		string_length_loop:
+			dq copy
+			dq peek_byte
+			dq is_zero
+			make_branch string_length_done
+
+		dq increment
+		make_jump string_length_loop
+		string_length_done:
+			dq stack_sub
+			dq return
+
+	; ( src dst -- )
+	make_thread string_copy
+		dq push_cell ; src R: dst
+		string_copy_loop:
+			dq copy ; src src R: dst
+			dq peek_byte ; src *src R: dst
+			dq copy ; src *src *src R: dst
+			dq pop_cell ; src *src *src dst
+			dq copy ; src *src *src dst dst
+			dq increment ; src *src *src dst dst+1
+			dq push_cell ; src *src *src dst R: dst+1
+			dq poke_byte ; src *src R: dst+1
+			dq is_zero ; src !*src R: dst+1
+			make_branch string_copy_done ; src R: dst+1
+
+		dq increment ; src+1 R: dst+1
+		make_jump string_copy_loop
+		string_copy_done:
+			dq pop_cell ; src dst+1
+			dq two_drop ;
+			dq return
+
+	make_thread create_word
+		dq get_repl_token ; tok
+		dq copy ; tok tok
+		dq string_length ; tok len(tok)
+		dq increment ; tok len(tok)+1
+		dq align_cell ; tok align(len(tok)+1)
+		dq free_ptr ; tok align(len(tok)+1) &free
+		dq peek ; tok align(len(tok)+1) free
+		dq copy ; tok align(len(tok)+1) free free
+		dq push_cell ; tok align(len(tok)+1) free R: free
+		dq poke_byte ; tok R: free
+		dq pop_cell ; tok free
+		dq copy ; tok free free
+		dq push_cell ; tok free R: free
+		dq increment ; tok free+1 R: free
+		dq string_copy ; R: free
+		dq pop_cell ; free
+		dq copy ; free free
+		dq copy ; free free free
+		dq get_dict_len	; free free free->len
+		dq stack_add ; free &free->link
+		dq dictionary ; free &free->link &dict
+		dq peek ; free &free->link dict
+		dq swap ; free dict &free->link
+		dq poke ; free
+		dq copy ; free free
+		dq dictionary ; free free &dict
+		dq poke ; free
+		dq copy ; free free
+		dq get_dict_token ; free &free->word
+		dq free_ptr ; free &free->word &free
+		dq poke ; free
+		dq return
+
 section .data
 		times 128 dq 0
 	make_native_data data_stack
@@ -1190,5 +1292,9 @@ section .data
 	make_variable compiling
 		dq 0
 
+	make_variable free_ptr
+		dq 0
+
+	; This has to be the last declaration
 	make_variable dictionary
 		dq header_ %+ latest_header

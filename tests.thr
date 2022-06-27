@@ -11,3 +11,12 @@ newline
 get_repl_token list_words look_up get_dict_token execute
 
 list_words
+
+create_word new-word get_dict_token
+copy native_code_call_thread swap poke
+cell_size stack_add
+get_repl_token return look_up get_dict_token
+swap poke
+free_ptr copy peek cell_size 2 stack_mul stack_add swap poke
+
+new-word
