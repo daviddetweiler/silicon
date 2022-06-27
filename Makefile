@@ -14,6 +14,8 @@ run: silicon.exe
 	wt -d . .\silicon.exe
 
 debug: silicon-debug.exe
+
+debugger: silicon-debug.exe
 	devenv /debugexe silicon-debug.exe
 
 clean:
@@ -21,3 +23,5 @@ clean:
 
 silicon.zip: silicon.exe
 	tar -a -c -f silicon.zip silicon.exe
+
+zip: silicon.zip
