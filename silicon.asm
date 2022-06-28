@@ -26,12 +26,11 @@ extern VirtualAlloc
 %assign latest_header 0
 %define header_0 0
 
-%macro make_header 2
+%macro make_header 1-2 false
 	%define immediate_false 0
 	%define immediate_true 0x80
 	%assign next_header latest_header + 1
 	%define header header_ %+ next_header
-	%defstr name_string %1
 
 	align 8
 
@@ -39,7 +38,7 @@ header:
 	db (%%link - header) | (immediate_ %+ %2)
 
 %%name:
-	db name_string, 0
+	db %1, 0
 	align 8
 
 %%link:
@@ -48,26 +47,25 @@ header:
 	%assign latest_header next_header
 %endmacro
 
-%macro make_word 3
-	make_header %1, %3
+%macro make_word 2
 	%1:
 		dq %2
 %endmacro
 
-%macro make_code_word 1-2 false
-	make_word %1, %1 + 8, %2
+%macro make_code_word 1
+	make_word %1, %1 + 8
 %endmacro
 
-%macro make_thread 1-2 false
-	make_word %1, call_thread, %2
+%macro make_thread 1
+	make_word %1, call_thread
 %endmacro
 
-%macro make_variable 1-2 false
-	make_word %1, call_variable, %2
+%macro make_variable 1
+	make_word %1, call_variable
 %endmacro
 
-%macro make_constant 1-2 false
-	make_word %1, call_constant, %2
+%macro make_constant 1
+	make_word %1, call_constant
 %endmacro
 
 %macro make_branch 1
@@ -82,26 +80,17 @@ header:
 	%%next:
 %endmacro
 
-%macro make_native_code 1-2 false
+%macro make_native_data 1
 	section .rdata
-		make_constant native_code_%1, %2
-			dq %1
-	
-	section .text
-		%1:
-%endmacro
-
-%macro make_native_data 1-2 false
-	section .rdata
-		make_constant native_data_%1, %2
+		make_constant native_data_%1
 			dq %1
 
 	section .data
 		%1:
 %endmacro
 
-%macro make_native_rdata 1-2 false
-	make_constant native_rdata_%1, %2
+%macro make_native_rdata 1
+	make_constant native_rdata_%1
 		dq %1
 
 	%1:
@@ -121,7 +110,7 @@ header:
 %endmacro
 
 section .text
-	make_native_code start
+	start:
 		push r12
 		push r13
 		push r14
@@ -133,20 +122,20 @@ section .text
 		make_continue
 
 	; Procedure implementing threaded list-words
-	make_native_code call_thread
+	call_thread:
 		sub r14, 8
 		mov [r14], r12
 		mov r12, r13
 		make_continue
 
 	; Pushes the address of the word data field
-	make_native_code call_variable
+	call_variable:
 		sub r15, 8
 		mov [r15], r13
 		make_continue
 
 	; Pushes the first cell of the word data field
-	make_native_code call_constant
+	call_constant:
 		mov rcx, [r13]
 		sub r15, 8
 		mov [r15], rcx
@@ -246,6 +235,7 @@ section .text
 		make_continue
 
 	; ( byte address -- ) Similar to `poke`, but only writes the first byte of `byte`
+	make_header "poke_byte"
 	make_code_word poke_byte
 		mov rcx, [r15]
 		mov dl, byte [r15 + 8]
@@ -254,6 +244,7 @@ section .text
 		make_continue
 
 	; ( a -- a a )
+	make_header "copy"
 	make_code_word copy
 		mov rcx, [r15]
 		sub r15, 8
@@ -261,6 +252,7 @@ section .text
 		make_continue
 
 	; ( b a -- a b )
+	make_header "swap"
 	make_code_word swap
 		mov rcx, [r15]
 		xchg [r15 + 8], rcx
@@ -312,6 +304,7 @@ section .text
 		make_continue
 
 	; ( address -- *address )
+	make_header "peek"
 	make_code_word peek
 		mov rcx, [r15]
 		mov rcx, [rcx]
@@ -319,6 +312,7 @@ section .text
 		make_continue
 
 	; ( value address -- ) `*address = value`
+	make_header "poke"
 	make_code_word poke
 		mov rcx, [r15]
 		mov rdx, [r15 + 8]
@@ -327,6 +321,7 @@ section .text
 		make_continue
 
 	; ( b a -- c ) c = a + b
+	make_header "stack_add"
 	make_code_word stack_add
 		mov rcx, [r15]
 		add r15, 8
@@ -334,6 +329,7 @@ section .text
 		make_continue
 
 	; ( b a -- c ) c = a - b
+	make_header "stack_sub"
 	make_code_word stack_sub
 		mov rcx, [r15]
 		add r15, 8
@@ -342,6 +338,7 @@ section .text
 		make_continue
 
 	; ( b a -- c ) c = a * b
+	make_header "stack_mul"
 	make_code_word stack_mul
 		mov rax, [r15]
 		add r15, 8
@@ -350,6 +347,7 @@ section .text
 		make_continue
 
 	; ( b a -- c ) c = a / b
+	make_header "stack_div"
 	make_code_word stack_div
 		xor rdx, rdx
 		mov rax, [r15]
@@ -385,6 +383,7 @@ section .text
 		make_continue
 
 	; ( a b -- c ) c = a | b
+	make_header "stack_or"
 	make_code_word stack_or
 		mov rcx, [r15]
 		add r15, 8
@@ -392,6 +391,7 @@ section .text
 		make_continue
 
 	; ( a b -- c ) c = a & b
+	make_header "stack_and"
 	make_code_word stack_and
 		mov rcx, [r15]
 		add r15, 8
@@ -399,6 +399,7 @@ section .text
 		make_continue
 
 	; ( a -- ~a )
+	make_header "stack_not"
 	make_code_word stack_not
 		mov rcx, [r15]
 		not rcx
@@ -629,6 +630,7 @@ section .rdata
 			dq return
 
 	; ( -- ) Emits a newline
+	make_header "newline"
 	make_thread newline
 		dq literal
 		dq 10
@@ -697,6 +699,7 @@ section .rdata
 			dq poke_byte
 			dq return
 
+	make_header "get_repl_token"
 	make_thread get_repl_token
 		dq repl_token_buffer
 		dq get_token
@@ -839,6 +842,7 @@ section .rdata
 			dq compile_cell
 			make_jump interpret_loop
 
+	make_header "compile_cell"
 	make_thread compile_cell
 		dq free_ptr ; cell &free
 		dq peek ; cell free
@@ -893,6 +897,7 @@ section .rdata
 			dq return
 
 	; ( ch -- )
+	make_header "purge_until"
 	make_thread purge_until
 		purge_until_loop:
 			dq copy
@@ -905,6 +910,7 @@ section .rdata
 			dq drop
 			dq return
 
+	make_header "purge_line"
 	make_thread purge_line
 		dq literal
 		dq 10
@@ -912,6 +918,7 @@ section .rdata
 		dq return
 
 	; ( name -- token ) Queries the dictionary for the word with the name `name`, returning its token
+	make_header "look_up"
 	make_thread look_up
 		dq dictionary
 		dq peek
@@ -935,6 +942,7 @@ section .rdata
 			dq nip ; ( name dict -- dict )
 			dq return
 
+	make_header "get_dict_len"
 	make_thread get_dict_len
 		dq peek_byte
 		dq literal
@@ -966,6 +974,7 @@ section .rdata
 		dq return
 
 	; ( dict -- &dict->word )
+	make_header "get_dict_token"
 	make_thread get_dict_token
 		dq copy
 		dq get_dict_len
@@ -1058,6 +1067,7 @@ section .rdata
 		dq drop
 		dq return
 
+	make_header "print_number"
 	make_thread print_number
 		dq copy ; n n
 		dq biggest_pow10 ; n p10
@@ -1188,14 +1198,15 @@ section .rdata
 		dq return
 
 	make_thread enter_compiler
-		dq native_code_call_thread
+		dq literal
+		dq call_thread
 		dq compile_cell
 		dq true
 		dq compiling
 		dq poke
 		dq return
 
-	make_thread exit_compiler, true
+	make_thread exit_compiler
 		dq zero
 		dq compiling
 		dq poke
@@ -1250,6 +1261,7 @@ section .rdata
 			dq two_drop ;
 			dq return
 
+	make_header "create_word"
 	make_thread create_word
 		dq get_repl_token ; tok
 		dq copy ; tok tok
@@ -1283,17 +1295,23 @@ section .rdata
 		dq poke
 		dq return
 
+	make_header "define"
 	make_thread define
 		dq create_word
 		dq enter_compiler
 		dq return
 	
-	make_thread finish, true
+	make_header "finish", true
+	make_thread finish
 		dq literal
 		dq return
 		dq compile_cell
 		dq exit_compiler
 		dq return
+
+	make_header "native_code_call_constant"
+	make_constant native_code_call_constant
+		dq call_constant
 
 section .data
 		times 128 dq 0
