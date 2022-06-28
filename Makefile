@@ -21,7 +21,10 @@ debugger: silicon-debug.exe
 clean:
 	del *.obj *.pdb *.ilk *.exe *.zip
 
-silicon.zip: silicon.exe
-	tar -a -c -f silicon.zip silicon.exe
+silicon.zip: silicon.exe silicon.asm
+	tar -a -c -f silicon.zip silicon.exe silicon.asm
 
 zip: silicon.zip
+
+go: silicon.exe
+	.\silicon.exe < silicon.si

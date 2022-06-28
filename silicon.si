@@ -107,3 +107,7 @@ decimal_pi .
 
 # Silicon itself could be provided as a pair of files: the binary and the metacompiler source that produces that binary
 # (verifiably byte-by-byte identical).
+
+# All the words can be stuffed into one section, and stick all the zeroed-out variable bodies (of a special kind) at the
+# end, so it doesn't have to be physically present in the file. The section contents can be further compressed, with a
+# small entry point to decompress it.
