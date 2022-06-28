@@ -83,4 +83,27 @@ immediate ;
 # - I think the self-extension thing just screams for self-hosting. The core characteristics of the language are
 #   ultimately defined by that of the inner interpreter
 
-benchmark
+# A slightly more complex example
+define constant ( value -- )
+	create_word
+	native_code_call_constant
+	compile_cell
+	compile_cell
+finish
+
+314159265 constant decimal_pi
+decimal_pi .
+
+# How can a TIL/Forth-like ever truly be introspective/reflective/self-modifying if there is hidden functionality?
+# It must be made self-hosting by way of a metacompiler, and the same functionality used to define the internals of the
+# TIL must be made available to the target. `constant` above is merely a reimplementation of the functionality afforded
+# by `make_constant` in the assembly, and it is antithetical to the spirit of these languages for that code to be
+# non-reusable, and force a re-definition. So too, I believe, is it impossible for a TIL to fully satisfy the spirit of
+# what a TIL is if the full internals of the language are not available to be read. A metacompiler must be written, so
+# that the language becomes fully self-hosting, and there is no difference between the definitions of "internal" and
+# "external" threads. We are therefore in the midst of bootstrapping this TIL, despite having nominally completed its
+# major features. The core "spirit" of the interpreter is organized around the idea of executing words in sequence, as
+# they are parsed and recognized.
+
+# Silicon itself could be provided as a pair of files: the binary and the metacompiler source that produces that binary
+# (verifiably byte-by-byte identical).
