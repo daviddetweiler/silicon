@@ -190,15 +190,15 @@ section .text
 		add r15, 8
 		make_continue
 
-	; ( byte handle -- ) Writes the first byte of `byte` to `handle`
-	make_code_word write_byte
+	; ( buffer bytes handle -- )
+	make_code_word write_handle
 		mov rcx, [r15]
-		lea rdx, [r15 + 8]
-		mov r8, 1
+		mov rdx, [r15 + 16]
+		mov r8, [r15 + 8]
 		mov r9, r15
 		mov qword [rsp + 8 * 4], 0
 		call WriteFile
-		add r15, 16
+		add r15, 24
 		make_continue
 
 	; ( flag -- ) Expects a literal signed branch constant following it in the instruction stream; if `flag` is zero,
@@ -224,18 +224,18 @@ section .text
 		add r12, rcx
 		make_continue
 
-	; ( buffer handle -- filled ) Read bytes from `handle` into `buffer`; `filled` is the number of bytes actually
+	; ( buffer bytes handle -- filled ) Read bytes from `handle` into `buffer`; `filled` is the number of bytes actually
 	; read
-	make_code_word read_line
+	make_code_word read_handle
 		mov rcx, [r15]
-		mov rdx, [r15 + 8]
-		mov r8, line_buffer_size
+		mov rdx, [r15 + 16]
+		mov r8, [r15 + 8]
 		mov r9, r15
 		mov qword [rsp + 8 * 4], 0
 		call ReadFile
 		mov rcx, [r15]
-		mov [r15 + 8], rcx
-		add r15, 8
+		add r15, 16
+		mov [r15], rcx
 		make_continue
 
 	; ( address -- byte ) Similar to `peek`, but only reads one byte, instead of a full cell
@@ -534,6 +534,24 @@ section .rdata
 			dq put ; ( str ch -- str )
 			dq increment ; ( str -- str + 1 )
 			make_jump print_next
+
+	make_thread read_line
+		dq literal
+		dq line_buffer_size
+		dq swap
+		dq read_handle
+		dq return
+
+	; ( byte handle -- ) Writes the first byte of `byte` to `handle`
+	make_thread write_byte
+		dq push_cell ; byte R: handle
+		dq get_data_stack ; byte &byte R: handle
+		dq literal ; byte &byte 1 R: handle
+		dq 1
+		dq pop_cell ; byte &byte 1 handle
+		dq write_handle ; byte
+		dq drop
+		dq return
 
 	; ( -- !iseof ) Refills the line buffer from `stdin`, indicating if EOF has been reached. Note that we do not return
 	; the standard `TRUE` / `FALSE` values, but the zero / non-zero expected by `branch`.
