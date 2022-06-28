@@ -80,22 +80,6 @@ header:
 	%%next:
 %endmacro
 
-%macro make_native_data 1
-	section .rdata
-		make_constant native_data_%1
-			dq %1
-
-	section .data
-		%1:
-%endmacro
-
-%macro make_native_rdata 1
-	make_constant native_rdata_%1
-		dq %1
-
-	%1:
-%endmacro
-
 ; Runs the word referenced at the current IP, advances IP
 %macro make_continue 0
 	mov r13, [r12]
@@ -485,7 +469,7 @@ section .text
 
 section .rdata
 	; The initial thread executed by `start`
-	make_native_rdata thread
+	thread:
 		dq init_io
 		dq greet
 		dq set_up_data_space
@@ -1178,7 +1162,8 @@ section .rdata
 
 	make_thread get_data_depth
 		dq get_data_stack
-		dq native_data_data_stack
+		dq literal
+		dq data_stack
 		dq stack_sub
 		dq cell_size
 		dq swap
@@ -1188,7 +1173,8 @@ section .rdata
 	make_thread get_return_depth
 		dq cell_size
 		dq get_return_stack
-		dq native_data_return_stack
+		dq literal
+		dq return_stack
 		dq stack_sub
 		dq stack_div
 		dq literal
@@ -1313,51 +1299,102 @@ section .rdata
 	make_constant native_code_call_constant
 		dq call_constant
 
-section .data
-		times 128 dq 0
-	make_native_data data_stack
+	make_thread stdout
+		dq literal
+		dq stdout_data
+		dq return
 
-		times 128 dq 0
-	make_native_data return_stack
+	make_thread stdin
+		dq literal
+		dq stdin_data
+		dq return
 
-	make_variable stdout
-		dq 0
+	make_thread line_buffer
+		dq literal
+		dq line_buffer_data
+		dq return
 
-	make_variable stdin
-		dq 0
+	make_thread line_ptr
+		dq literal
+		dq line_ptr_data
+		dq return
+
+	make_thread is_fresh_line
+		dq literal
+		dq is_fresh_line_data
+		dq return
+
+	make_thread token_buffer
+		dq literal
+		dq token_buffer_data
+		dq return
+
+	make_thread token_ptr
+		dq literal
+		dq token_ptr_data
+		dq return
+
+	make_thread repl_token_buffer
+		dq literal
+		dq repl_token_buffer_data
+		dq return
+
+	make_thread compiling
+		dq literal
+		dq compiling_data
+		dq return
+
+	make_thread free_ptr
+		dq literal
+		dq free_ptr_data
+		dq return
+
+section .bss
+		resq 512
+	data_stack:
+
+		resq 512
+	return_stack:
+
+	stdout_data:
+		resq 1
+
+	stdin_data:
+		resq 1
 
 	; Holds lines of input as they are received
-	make_variable line_buffer
-		times line_buffer_size db 0
+	line_buffer_data:
+		resb line_buffer_size
 
 	; Contains the next position to read from in the line buffer
-	make_variable line_ptr
-		dq 0
+	line_ptr_data:
+		resq 1
 
+	; Indicates if the line buffer has just been filled, but not yet touched
+	is_fresh_line_data:
+		resq 1
+
+	; Memory to hold token strings
+	token_buffer_data:
+		resb token_max_len
+
+	; Index into token_buffer
+	token_ptr_data:
+		resq 1
+
+	repl_token_buffer_data:
+		resb token_max_len
+
+	compiling_data:
+		resq 1
+
+	free_ptr_data:
+		resq 1
+
+section .data
 	; Contains the actual line read length
 	make_variable filled
 		dq 1
-
-	; Indicates if the line buffer has just been filled, but not yet touched
-	make_variable is_fresh_line
-		dq 0
-
-	; Memory to hold token strings
-	make_variable token_buffer
-		times token_max_len db 0
-
-	; Index into token_buffer
-	make_variable token_ptr
-		dq 0
-
-	make_variable repl_token_buffer
-		times token_max_len db 0
-
-	make_variable compiling
-		dq 0
-
-	make_variable free_ptr
-		dq 0
 
 	; This has to be the last declaration
 	make_variable dictionary
