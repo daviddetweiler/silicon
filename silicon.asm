@@ -305,7 +305,7 @@ section .text
 		make_continue
 
 	; ( b a -- c ) c = a + b
-	make_header "stack_add"
+	make_header "+"
 	make_code_word stack_add
 		mov rcx, [r15]
 		add r15, 8
@@ -313,7 +313,7 @@ section .text
 		make_continue
 
 	; ( b a -- c ) c = a - b
-	make_header "stack_sub"
+	make_header "-"
 	make_code_word stack_sub
 		mov rcx, [r15]
 		add r15, 8
@@ -322,7 +322,7 @@ section .text
 		make_continue
 
 	; ( b a -- c ) c = a * b
-	make_header "stack_mul"
+	make_header "*"
 	make_code_word stack_mul
 		mov rax, [r15]
 		add r15, 8
@@ -331,7 +331,7 @@ section .text
 		make_continue
 
 	; ( b a -- c ) c = a / b
-	make_header "stack_div"
+	make_header "/"
 	make_code_word stack_div
 		xor rdx, rdx
 		mov rax, [r15]
@@ -1281,13 +1281,13 @@ section .rdata
 		dq poke
 		dq return
 
-	make_header "define"
+	make_header ":"
 	make_thread define
 		dq create_word
 		dq enter_compiler
 		dq return
 	
-	make_header "finish", true
+	make_header ";", true ; yes, highlighting is broken here
 	make_thread finish
 		dq literal
 		dq return

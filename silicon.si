@@ -1,113 +1,94 @@
-define print-square
-	copy
-	stack_mul
-	print_number
-	newline
-finish
+: \	purge_line ;
 
-10 print-square
+\ Now we should be able to support line comments
 
-define #
-	purge_line
-finish
-
-# Now we should be able to support line comments
-
-# 41 encodes ')'
-define (
-	41 purge_until
-finish
+\ 41 encodes ')'
+: (	41 purge_until ;
 
 ( How about these block comments though )
 
-# If you want to know how this works, you should look at the header format in the assembly file
-define immediate
+\ If you want to know how this works, you should look at the header format in the assembly file
+: immediate
 	get_repl_token
 	look_up
 	copy get_dict_len
-	128 stack_or swap poke_byte
-finish
+	128 stack_or swap poke_byte ;
 
-# Now these will work in compile mode too
-immediate #
+\ Now these will work in compile mode too
+immediate \
 immediate (
 
-define nop
+: nop
 	( look ma, immediate block comments )
-	# as well as line comments
-finish
+	\ as well as line comments
+;
 
 nop
 
-define defer
-    get_repl_token			# otherwise, the word would be executed
-    look_up get_dict_token	# straightforward, get the word itself by name
-    compile_cell			# and add it on
-finish
+: defer
+    get_repl_token			\ otherwise, the word would be executed
+    look_up get_dict_token	\ straightforward, get the word itself by name
+    compile_cell			\ and add it on
+;
 
-# Need to make sure it gets executed during compilation
+\ Need to make sure it gets executed during compilation
 immediate defer
 
-# Define more Forth-like concepts
-define : define finish
-define ; defer finish finish
-
-# Otherwise `:` would eat it
-immediate ;
-
-# Classic forth-like BS
-: * stack_mul ;
+\ Classic forth-like BS
 : dup copy ;
 : square dup * ;
 : cr newline ;
 : . print_number cr ;
 
-# And a demo
+\ And a demo
 132 square .
 
-# In theory, we're completely feature-complete (with the exception of GetProcAddress/LoadLibrary/UnloadLibrary). The
-# questions now are:
-# - What is the minimal word list we need to expose to the user?
-# - Is there a way to improve the kernel itself?
-# - Is it worth it to become self-hosting? (our surveys say: "probably lol")
-# - How best to reduce the binary size? (almost definitely requires self-hosting tricks)
+\ In theory, we're completely feature-complete (with the exception of GetProcAddress/LoadLibrary/UnloadLibrary). The
+\ questions now are:
+\ - What is the minimal word list we need to expose to the user?
+\ - Is there a way to improve the kernel itself?
+\ - Is it worth it to become self-hosting? (our surveys say: "probably lol")
+\ - How best to reduce the binary size? (almost definitely requires self-hosting tricks)
 
-# What really defines a TIL? What are the key characteristics of the interpreter?
-# - RPN
-# - The dictionary
-# - Literals
-# - The ability to define new words, including immediate words
-# - Actually that last part just falls into general reflection capabilities (for instance, how would you go about
-#   defining something like Forth's `VARIABLE`?)
-# - Something about being to arbitrarily self-extend (immediate flag, compile mode, dictionary format...)
-# - I think the self-extension thing just screams for self-hosting. The core characteristics of the language are
-#   ultimately defined by that of the inner interpreter
+\ What really :s a TIL? What are the key characteristics of the interpreter?
+\ - RPN
+\ - The dictionary
+\ - Literals
+\ - The ability to : new words, including immediate words
+\ - Actually that last part just falls into general reflection capabilities (for instance, how would you go about
+\   defining something like Forth's `VARIABLE`?)
+\ - Something about being to arbitrarily self-extend (immediate flag, compile mode, dictionary format...)
+\ - I think the self-extension thing just screams for self-hosting. The core characteristics of the language are
+\   ultimately :d by that of the inner interpreter
 
-# A slightly more complex example
-define constant ( value -- )
+\ A slightly more complex example
+: constant ( value -- )
 	create_word
 	native_code_call_constant
 	compile_cell
 	compile_cell
-finish
+;
 
 314159265 constant decimal_pi
 decimal_pi .
 
-# How can a TIL/Forth-like ever truly be introspective/reflective/self-modifying if there is hidden functionality?
-# It must be made self-hosting by way of a metacompiler, and the same functionality used to define the internals of the
-# TIL must be made available to the target. `constant` above is merely a reimplementation of the functionality afforded
-# by `make_constant` in the assembly, and it is antithetical to the spirit of these languages for that code to be
-# non-reusable, and force a re-definition. So too, I believe, is it impossible for a TIL to fully satisfy the spirit of
-# what a TIL is if the full internals of the language are not available to be read. A metacompiler must be written, so
-# that the language becomes fully self-hosting, and there is no difference between the definitions of "internal" and
-# "external" threads. We are therefore in the midst of bootstrapping this TIL, despite having nominally completed its
-# major features. The core "spirit" of the interpreter is organized around the idea of executing words in sequence, as
-# they are parsed and recognized.
+\ How can a TIL/Forth-like ever truly be introspective/reflective/self-modifying if there is hidden functionality?
+\ It must be made self-hosting by way of a metacompiler, and the same functionality used to : the internals of the
+\ TIL must be made available to the target. `constant` above is merely a reimplementation of the functionality afforded
+\ by `make_constant` in the assembly, and it is antithetical to the spirit of these languages for that code to be
+\ non-reusable, and force a re-definition. So too, I believe, is it impossible for a TIL to fully satisfy the spirit of
+\ what a TIL is if the full internals of the language are not available to be read. A metacompiler must be written, so
+\ that the language becomes fully self-hosting, and there is no difference between the definitions of "internal" and
+\ "external" threads. We are therefore in the midst of bootstrapping this TIL, despite having nominally completed its
+\ major features. The core "spirit" of the interpreter is organized around the idea of executing words in sequence, as
+\ they are parsed and recognized.
 
-# Silicon itself could be provided as a pair of files: the binary and the metacompiler source that produces that binary
-# (verifiably byte-by-byte identical).
+\ Silicon itself could be provided as a pair of files: the binary and the metacompiler source that produces that binary
+\ (verifiably byte-by-byte identical).
 
-# All the words can be stuffed into one section, and stick all the zeroed-out variable bodies (of a special kind) at the
-# end, so it doesn't have to be physically present in the file. The section contents can be further compressed, with a
-# small entry point to decompress it.
+\ All the words can be stuffed into one section, and stick all the zeroed-out variable bodies (of a special kind) at the
+\ end, so it doesn't have to be physically present in the file. The section contents can be further compressed, with a
+\ small entry point to decompress it.
+
+\ It's not really a Forth if you don't get to know how it works internally. The entire interpreter is an integral part
+\ of the application; the outer interpreter merely provides a more convenient interface to the threaded core.
