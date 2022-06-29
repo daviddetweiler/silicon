@@ -454,11 +454,6 @@ section .text
 		mov [r15], rcx
 		make_continue
 
-	make_code_word get_return_stack
-		sub r15, 8
-		mov [r15], r14
-		make_continue
-
 	make_code_word alloc_rwe
 		xor rcx, rcx
 		mov rdx, [r15]
@@ -905,7 +900,7 @@ section .rdata
 
 	make_header "(", true
 	make_thread comment
-		dq literal`
+		dq literal
 		dq 41
 		dq purge_until
 		dq return
@@ -1121,10 +1116,11 @@ section .rdata
 	make_constant benchmark_iterations
 		dq 1 << 16
 
+	make_header "benchmark"
 	make_thread benchmark
 		dq zero
 		dq push_cell
-		dq benchmark_iterations	
+		dq benchmark_iterations
 		benchmark_loop:
 			dq do_rdtsc
 			dq do_nothing
@@ -1168,29 +1164,6 @@ section .rdata
 			make_branch do_nothing_loop
 		
 		dq drop		
-		dq return
-
-	make_thread get_data_depth
-		dq get_data_stack
-		dq literal
-		dq data_stack
-		dq stack_sub
-		dq cell_size
-		dq swap
-		dq stack_div
-		dq return
-	
-	make_thread get_return_depth
-		dq cell_size
-		dq get_return_stack
-		dq literal
-		dq return_stack
-		dq stack_sub
-		dq stack_div
-		dq literal
-		dq 1
-		dq swap
-		dq stack_sub
 		dq return
 
 	make_thread enter_compiler
@@ -1257,7 +1230,7 @@ section .rdata
 			dq two_drop ;
 			dq return
 
-	make_header "create_word"
+	make_header "create"
 	make_thread create_word
 		dq get_repl_token ; tok
 		dq copy ; tok tok
