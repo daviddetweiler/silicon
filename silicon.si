@@ -9,10 +9,9 @@
 
 \ If you want to know how this works, you should look at the header format in the assembly file
 : immediate
-	get_repl_token
-	look_up
-	copy get_dict_len
-	128 stack_or swap poke_byte ;
+	next-token find-word
+	dup dict->len
+	128 | swap b! ;
 
 \ Now these will work in compile mode too
 immediate \
@@ -26,19 +25,17 @@ immediate (
 nop
 
 : defer
-    get_repl_token			\ otherwise, the word would be executed
-    look_up get_dict_token	\ straightforward, get the word itself by name
-    compile_cell			\ and add it on
+    next-token				\ otherwise, the word would be executed
+    find-word dict->token	\ straightforward, get the word itself by name
+    compile					\ and add it on
 ;
 
 \ Need to make sure it gets executed during compilation
 immediate defer
 
 \ Classic forth-like BS
-: dup copy ;
 : square dup * ;
-: cr newline ;
-: . print_number cr ;
+: . print-number cr ;
 
 \ And a demo
 132 square .
@@ -61,16 +58,8 @@ immediate defer
 \ - I think the self-extension thing just screams for self-hosting. The core characteristics of the language are
 \   ultimately :d by that of the inner interpreter
 
-\ A slightly more complex example
-: constant ( value -- )
-	create_word
-	native_code_call_constant
-	compile_cell
-	compile_cell
-;
-
-314159265 constant decimal_pi
-decimal_pi .
+314159265 constant decimal-pi
+decimal-pi .
 
 \ How can a TIL/Forth-like ever truly be introspective/reflective/self-modifying if there is hidden functionality?
 \ It must be made self-hosting by way of a metacompiler, and the same functionality used to : the internals of the

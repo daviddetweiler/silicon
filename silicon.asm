@@ -212,6 +212,7 @@ section .text
 		make_continue
 
 	; ( address -- byte ) Similar to `peek`, but only reads one byte, instead of a full cell
+	make_header "b@"
 	make_code_word peek_byte
 		mov rcx, [r15]
 		movzx rcx, byte [rcx]
@@ -219,7 +220,7 @@ section .text
 		make_continue
 
 	; ( byte address -- ) Similar to `poke`, but only writes the first byte of `byte`
-	make_header "poke_byte"
+	make_header "b!"
 	make_code_word poke_byte
 		mov rcx, [r15]
 		mov dl, byte [r15 + 8]
@@ -228,7 +229,7 @@ section .text
 		make_continue
 
 	; ( a -- a a )
-	make_header "copy"
+	make_header "dup"
 	make_code_word copy
 		mov rcx, [r15]
 		sub r15, 8
@@ -288,7 +289,7 @@ section .text
 		make_continue
 
 	; ( address -- *address )
-	make_header "peek"
+	make_header "@"
 	make_code_word peek
 		mov rcx, [r15]
 		mov rcx, [rcx]
@@ -296,7 +297,7 @@ section .text
 		make_continue
 
 	; ( value address -- ) `*address = value`
-	make_header "poke"
+	make_header "!"
 	make_code_word poke
 		mov rcx, [r15]
 		mov rdx, [r15 + 8]
@@ -367,7 +368,7 @@ section .text
 		make_continue
 
 	; ( a b -- c ) c = a | b
-	make_header "stack_or"
+	make_header "|"
 	make_code_word stack_or
 		mov rcx, [r15]
 		add r15, 8
@@ -375,7 +376,7 @@ section .text
 		make_continue
 
 	; ( a b -- c ) c = a & b
-	make_header "stack_and"
+	make_header "&"
 	make_code_word stack_and
 		mov rcx, [r15]
 		add r15, 8
@@ -383,7 +384,7 @@ section .text
 		make_continue
 
 	; ( a -- ~a )
-	make_header "stack_not"
+	make_header "~"
 	make_code_word stack_not
 		mov rcx, [r15]
 		not rcx
@@ -614,7 +615,7 @@ section .rdata
 			dq return
 
 	; ( -- ) Emits a newline
-	make_header "newline"
+	make_header "cr"
 	make_thread newline
 		dq literal
 		dq 10
@@ -683,7 +684,7 @@ section .rdata
 			dq poke_byte
 			dq return
 
-	make_header "get_repl_token"
+	make_header "next-token"
 	make_thread get_repl_token
 		dq repl_token_buffer
 		dq get_token
@@ -731,9 +732,11 @@ section .rdata
 		db `Silicon (c) 2022 David Detweiler\n\n\0`
 
 	; ( -- 0 )
+	make_header "false"
 	make_constant zero
 		dq 0
 
+	make_header "true"
 	make_constant true
 		dq 0ffffffffffffffffh
 
@@ -826,7 +829,7 @@ section .rdata
 			dq compile_cell
 			make_jump interpret_loop
 
-	make_header "compile_cell"
+	make_header "compile"
 	make_thread compile_cell
 		dq free_ptr ; cell &free
 		dq peek ; cell free
@@ -902,7 +905,7 @@ section .rdata
 		dq return
 
 	; ( name -- token ) Queries the dictionary for the word with the name `name`, returning its token
-	make_header "look_up"
+	make_header "find-word"
 	make_thread look_up
 		dq dictionary
 		dq peek
@@ -926,7 +929,7 @@ section .rdata
 			dq nip ; ( name dict -- dict )
 			dq return
 
-	make_header "get_dict_len"
+	make_header "dict->len"
 	make_thread get_dict_len
 		dq peek_byte
 		dq literal
@@ -958,7 +961,7 @@ section .rdata
 		dq return
 
 	; ( dict -- &dict->word )
-	make_header "get_dict_token"
+	make_header "dict->token"
 	make_thread get_dict_token
 		dq copy
 		dq get_dict_len
@@ -1024,6 +1027,7 @@ section .rdata
 	make_variable list_words_msg
 		db `Silicon's internal word list contains:\n\n\0`
 
+	make_header "list-words"
 	make_thread list_words
 		dq list_words_msg
 		dq print
@@ -1051,7 +1055,7 @@ section .rdata
 		dq drop
 		dq return
 
-	make_header "print_number"
+	make_header "print-number"
 	make_thread print_number
 		dq copy ; n n
 		dq biggest_pow10 ; n p10
@@ -1295,10 +1299,6 @@ section .rdata
 		dq exit_compiler
 		dq return
 
-	make_header "native_code_call_constant"
-	make_constant native_code_call_constant
-		dq call_constant
-
 	make_thread stdout
 		dq literal
 		dq stdout_data
@@ -1347,6 +1347,15 @@ section .rdata
 	make_thread free_ptr
 		dq literal
 		dq free_ptr_data
+		dq return
+
+	make_header "constant"
+	make_thread constant
+		dq create_word
+		dq literal
+		dq call_constant
+		dq compile_cell
+		dq compile_cell
 		dq return
 
 section .bss
