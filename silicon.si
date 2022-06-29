@@ -1,30 +1,10 @@
-: \	purge_line ;
-
-\ Now we should be able to support line comments
-
-\ 41 encodes ')'
-: (	41 purge_until ;
-
-( How about these block comments though )
-
 \ If you want to know how this works, you should look at the header format in the assembly file
-: immediate
-	next-token find-word
+: immediate ( -- )
+	next-token find-word \ straightforward lookup
 	dup dict->len
 	128 | swap b! ;
 
-\ Now these will work in compile mode too
-immediate \
-immediate (
-
-: nop
-	( look ma, immediate block comments )
-	\ as well as line comments
-;
-
-nop
-
-: defer
+: defer ( -- )
     next-token				\ otherwise, the word would be executed
     find-word dict->token	\ straightforward, get the word itself by name
     compile					\ and add it on
@@ -34,8 +14,8 @@ nop
 immediate defer
 
 \ Classic forth-like BS
-: square dup * ;
-: . print-number cr ;
+: square ( n -- n*n ) dup * ;
+: . ( n -- ) print-number cr ;
 
 \ And a demo
 132 square .

@@ -884,7 +884,6 @@ section .rdata
 			dq return
 
 	; ( ch -- )
-	make_header "purge_until"
 	make_thread purge_until
 		purge_until_loop:
 			dq copy
@@ -897,10 +896,17 @@ section .rdata
 			dq drop
 			dq return
 
-	make_header "purge_line"
+	make_header "\", true
 	make_thread purge_line
 		dq literal
 		dq 10
+		dq purge_until
+		dq return
+
+	make_header "(", true
+	make_thread comment
+		dq literal`
+		dq 41
 		dq purge_until
 		dq return
 
