@@ -410,7 +410,7 @@ section .text
 
 	make_code_word is_digit
 		mov r8, [r15]
-		mov r9, r8		
+		mov r9, r8
 		cmp r8, "0"
 		setl cl
 		cmp r9, "9"
@@ -441,7 +441,7 @@ section .text
 		sub r15, 8
 		mov [r15], rax
 		xor eax, eax
-		cpuid		
+		cpuid
 		make_continue
 
 	make_code_word break
@@ -508,7 +508,7 @@ section .rdata
 			dq peek_byte ; ( str str -- str ch )
 			dq copy ; ( str ch -- str ch ch )
 			make_branch print_continue
-		
+
 		dq two_drop ; ( str ch -- )
 		dq return
 		print_continue:
@@ -1050,7 +1050,7 @@ section .rdata
 			dq get_dict_link
 			dq copy
 			make_branch list_words_loop
-		
+
 		dq newline
 		dq newline
 		dq drop
@@ -1098,7 +1098,7 @@ section .rdata
 			dq 10
 			dq greater_than ; n p 10>n/p
 			make_branch biggest_pow10_done ; n p
-		
+
 		dq literal ; n p 10
 		dq 10
 		dq stack_mul ; n p*10
@@ -1162,8 +1162,8 @@ section .rdata
 			dq stack_sub
 			dq copy
 			make_branch do_nothing_loop
-		
-		dq drop		
+
+		dq drop
 		dq return
 
 	make_thread enter_compiler
@@ -1236,6 +1236,7 @@ section .rdata
 		dq copy ; tok tok
 		dq string_length ; tok len(tok)
 		dq increment ; tok len(tok)+1
+		dq increment
 		dq align_cell ; tok align(len(tok)+1)
 		dq free_ptr ; tok align(len(tok)+1) &free
 		dq peek ; tok align(len(tok)+1) free
@@ -1269,7 +1270,7 @@ section .rdata
 		dq create_word
 		dq enter_compiler
 		dq return
-	
+
 	make_header ";", true ; yes, highlighting is broken here
 	make_thread finish
 		dq literal
