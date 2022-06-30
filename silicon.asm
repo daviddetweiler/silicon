@@ -19,6 +19,7 @@ extern GetStdHandle
 extern WriteFile
 extern ReadFile
 extern VirtualAlloc
+extern CreateFileA
 
 %define line_buffer_size 128
 %define token_max_len 64
@@ -125,6 +126,19 @@ section .text
 		mov [r15], rcx
 		make_continue
 
+	make_header "create-file"
+	make_code_word create_file
+		mov rcx, [r15]
+		mov rdx, (1 << 31 | 1 << 30)
+		xor r8, r8
+		xor r9, r9
+		mov qword [rsp + 8 * 4], 2
+		mov qword [rsp + 8 * 5], 128
+		mov qword [rsp + 8 * 6], 0
+		call CreateFileA
+		mov [r15], rax
+		make_continue
+
 	; ( -- ) Returns return_stack from a thread
 	make_code_word return
 		mov r12, [r14]
@@ -164,6 +178,7 @@ section .text
 		make_continue
 
 	; ( buffer bytes handle -- )
+	make_header "write-handle"
 	make_code_word write_handle
 		mov rcx, [r15]
 		mov rdx, [r15 + 16]
@@ -252,6 +267,7 @@ section .text
 		make_continue
 
 	; ( a -- ) Moves `a` onto the return stack
+	make_header ">r"
 	make_code_word push_cell
 		mov rcx, [r15]
 		add r15, 8
@@ -260,6 +276,7 @@ section .text
 		make_continue
 
 	; ( -- a ) Pops `a` from the return stack
+	make_header "<r"
 	make_code_word pop_cell
 		mov rcx, [r14]
 		add r14, 8
@@ -502,6 +519,7 @@ section .rdata
 		dq return
 
 	; ( string -- ) Write `string` to `stdin`.
+	make_header "print"
 	make_thread print
 		print_next:
 			dq copy ; ( str -- str str )
@@ -618,6 +636,7 @@ section .rdata
 		dq return
 
 	; ( string -- ) Prints `string` with a terminal newline.
+	make_header "println"
 	make_thread println
 		dq print
 		dq newline
@@ -722,6 +741,16 @@ section .rdata
 		dq stack_or
 		dq return
 
+	make_header "variable"
+	make_thread variable
+		dq create_word
+		dq literal
+		dq call_variable
+		dq compile_cell
+		dq zero
+		dq compile_cell
+		dq return
+
 	; This is the banner
 	make_variable greeting
 		db `Silicon (c) 2022 David Detweiler\n\n\0`
@@ -824,7 +853,6 @@ section .rdata
 			dq compile_cell
 			make_jump interpret_loop
 
-	make_header "compile"
 	make_thread compile_cell
 		dq free_ptr ; cell &free
 		dq peek ; cell free
@@ -837,6 +865,40 @@ section .rdata
 		dq free_ptr ; free+8 &free
 		dq poke ;
 		dq return
+
+	make_thread compile_byte
+		dq free_ptr ; cell &free
+		dq peek ; cell free
+		dq copy ; cell free free
+		dq push_cell ; cell free R: free
+		dq poke_byte ; R: free
+		dq pop_cell ; free
+		dq increment
+		dq free_ptr ; free+1 &free
+		dq poke ;
+		dq return
+
+	make_header '"'
+	make_thread string
+		dq free_ptr
+		dq peek
+		dq push_cell
+		string_loop:
+			dq key
+			dq copy
+			dq literal
+			dq '"'
+			dq equals
+			make_branch string_done
+
+		dq compile_byte
+		make_jump string_loop	
+		string_done:
+			dq zero
+			dq compile_byte
+			dq drop
+			dq pop_cell
+			dq return
 
 	; ( token -- n )
 	make_thread to_number
@@ -1194,6 +1256,7 @@ section .rdata
 		dq stack_add
 		dq return
 
+	make_header "string-length"
 	make_thread string_length
 		dq copy
 		string_length_loop:

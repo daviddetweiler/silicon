@@ -23,5 +23,12 @@
 : do-math	( n -- )		dup square . cube . cr				;
 : demo		( -- )			12 do-math 13 do-math 14 do-math	;
 
+" look at me" println cr \ The string syntax is a bit weird, yes; the leading space is dropped
+
+variable content
+" Hello, world!" content !
+: write-string >r dup string-length <r write-handle ;
+content @ " build.exe" create-file write-string
+
 demo
 benchmark
