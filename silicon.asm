@@ -213,11 +213,9 @@ section .text
         lea tp, [tp + rax + 8]
         next
 
-    ; ( a b -- (a < b) )
-    code push_less_than
-        mov rax, [dp]
-        add dp, 8
-        cmp [dp], rax
+    ; ( a -- (a < 0) )
+    code push_is_negative
+        cmp qword [dp], 0
         jl .true
         mov qword [dp], 0
         next
@@ -233,11 +231,27 @@ section .text
         mov [dp], rax
         next
 
+    ; ( value -- (value == 0) )
+    code push_is_zero
+        mov rax, [dp]
+        test rax, rax
+        jz .true
+        mov qword [dp], 0
+        next
+
+        .true:
+        mov qword [dp], ~0
+        next
+
+    ; ( value value -- )
+    code drop_two
+        add dp, 8 * 2
+        next
+
 section .rdata
     ; ( -- )
     program:
         dq set_stacks
-        dq self_test
         dq init_handles
 
         .accept:      
@@ -281,7 +295,7 @@ section .rdata
 
         dq return
 
-    string ok, ` [ok]\n`
+    string ok, ` <ok>\n`
     string cursor_up, `\x1bM`
     variable line_buffer, line_buffer_length
 
@@ -303,10 +317,15 @@ section .rdata
     thread accept_line
         dq line_buffer
         dq read_line
+
         dq copy
-        dq zero
-        dq push_less_than
+        dq push_is_zero
+        branch_to .empty_line
+
+        dq copy
+        dq push_is_negative
         branch_to .eof
+
         dq cursor_up
         dq print
         dq print
@@ -315,9 +334,13 @@ section .rdata
         dq true
         dq return
 
+        .empty_line:
+        dq drop_two
+        dq true
+        dq return
+
         .eof:
-        dq drop
-        dq drop
+        dq drop_two
         dq zero
         dq return
 
