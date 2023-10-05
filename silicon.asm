@@ -48,15 +48,25 @@ extern ReadFile
         db %strlen(%2), %2
 %endmacro
 
-%macro variable 2
+%macro constant 2
     code_field %1, invoke_constant
-        dq %%storage
+        dq %2
+%endmacro
 
+%macro variable 2
+    constant %1, %%storage
     [section .bss]
         %%storage:
             resq %2
 
     __?SECT?__
+%endmacro
+
+%macro branch_to 1
+    dq branch
+    dq %1 - %%here
+
+    %%here:
 %endmacro
 
 section .text
@@ -189,13 +199,51 @@ section .text
         sub [dp], rax
         next
 
+    ; ( condition -- )
+    code branch
+        mov rax, [dp]
+        add dp, 8
+        test rax, rax
+        jnz .branch
+        add tp, 8
+        next
+
+        .branch:
+        mov rax, [tp]
+        lea tp, [tp + rax + 8]
+        next
+
+    ; ( a b -- (a < b) )
+    code push_less_than
+        mov rax, [dp]
+        add dp, 8
+        cmp [dp], rax
+        jl .true
+        mov qword [dp], 0
+        next
+
+        .true:
+        mov qword [dp], ~0
+        next
+
+    ; ( value -- value value )
+    code copy
+        mov rax, [dp]
+        sub dp, 8
+        mov [dp], rax
+        next
+
 section .rdata
     ; ( -- )
     program:
         dq set_stacks
         dq self_test
-        dq init_handles        
+        dq init_handles
+
+        .accept:      
         dq accept_line
+        branch_to .accept
+        
         dq test_stacks
         dq exit
 
@@ -233,7 +281,7 @@ section .rdata
 
         dq return
 
-    string ok, ` (ok)\n`
+    string ok, ` [ok]\n`
     string cursor_up, `\x1bM`
     variable line_buffer, line_buffer_length
 
@@ -251,16 +299,30 @@ section .rdata
         dq push_subtract
         dq return
 
-    ; ( -- )
+    ; ( -- continue? )
     thread accept_line
         dq line_buffer
         dq read_line
+        dq copy
+        dq zero
+        dq push_less_than
+        branch_to .eof
         dq cursor_up
         dq print
         dq print
         dq ok
         dq print
+        dq true
         dq return
+
+        .eof:
+        dq drop
+        dq drop
+        dq zero
+        dq return
+
+    constant zero, 0
+    constant true, ~0
 
 section .bss
     data_stack:
