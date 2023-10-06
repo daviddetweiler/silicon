@@ -295,9 +295,6 @@ section .rdata
 		dq set_stacks
 		dq init_handles
 
-		dq banner
-		dq print
-
 		.accept:
 		dq accept_line
 		branch_to .accept
@@ -332,11 +329,7 @@ section .rdata
 
 		dq return
 
-	string status_ok, `[ok]`
-	string status_overfull, `[overfull]`
-	string status_pending, `                `
-
-	string cursor_up, `\x1bM`
+	string status_overfull, `Line overfull\n`
 	string newline, `\n`
 	variable line_buffer, line_buffer_length / 8
 
@@ -365,8 +358,6 @@ section .rdata
 	; ( -- continue? )
 	thread accept_line
 		.again:
-		dq status_pending
-		dq print
 		dq read_line
 
 		dq line_size
@@ -374,21 +365,16 @@ section .rdata
 		dq copy
 		dq push_is_zero
 		branch_to .empty_line
-
 		dq push_is_negative
 		branch_to .eof
-
 		dq is_line_overfull
 		branch_to .line_overfull
-
-		dq status_ok
-		dq report_status
 		dq true
 		dq return
 
 		.line_overfull:
 		dq status_overfull
-		dq report_status
+		dq print_line
 
 		.flush:
 		dq read_line
@@ -411,13 +397,6 @@ section .rdata
 	variable line_size, 1
 
 	; ( string length -- )
-	thread report_status
-		dq cursor_up
-		dq print
-		dq print_line
-		dq return
-
-	; ( string length -- )
 	thread print_line
 		dq print
 		dq new_line
@@ -437,8 +416,6 @@ section .rdata
 		dq push_is_eq
 		dq push_not
 		dq return
-
-	string banner, `\n\n\n\n\n                Silicon (c) 2023 @daviddetweiler\n\n`
 
 section .bss
 	data_stack:
