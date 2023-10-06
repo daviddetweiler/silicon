@@ -16,7 +16,7 @@ extern ReadFile
 %define stack_depth 32
 %define stack_base(stack) (stack + stack_depth * 8)
 
-%define line_buffer_length 8 * 1
+%define line_buffer_length 8 * 16
 
 %macro run 0
 	jmp [wp]
@@ -295,10 +295,8 @@ section .rdata
 		dq set_stacks
 		dq init_handles
 
-		dq new_line
-		dq new_line
-		dq new_line
-		dq new_line
+		dq banner
+		dq print
 
 		.accept:
 		dq accept_line
@@ -416,6 +414,11 @@ section .rdata
 	thread report_status
 		dq cursor_up
 		dq print
+		dq print_line
+		dq return
+
+	; ( string length -- )
+	thread print_line
 		dq print
 		dq new_line
 		dq return
@@ -434,6 +437,8 @@ section .rdata
 		dq push_is_eq
 		dq push_not
 		dq return
+
+	string banner, `\n\n\n\n\n                Silicon (c) 2023 @daviddetweiler\n\n`
 
 section .bss
 	data_stack:
