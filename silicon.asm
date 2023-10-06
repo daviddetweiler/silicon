@@ -243,16 +243,15 @@ section .text
         mov qword [dp], ~0
         next
 
-    ; ( value value -- )
-    code drop_two
-        add dp, 8 * 2
-        next
-
 section .rdata
     ; ( -- )
     program:
         dq set_stacks
         dq init_handles
+
+        dq new_line
+        dq new_line
+        dq new_line
 
         .accept:      
         dq accept_line
@@ -295,9 +294,18 @@ section .rdata
 
         dq return
 
-    string ok, ` <ok>\n`
+    string status_ok,		`[ok]    `
+    string status_pending,	`        `
+    
     string cursor_up, `\x1bM`
+    string newline, `\n`
     variable line_buffer, line_buffer_length
+
+    ; ( -- )
+    thread new_line
+        dq newline
+        dq print
+        dq return
 
     ; ( -- count )
     thread read_line
@@ -315,32 +323,33 @@ section .rdata
 
     ; ( -- continue? )
     thread accept_line
-        dq line_buffer
+        dq status_pending
+        dq print
         dq read_line
 
         dq copy
         dq push_is_zero
         branch_to .empty_line
 
-        dq copy
         dq push_is_negative
         branch_to .eof
 
         dq cursor_up
         dq print
+        
+        dq status_ok
         dq print
-        dq ok
-        dq print
+        dq new_line
+        
         dq true
         dq return
 
         .empty_line:
-        dq drop_two
+        dq drop
         dq true
         dq return
 
         .eof:
-        dq drop_two
         dq zero
         dq return
 
