@@ -16,7 +16,7 @@ extern ReadFile
 %define stack_depth 32
 %define stack_base(stack) (stack + stack_depth * 8)
 
-%define line_buffer_length 256
+%define line_buffer_length 8 * 1
 
 %macro run 0
 	jmp [wp]
@@ -64,6 +64,13 @@ extern ReadFile
 
 %macro branch_to 1
 	dq branch
+	dq %1 - %%here
+
+	%%here:
+%endmacro
+
+%macro jump_to 1
+	dq jump
 	dq %1 - %%here
 
 	%%here:
@@ -243,6 +250,45 @@ section .text
 		mov qword [dp], ~0
 		next
 
+	; ( -- )
+	code jump
+		mov rax, [tp]
+		lea tp, [tp + rax + 8]
+		next
+
+	; ( a -- ~a )
+	code push_not
+		not qword [dp]
+		next
+
+	; ( a b -- (a + b) )
+	code push_add
+		mov rax, [dp]
+		add dp, 8
+		add [dp], rax
+		next
+
+	; ( address -- byte )
+	code load_byte
+		mov rax, [dp]
+		mov al, [rax]
+		movzx rax, al
+		mov [dp], rax
+		next
+
+	; ( a b -- (a == b) )
+	code push_is_eq
+		mov rax, [dp]
+		add dp, 8
+		cmp [dp], rax
+		jz .true
+		mov qword [dp], 0
+		next
+
+		.true:
+		mov qword [dp], ~0
+		next
+
 section .rdata
 	; ( -- )
 	program:
@@ -254,10 +300,10 @@ section .rdata
 		dq new_line
 		dq new_line
 
-		.accept:      
+		.accept:
 		dq accept_line
 		branch_to .accept
-		
+
 		dq test_stacks
 		dq exit
 
@@ -289,11 +335,12 @@ section .rdata
 		dq return
 
 	string status_ok, `[ok]`
+	string status_overfull, `[overfull]`
 	string status_pending, `                `
-	
+
 	string cursor_up, `\x1bM`
 	string newline, `\n`
-	variable line_buffer, line_buffer_length
+	variable line_buffer, line_buffer_length / 8
 
 	; ( -- )
 	thread new_line
@@ -313,14 +360,19 @@ section .rdata
 		dq literal
 		dq 2
 		dq push_subtract
+		dq line_size
+		dq store
 		dq return
 
 	; ( -- continue? )
 	thread accept_line
+		.again:
 		dq status_pending
 		dq print
 		dq read_line
 
+		dq line_size
+		dq load
 		dq copy
 		dq push_is_zero
 		branch_to .empty_line
@@ -328,15 +380,23 @@ section .rdata
 		dq push_is_negative
 		branch_to .eof
 
-		dq cursor_up
-		dq print
-		
+		dq is_line_overfull
+		branch_to .line_overfull
+
 		dq status_ok
-		dq print
-		dq new_line
-		
+		dq report_status
 		dq true
 		dq return
+
+		.line_overfull:
+		dq status_overfull
+		dq report_status
+
+		.flush:
+		dq read_line
+		dq is_line_overfull
+		branch_to .flush
+		jump_to .again
 
 		.empty_line:
 		dq drop
@@ -349,6 +409,31 @@ section .rdata
 
 	constant zero, 0
 	constant true, ~0
+	constant one, 1
+	variable line_size, 1
+
+	; ( string length -- )
+	thread report_status
+		dq cursor_up
+		dq print
+		dq print
+		dq new_line
+		dq return
+
+	; ( -- overfull? )
+	thread is_line_overfull
+		dq line_buffer
+		dq line_size
+		dq load
+		dq one
+		dq push_add
+		dq push_add
+		dq load_byte
+		dq literal
+		dq `\n`
+		dq push_is_eq
+		dq push_not
+		dq return
 
 section .bss
 	data_stack:
