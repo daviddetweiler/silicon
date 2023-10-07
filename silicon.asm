@@ -472,6 +472,7 @@ section .text
 		jmp next
 
 	; ( word -- )
+	declare "invoke"
 	code invoke
 		mov wp, [dp]
 		add dp, 8
@@ -485,8 +486,6 @@ section .rdata
 		dq init_current_word
 		dq init_dictionary
 
-		dq information
-
 		.accept:
 		dq accept_word
 		branch_to .exit
@@ -499,7 +498,8 @@ section .rdata
 		dq print
 		dq current_word
 		dq print_line
-		dq flush_line
+		dq new_line
+		dq flush_input_line
 		jump_to .accept
 
 		.found:
@@ -707,7 +707,7 @@ section .rdata
 		dq store_pair
 		dq return
 
-	; ( ptr -- new_ptr )
+	; ( ptr -- new-ptr )
 	thread consume_space
 		.again:
 		dq copy
@@ -721,7 +721,7 @@ section .rdata
 		dq push_add
 		jump_to .again
 
-	; ( ptr -- new_ptr )
+	; ( ptr -- new-ptr )
 	thread consume_word
 		.again:
 		dq copy
@@ -803,25 +803,11 @@ section .rdata
 	; ( entry -- name length immediate?  )
 	declare "entry-metadata"
 	thread entry_metadata
-		dq cell_size
-		dq push_add
 		dq copy
+		dq entry_immediate
 		dq stash
-		dq one
-		dq push_add
+		dq entry_name
 		dq unstash
-		dq load_byte
-		dq copy
-		dq literal
-		dq immediate
-		dq push_and
-		dq push_is_nzero
-		dq swap
-		dq literal
-		dq immediate
-		dq push_not
-		dq push_and
-		dq swap
 		dq return
 
 	; ( -- )
@@ -932,12 +918,47 @@ section .rdata
 		dq return
 
 	; ( entry -- data )
+	declare "entry-data-ptr"
 	thread entry_data_ptr
-		dq entry_metadata
-		dq drop
+		dq entry_name
+		dq push_add
+		dq copy
+		dq cell_align
+		dq return
+
+	; ( entry -- name length )
+	declare "entry-name"
+	thread entry_name
+		dq cell_size
 		dq push_add
 
 		dq copy
+		dq one
+		dq push_add
+		dq swap
+
+		dq load_byte
+		dq literal
+		dq ~immediate
+		dq push_and
+
+		dq return
+
+	; ( entry -- immediate? )
+	declare "entry-immediate?"
+	thread entry_immediate
+		dq cell_size
+		dq push_add
+		dq load_byte
+		dq literal
+		dq immediate
+		dq push_and
+		dq push_is_nzero
+		dq return
+
+	; ( address -- aligned-address )
+	declare "cell-align"
+	thread cell_align
 		dq literal
 		dq 7
 		dq push_and
@@ -948,11 +969,11 @@ section .rdata
 		dq 7
 		dq push_and
 		dq push_add
-
 		dq return
 
 	; ( -- )
-	thread flush_line
+	declare "\", immediate
+	thread flush_input_line
 		dq current_word
 		dq drop
 		dq copy
