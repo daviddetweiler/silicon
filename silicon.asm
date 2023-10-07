@@ -310,9 +310,6 @@ section .rdata
 		dq drop
 		dq return
 
-	variable stdin_handle, 1
-	variable stdout_handle, 1
-
 	; ( -- )
 	thread init_handles
 		dq literal
@@ -328,10 +325,6 @@ section .rdata
 		dq store
 
 		dq return
-
-	string status_overfull, `Line overfull\n`
-	string newline, `\n`
-	variable line_buffer, line_buffer_length / 8
 
 	; ( -- )
 	thread new_line
@@ -391,11 +384,6 @@ section .rdata
 		dq zero
 		dq return
 
-	constant zero, 0
-	constant true, ~0
-	constant one, 1
-	variable line_size, 1
-
 	; ( string length -- )
 	thread print_line
 		dq print
@@ -416,6 +404,18 @@ section .rdata
 		dq push_is_eq
 		dq push_not
 		dq return
+
+	constant zero, 0
+	constant true, ~0
+	constant one, 1
+	
+	variable line_size, 1
+	variable stdin_handle, 1
+	variable stdout_handle, 1
+	variable line_buffer, line_buffer_length / 8
+
+	string status_overfull, `Line overfull\n`
+	string newline, `\n`
 
 section .bss
 	data_stack:
