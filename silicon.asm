@@ -475,7 +475,6 @@ section .text
 	code invoke
 		mov wp, [dp]
 		add dp, 8
-		int3
 		jmp run
 
 section .rdata
@@ -492,7 +491,19 @@ section .rdata
 		dq accept_word
 		branch_to .exit
 		dq current_word
+		dq find
+		dq copy
+		branch_to .found
+		dq drop
+		dq status_unknown
+		dq print
+		dq current_word
 		dq print_line
+		dq flush_line
+		jump_to .accept
+
+		.found:
+		dq invoke
 		jump_to .accept
 
 		.exit:
@@ -940,6 +951,21 @@ section .rdata
 
 		dq return
 
+	; ( -- )
+	thread flush_line
+		dq current_word
+		dq drop
+		dq copy
+		dq line_buffer
+		dq push_subtract
+		dq line_size
+		dq load
+		dq swap
+		dq push_subtract
+		dq current_word_pair
+		dq store_pair
+		dq return
+
 	declare "0"
 	constant zero, 0
 
@@ -968,6 +994,7 @@ section .rdata
 	string empty_tag, `    `
 	string immediate_tag, `*   `
 	string info_banner, `Silicon (c) 2023 @daviddetweiler`
+	string status_unknown, `Unknown word: `
 
 section .bss
 	data_stack:
