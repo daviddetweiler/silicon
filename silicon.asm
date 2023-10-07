@@ -484,7 +484,7 @@ section .text
 		jmp run
 
 	; ( a b -- (a / b) )
-	declare "/"
+	declare "u/"
 	code push_udivide
 		mov rax, [dp + 8]
 		mov rbx, [dp]
@@ -495,7 +495,7 @@ section .text
 		jmp next
 
 	; ( a b -- (a % b) )
-	declare "%"
+	declare "u%"
 	code push_umodulo
 		mov rax, [dp + 8]
 		mov rbx, [dp]
@@ -515,6 +515,43 @@ section .text
 		neg qword [dp]
 		jmp next
 
+	; ( a b -- (a >= b) )
+	declare ">="
+	code push_is_ge
+		mov rax, [dp]
+		add dp, 8
+		cmp [dp], rax
+		jge .true
+		mov qword [dp], 0
+		jmp next
+
+		.true:
+		mov qword [dp], ~0
+		jmp next
+
+	; ( a b -- (a <= b) )
+	declare "<="
+	code push_is_le
+		mov rax, [dp]
+		add dp, 8
+		cmp [dp], rax
+		jle .true
+		mov qword [dp], 0
+		jmp next
+
+		.true:
+		mov qword [dp], ~0
+		jmp next
+
+	; ( a b -- (a * b) )
+	declare "u*"
+	code push_umultiply
+		mov rax, [dp]
+		add dp, 8
+		mul qword [dp]
+		mov [dp], rax
+		jmp next
+
 section .rdata
 	; ( -- )
 	program:
@@ -531,6 +568,13 @@ section .rdata
 		dq copy
 		branch_to .found
 		dq drop
+
+		; Maybe it's a number?
+		dq current_word
+		dq parse_unumber
+		branch_to .accept
+		dq drop
+
 		dq status_unknown
 		dq print
 		dq current_word
@@ -1094,6 +1138,70 @@ section .rdata
 		dq read_line
 		dq return
 
+	; ( char -- digit? )
+	thread is_digit
+		dq copy
+		dq literal
+		dq '0'
+		dq push_is_ge
+		dq stash
+		dq literal
+		dq `9`
+		dq push_is_le
+		dq unstash
+		dq push_and
+		dq return
+
+	; ( string length -- n number? )
+	declare "parse-u#"
+	thread parse_unumber
+		dq parsed_number
+		dq store_pair
+		dq zero
+		dq stash
+		
+		.again:
+		dq parsed_number
+		dq load
+		dq load_byte
+		dq copy
+		dq is_digit
+		dq push_not
+		branch_to .nan
+		dq literal
+		dq '0'
+		dq push_subtract
+		dq unstash
+		dq ten
+		dq push_umultiply
+		dq push_add
+		dq stash
+		
+		dq parsed_number
+		dq load
+		dq one
+		dq push_add
+		dq parsed_number
+		dq load_2nd
+		dq one
+		dq push_subtract
+		dq copy
+		dq stash
+		dq parsed_number
+		dq store_pair
+		dq unstash
+		branch_to .again
+
+		dq unstash
+		dq true
+		dq return
+
+		.nan:
+		dq unstash
+		dq drop
+		dq zero
+		dq return
+
 	declare "0"
 	constant zero, 0
 
@@ -1117,6 +1225,7 @@ section .rdata
 	variable string_a, 2
 	variable string_b, 2
 	variable formatted_decimal, formatted_decimal_length / 8
+	variable parsed_number, 2
 
 	declare "dictionary"
 	variable dictionary, 1
