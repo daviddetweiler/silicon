@@ -457,6 +457,14 @@ section .text
 		mov wp, rax
 		jmp run
 
+	; ( address -- value )
+	declare "load-2nd"
+	code load_2nd
+		mov rax, [dp]
+		mov rax, [rax + 8]
+		mov [dp], rax
+		jmp next
+
 section .rdata
 	; ( -- )
 	program:
@@ -809,6 +817,63 @@ section .rdata
 	thread end_define
 		dq return
 
+	; ( a-string a-length b-string b-length -- same? )
+	declare "string="
+	thread string_eq
+		dq string_b
+		dq store_pair
+		dq string_a
+		dq store_pair
+
+		dq string_b
+		dq load_2nd
+		dq string_a
+		dq load_2nd
+		dq over
+		dq push_is_neq
+		branch_to .false
+
+		.again:
+		dq string_b
+		dq load
+		dq load_byte
+		dq string_a
+		dq load
+		dq load_byte
+		dq push_is_neq
+		branch_to .false
+
+		dq one
+		dq push_subtract
+		dq copy
+		dq push_is_zero
+		branch_to .true
+
+		dq string_b
+		dq load
+		dq one
+		dq push_add
+		dq string_b
+		dq store
+
+		dq string_a
+		dq load
+		dq one
+		dq push_add
+		dq string_a
+		dq store
+		jump_to .again
+
+		.false:
+		dq drop
+		dq zero
+		dq return
+
+		.true:
+		dq drop
+		dq true
+		dq return
+
 	declare "0"
 	constant zero, 0
 
@@ -826,6 +891,8 @@ section .rdata
 	variable stdout_handle, 1
 	variable line_buffer, (line_buffer_length / 8) + 1 ; +1 to ensure null-termination
 	variable current_word_pair, 2
+	variable string_a, 2
+	variable string_b, 2
 
 	declare "dictionary"
 	variable dictionary, 1
