@@ -256,11 +256,6 @@ section .text
 		lea tp, [tp + rax + 8]
 		next
 
-	; ( a -- ~a )
-	code push_not
-		not qword [dp]
-		next
-
 	; ( a b -- (a + b) )
 	code push_add
 		mov rax, [dp]
@@ -276,12 +271,12 @@ section .text
 		mov [dp], rax
 		next
 
-	; ( a b -- (a == b) )
-	code push_is_eq
+	; ( a b -- (a != b) )
+	code push_is_neq
 		mov rax, [dp]
 		add dp, 8
 		cmp [dp], rax
-		jz .true
+		jne .true
 		mov qword [dp], 0
 		next
 
@@ -297,8 +292,12 @@ section .rdata
 
 		.accept:
 		dq accept_line
-		branch_to .accept
+		branch_to .exit		
+		dq current_line
+		dq print_line
+		jump_to .accept
 
+		.exit:
 		dq test_stacks
 		dq exit
 
@@ -348,21 +347,25 @@ section .rdata
 		dq store
 		dq return
 
-	; ( -- continue? )
+	; ( -- exit? )
 	thread accept_line
 		.again:
 		dq read_line
 
 		dq line_size
 		dq load
+
 		dq copy
-		dq push_is_zero
-		branch_to .empty_line
 		dq push_is_negative
 		branch_to .eof
+
+		dq push_is_zero
+		branch_to .again
+
 		dq is_line_overfull
 		branch_to .line_overfull
-		dq true
+
+		dq zero
 		dq return
 
 		.line_overfull:
@@ -375,13 +378,9 @@ section .rdata
 		branch_to .flush
 		jump_to .again
 
-		.empty_line:
+		.eof:
 		dq drop
 		dq true
-		dq return
-
-		.eof:
-		dq zero
 		dq return
 
 	; ( string length -- )
@@ -401,8 +400,14 @@ section .rdata
 		dq load_byte
 		dq literal
 		dq `\n`
-		dq push_is_eq
-		dq push_not
+		dq push_is_neq
+		dq return
+
+	; ( -- line length )
+	thread current_line
+		dq line_buffer
+		dq line_size
+		dq load
 		dq return
 
 	constant zero, 0
