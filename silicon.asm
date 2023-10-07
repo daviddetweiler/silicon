@@ -1159,7 +1159,7 @@ section .rdata
 		dq store_pair
 		dq zero
 		dq stash
-		
+
 		.again:
 		dq parsed_number
 		dq load
@@ -1176,7 +1176,7 @@ section .rdata
 		dq push_umultiply
 		dq push_add
 		dq stash
-		
+
 		dq parsed_number
 		dq load
 		dq one
