@@ -142,7 +142,7 @@ section .text
 		jmp next
 
 	; ( -- )
-	code exit
+	code exit_process
 		xor rcx, rcx
 		call ExitProcess
 
@@ -561,6 +561,10 @@ section .rdata
 		dq init_dictionary
 
 		.accept:
+		dq should_exit
+		dq load
+		branch_to .exit
+
 		dq accept_word
 		branch_to .exit
 		dq current_word
@@ -590,7 +594,7 @@ section .rdata
 		.exit:
 		dq test_stacks
 		predicated report_leftovers
-		dq exit
+		dq exit_process
 
 	; ( string length -- )
 	declare "print"
@@ -1237,6 +1241,13 @@ section .rdata
 		dq zero
 		dq return
 
+	declare "exit"
+	thread exit
+		dq true
+		dq should_exit
+		dq store
+		dq return
+
 	declare "0"
 	constant zero, 0
 
@@ -1261,6 +1272,7 @@ section .rdata
 	variable string_b, 2
 	variable formatted_decimal, formatted_decimal_length / 8
 	variable parsed_number, 2
+	variable should_exit, 1
 
 	declare "dictionary"
 	variable dictionary, 1
