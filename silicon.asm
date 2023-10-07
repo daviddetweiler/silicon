@@ -18,6 +18,8 @@ extern ReadFile
 
 %define line_buffer_length 8 * 16
 
+%define formatted_decimal_length 32
+
 %define immediate 0x80
 %define entry_0 0
 
@@ -75,7 +77,7 @@ extern ReadFile
 	%%here:
 %endmacro
 
-%macro predicated 2
+%macro predicated 1-2 skip
 	dq predicate
 	dq %1
 	dq %2
@@ -139,10 +141,9 @@ section .text
 		add rp, 8
 		jmp next
 
-	; ( code -- )
-	declare "exit"
+	; ( -- )
 	code exit
-		mov rcx, [dp]
+		xor rcx, rcx
 		call ExitProcess
 
 	; ( -- )
@@ -151,7 +152,7 @@ section .text
 		lea rp, stack_base(return_stack)
 		jmp next
 
-	; ( -- )
+	; ( -- leftovers? )
 	code test_stacks
 		lea rax, stack_base(data_stack)
 		cmp dp, rax
@@ -159,10 +160,13 @@ section .text
 		lea rax, stack_base(return_stack)
 		cmp rp, rax
 		jne .stack_error
+		sub dp, 8
+		mov qword [dp], 0
 		jmp next
 
 		.stack_error:
-		int3
+		sub dp, 8
+		mov qword [dp], ~0
 		jmp next
 
 	; ( value -- )
@@ -479,6 +483,38 @@ section .text
 		add dp, 8
 		jmp run
 
+	; ( a b -- (a / b) )
+	declare "/"
+	code push_udivide
+		mov rax, [dp + 8]
+		mov rbx, [dp]
+		add dp, 8
+		xor rdx, rdx
+		div rbx
+		mov [dp], rax
+		jmp next
+
+	; ( a b -- (a % b) )
+	declare "%"
+	code push_umodulo
+		mov rax, [dp + 8]
+		mov rbx, [dp]
+		add dp, 8
+		xor rdx, rdx
+		div rbx
+		mov [dp], rdx
+		jmp next
+
+	; ( -- )
+	code skip
+		jmp next
+
+	; ( n -- -n )
+	declare "0-"
+	code push_negate
+		neg qword [dp]
+		jmp next
+
 section .rdata
 	; ( -- )
 	program:
@@ -509,6 +545,7 @@ section .rdata
 
 		.exit:
 		dq test_stacks
+		predicated report_leftovers
 		dq exit
 
 	; ( string length -- )
@@ -996,6 +1033,67 @@ section .rdata
 		dq new_line
 		dq return
 
+	; ( n -- )
+	declare "print-u#"
+	thread print_unumber
+		dq formatted_decimal
+		dq literal
+		dq formatted_decimal_length
+		dq push_add
+		dq copy
+		dq stash
+		dq stash
+
+		.again:
+		dq copy
+		dq ten
+		dq push_umodulo
+		dq literal
+		dq '0'
+		dq push_add
+		dq unstash
+		dq one
+		dq push_subtract
+		dq swap
+		dq over
+		dq store_byte
+		dq stash
+		dq ten
+		dq push_udivide
+		dq copy
+		branch_to .again
+
+		dq drop
+		dq unstash
+		dq unstash
+		dq over
+		dq push_subtract
+		dq print
+		dq return
+
+	; ( n -- )
+	declare "print-#"
+	thread print_number
+		dq copy
+		dq push_is_negative
+		branch_to .negative
+		dq print_unumber
+		dq return
+
+		.negative:
+		dq negative
+		dq print
+		dq push_negate
+		dq print_unumber
+		dq return
+
+	; ( -- )
+	thread report_leftovers
+		dq status_leftovers
+		dq print_line
+		dq read_line
+		dq return
+
 	declare "0"
 	constant zero, 0
 
@@ -1008,6 +1106,9 @@ section .rdata
 	declare "cell-size"
 	constant cell_size, 8
 
+	declare "10"
+	constant ten, 10
+
 	variable line_size, 1
 	variable stdin_handle, 1
 	variable stdout_handle, 1
@@ -1015,16 +1116,19 @@ section .rdata
 	variable current_word_pair, 2
 	variable string_a, 2
 	variable string_b, 2
+	variable formatted_decimal, formatted_decimal_length / 8
 
 	declare "dictionary"
 	variable dictionary, 1
 
 	string status_overfull, `Line overfull\n`
 	string status_unknown, `Unknown word: `
+	string status_leftovers, `Leftovers on stack; press any key...\n`
 	string newline, `\n`
 	string empty_tag, `    `
 	string immediate_tag, `*   `
 	string info_banner, %strcat(`Silicon (`, git_version, `) (c) 2023 @daviddetweiler`)
+	string negative, `-`
 
 section .bss
 	data_stack:
