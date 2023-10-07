@@ -313,6 +313,44 @@ section .text
 		mov [dp], rax
 		next
 
+	; ( a b -- b a )
+	code swap
+		mov rax, [dp]
+		xchg rax, [dp + 8]
+		mov [dp], rax
+		next
+
+	; ( a b -- a b a b )
+	code copy_two
+		mov rax, [dp]
+		mov rbx, [dp + 8]
+		sub dp, 8 * 2
+		mov [dp], rax
+		mov [dp + 8], rbx
+		next
+
+	; ( a b -- b )
+	code nip
+		mov rax, [dp]
+		add dp, 8
+		mov [dp], rax
+		next
+
+	; ( a b -- a b a )
+	code over
+		mov rax, [dp + 8]
+		sub dp, 8
+		mov [dp], rax
+		next
+
+	; ( value address -- )
+	code store_byte
+		mov rax, [dp]
+		mov rbx, [dp + 8]
+		mov [rax], bl
+		add dp, 8 * 2
+		next
+
 section .rdata
 	; ( -- )
 	program:
@@ -370,6 +408,11 @@ section .rdata
 		dq load
 		dq read_file
 		dq drop
+		dq zero
+		dq over
+		dq line_buffer
+		dq push_add
+		dq store_byte
 		dq literal
 		dq 2
 		dq push_subtract
@@ -454,9 +497,18 @@ section .rdata
 		dq push_is_eq
 		branch_to .refill
 
-		; TODO: unhack this
-		dq line_size
-		dq load
+		dq consume_space
+		dq copy
+		dq load_byte
+		dq push_is_zero
+		branch_to .refill
+		dq copy
+		dq consume_word
+		dq copy_two
+		dq swap
+		dq push_subtract
+		dq nip
+		
 		dq current_word_pair
 		dq store_pair
 		dq zero
@@ -509,6 +561,75 @@ section .rdata
 		dq store_pair
 		dq return
 
+	; ( ptr -- new_ptr )
+	thread consume_space
+		.again:
+		dq copy
+		dq load_byte
+		dq is_space
+		branch_to .advance
+		dq return
+
+		.advance:
+		dq one
+		dq push_add
+		jump_to .again
+
+	; ( ptr -- new_ptr )
+	thread consume_word
+		.again:
+		dq copy
+		dq load_byte
+		dq copy
+		dq push_is_zero
+		branch_to .return
+		dq copy
+		dq is_space
+		branch_to .return
+		dq drop
+		dq one
+		dq push_add
+		jump_to .again
+
+		.return:
+		dq drop
+		dq return
+
+	; ( char -- space? )
+	thread is_space
+		dq copy
+		dq literal
+		dq ` `
+		dq push_is_eq
+		branch_to .true
+
+		dq copy
+		dq literal
+		dq `\t`
+		dq push_is_eq
+		branch_to .true
+
+		dq copy
+		dq literal
+		dq `\r`
+		dq push_is_eq
+		branch_to .true
+
+		dq copy
+		dq literal
+		dq `\n`
+		dq push_is_eq
+		branch_to .true
+
+		dq drop
+		dq zero
+		dq return
+
+		.true:
+		dq drop
+		dq true
+		dq return
+
 	constant zero, 0
 	constant true, ~0
 	constant one, 1
@@ -517,7 +638,7 @@ section .rdata
 	variable line_size, 1
 	variable stdin_handle, 1
 	variable stdout_handle, 1
-	variable line_buffer, line_buffer_length / 8
+	variable line_buffer, (line_buffer_length / 8) + 1	; +1 to ensure null-termination
 	variable current_word_pair, 2
 
 	string status_overfull, `Line overfull\n`
