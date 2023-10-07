@@ -1303,7 +1303,7 @@ section .rdata
 		.rejected:
 		dq zero
 		dq return
-	
+
 	; ( -- )
 	thread cell_align_arena
 		dq arena_top
@@ -1341,10 +1341,34 @@ section .rdata
 
 	; ( string length -- )
 	thread compile_string
-		dq drop_pair
-		dq literal
-		dq `TESTTEST`
-		dq compile
+		dq string_a
+		dq store_pair
+
+		.again:
+		dq string_a
+		dq load
+		dq load_byte
+		dq compile_byte
+
+		dq string_a
+		dq load
+		dq one
+		dq push_add
+
+		dq string_a
+		dq load_2nd
+		dq one
+		dq push_subtract
+
+		dq copy
+		dq stash
+
+		dq string_a
+		dq store_pair
+
+		dq unstash
+		branch_to .again
+
 		dq return
 
 	; ( -- )
