@@ -465,6 +465,19 @@ section .text
 		mov [dp], rax
 		jmp next
 
+	; ( a b -- )
+	declare "drop-pair"
+	code drop_pair
+		add dp, 8 * 2
+		jmp next
+
+	; ( word -- )
+	code invoke
+		mov wp, [dp]
+		add dp, 8
+		int3
+		jmp run
+
 section .rdata
 	; ( -- )
 	program:
@@ -872,6 +885,59 @@ section .rdata
 		.true:
 		dq drop
 		dq true
+		dq return
+
+	; ( string length -- word? )
+	declare "find"
+	thread find
+		dq dictionary
+		dq load
+
+		.again:
+		dq stash
+		dq copy_pair
+		dq unstash
+		dq copy
+		dq stash
+		dq entry_metadata
+		dq drop
+		dq string_eq
+		branch_to .found
+
+		dq unstash
+		dq load
+		dq copy
+		branch_to .again
+
+		dq drop
+		dq drop_pair
+		dq zero
+		dq return
+
+		.found:
+		dq drop_pair
+		dq unstash
+		dq entry_data_ptr
+		dq return
+
+	; ( entry -- data )
+	thread entry_data_ptr
+		dq entry_metadata
+		dq drop
+		dq push_add
+
+		dq copy
+		dq literal
+		dq 7
+		dq push_and
+		dq cell_size
+		dq swap
+		dq push_subtract
+		dq literal
+		dq 7
+		dq push_and
+		dq push_add
+
 		dq return
 
 	declare "0"
