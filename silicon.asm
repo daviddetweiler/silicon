@@ -571,7 +571,7 @@ section .rdata
 
 		; Maybe it's a number?
 		dq current_word
-		dq parse_unumber
+		dq parse_number
 		branch_to .accept
 		dq drop
 
@@ -1199,6 +1199,41 @@ section .rdata
 		.nan:
 		dq unstash
 		dq drop
+		dq zero
+		dq return
+
+	; ( string length -- n number? )
+	declare "parse-#"
+	thread parse_number
+		dq over
+		dq load_byte
+		dq literal
+		dq `-`
+		dq push_is_eq
+		branch_to .negative
+		dq parse_unumber
+		dq return
+
+		.negative:
+		dq copy
+		dq one
+		dq push_is_eq
+		branch_to .nan
+		dq one
+		dq push_subtract
+		dq swap
+		dq one
+		dq push_add
+		dq swap
+		dq parse_unumber
+		dq swap
+		dq push_negate
+		dq swap
+		dq return
+
+		.nan:
+		dq drop_pair
+		dq zero
 		dq zero
 		dq return
 
