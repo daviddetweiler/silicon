@@ -22,7 +22,7 @@ silicon.exe: silicon.obj
         $(debug_link_flags)
 
 silicon.obj: silicon.asm
-    nasm -fwin64 silicon.asm $(debug_nasm_flags)
+    pwsh -c "nasm -fwin64 silicon.asm -Dgit_version=""$$(git describe)"" $(debug_nasm_flags)"
 
 clean:
     del *.obj *.exe *.pdb *.ilk

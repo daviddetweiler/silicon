@@ -140,6 +140,7 @@ section .text
 		jmp next
 
 	; ( code -- )
+	declare "exit"
 	code exit
 		mov rcx, [dp]
 		call ExitProcess
@@ -779,9 +780,7 @@ section .rdata
 	; ( -- )
 	declare "information"
 	thread information
-		dq info_banner
-		dq print_line
-		dq new_line
+		dq version
 
 		dq dictionary
 		dq load
@@ -922,6 +921,8 @@ section .rdata
 	thread entry_data_ptr
 		dq entry_name
 		dq push_add
+		dq one
+		dq push_add
 		dq copy
 		dq cell_align
 		dq return
@@ -987,6 +988,14 @@ section .rdata
 		dq store_pair
 		dq return
 
+	; ( -- )
+	declare "version"
+	thread version
+		dq info_banner
+		dq print_line
+		dq new_line
+		dq return
+
 	declare "0"
 	constant zero, 0
 
@@ -1011,11 +1020,11 @@ section .rdata
 	variable dictionary, 1
 
 	string status_overfull, `Line overfull\n`
+	string status_unknown, `Unknown word: `
 	string newline, `\n`
 	string empty_tag, `    `
 	string immediate_tag, `*   `
-	string info_banner, `Silicon (c) 2023 @daviddetweiler`
-	string status_unknown, `Unknown word: `
+	string info_banner, %strcat(`Silicon (`, git_version, `) (c) 2023 @daviddetweiler`)
 
 section .bss
 	data_stack:
