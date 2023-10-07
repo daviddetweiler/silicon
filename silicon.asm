@@ -284,16 +284,46 @@ section .text
 		mov qword [dp], ~0
 		next
 
+	; ( a b -- (a == b) )
+	code push_is_eq
+		mov rax, [dp]
+		add dp, 8
+		cmp [dp], rax
+		je .true
+		mov qword [dp], 0
+		next
+
+		.true:
+		mov qword [dp], ~0
+		next
+
+	; ( value -- )
+	code stash
+		mov rax, [dp]
+		add dp, 8
+		sub rp, 8
+		mov [rp], rax
+		next
+
+	; ( -- value )
+	code unstash
+		mov rax, [rp]
+		add rp, 8
+		sub dp, 8
+		mov [dp], rax
+		next
+
 section .rdata
 	; ( -- )
 	program:
 		dq set_stacks
 		dq init_handles
+		dq init_current_word
 
 		.accept:
-		dq accept_line
+		dq accept_word
 		branch_to .exit		
-		dq current_line
+		dq current_word
 		dq print_line
 		jump_to .accept
 
@@ -410,14 +440,85 @@ section .rdata
 		dq load
 		dq return
 
+	; ( -- exit? )
+	thread accept_word
+		.again:
+		dq current_word
+		dq push_add
+		dq copy
+
+		dq line_buffer
+		dq push_subtract
+		dq line_size
+		dq load
+		dq push_is_eq
+		branch_to .refill
+
+		; TODO: unhack this
+		dq line_size
+		dq load
+		dq current_word_pair
+		dq store_pair
+		dq zero
+		dq return
+
+		.refill:
+		dq drop
+		dq accept_line
+		branch_to .exit
+		dq init_current_word
+		jump_to .again
+
+		.exit:
+		dq true
+		dq return
+
+	; ( a b address -- )
+	thread store_pair
+		dq copy
+		dq stash
+		dq cell_size
+		dq push_add
+		dq store
+		dq unstash
+		dq store
+		dq return
+
+	; ( address -- a b )
+	thread load_pair
+		dq copy
+		dq cell_size
+		dq push_add
+		dq stash
+		dq load
+		dq unstash
+		dq load
+		dq return
+
+	; ( -- word length )
+	thread current_word
+		dq current_word_pair
+		dq load_pair
+		dq return
+
+	; ( -- )
+	thread init_current_word
+		dq line_buffer
+		dq zero
+		dq current_word_pair
+		dq store_pair
+		dq return
+
 	constant zero, 0
 	constant true, ~0
 	constant one, 1
+	constant cell_size, 8
 	
 	variable line_size, 1
 	variable stdin_handle, 1
 	variable stdout_handle, 1
 	variable line_buffer, line_buffer_length / 8
+	variable current_word_pair, 2
 
 	string status_overfull, `Line overfull\n`
 	string newline, `\n`
