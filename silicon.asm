@@ -17,8 +17,8 @@ extern ReadFile
 %define stack_base(stack) (stack + stack_depth * 8)
 
 %define line_buffer_length 8 * 16
-
-%define formatted_decimal_length 32
+%define formatted_decimal_length 8 * 4
+%define arena_length 1024 * 1024
 
 %define immediate 0x80
 %define entry_0 0
@@ -552,6 +552,12 @@ section .text
 		mov [dp], rax
 		jmp next
 
+	; ( -- )
+	declare "break"
+	code break
+		int3
+		jmp next
+
 section .rdata
 	; ( -- )
 	program:
@@ -559,6 +565,7 @@ section .rdata
 		dq init_handles
 		dq init_current_word
 		dq init_dictionary
+		dq init_arena
 
 		.accept:
 		dq should_exit
@@ -904,11 +911,21 @@ section .rdata
 	; ( -- )
 	declare "fn{"
 	thread define
+		dq create
+		dq partial_definition
+		dq store
 		dq return
 
 	; ( -- )
 	declare "}", immediate
 	thread end_define
+		dq partial_definition
+		dq load
+		dq dictionary
+		dq store
+		dq zero
+		dq partial_definition
+		dq store
 		dq return
 
 	; ( a-string a-length b-string b-length -- same? )
@@ -1008,7 +1025,6 @@ section .rdata
 		dq push_add
 		dq one
 		dq push_add
-		dq copy
 		dq cell_align
 		dq return
 
@@ -1045,15 +1061,16 @@ section .rdata
 	; ( address -- aligned-address )
 	declare "cell-align"
 	thread cell_align
-		dq literal
+		dq copy
+		dq literal ; address 7
 		dq 7
-		dq push_and
-		dq cell_size
-		dq swap
-		dq push_subtract
-		dq literal
+		dq push_and ; (address & 7)
+		dq cell_size ; (address & 7) 8
+		dq swap ; 8 (address & 7)
+		dq push_subtract ; (8 - (address & 7))
+		dq literal ; (8 - (address & 7)) 7
 		dq 7
-		dq push_and
+		dq push_and ; ((8 - (address & 7)) & 7)
 		dq push_add
 		dq return
 
@@ -1248,6 +1265,95 @@ section .rdata
 		dq store
 		dq return
 
+	; ( -- entry? )
+	declare "create"
+	thread create
+		dq accept_word
+		branch_to .rejected
+		dq current_word
+		dq copy
+		dq literal
+		dq 128
+		dq push_is_ge
+		branch_to .too_long
+		dq arena_top
+		dq load
+		dq stash
+		dq cell_align_arena
+		dq dictionary
+		dq load
+		dq compile
+		dq copy
+		dq compile_byte
+		dq compile_string
+		dq zero
+		dq compile_byte
+		dq cell_align_arena
+		dq unstash
+		dq return
+
+		.too_long:
+		dq drop_pair
+		dq unstash
+		dq drop
+		dq status_word_too_long
+		dq print_line
+		dq return
+
+		.rejected:
+		dq zero
+		dq return
+	
+	; ( -- )
+	thread cell_align_arena
+		dq arena_top
+		dq load
+		dq cell_align
+		dq arena_top
+		dq store
+		dq return
+
+	; ( cell -- )
+	thread compile
+		dq arena_top
+		dq load
+		dq store
+		dq arena_top
+		dq load
+		dq cell_size
+		dq push_add
+		dq arena_top
+		dq store
+		dq return
+
+	; ( byte -- )
+	thread compile_byte
+		dq arena_top
+		dq load
+		dq store_byte
+		dq arena_top
+		dq load
+		dq one
+		dq push_add
+		dq arena_top
+		dq store
+		dq return
+
+	; ( string length -- )
+	thread compile_string
+		dq drop_pair
+		dq literal
+		dq `TESTTEST`
+		dq compile
+		dq return
+
+	; ( -- )
+	thread init_arena
+		dq arena_base
+		dq arena_top
+		dq store
+		dq return
+
 	declare "0"
 	constant zero, 0
 
@@ -1273,6 +1379,9 @@ section .rdata
 	variable formatted_decimal, formatted_decimal_length / 8
 	variable parsed_number, 2
 	variable should_exit, 1
+	variable arena_base, arena_length / 8
+	variable arena_top, 1
+	variable partial_definition, 1
 
 	declare "dictionary"
 	variable dictionary, 1
@@ -1280,6 +1389,7 @@ section .rdata
 	string status_overfull, `Line overfull\n`
 	string status_unknown, `Unknown word: `
 	string status_leftovers, `Leftovers on stack; press any key...\n`
+	string status_word_too_long, `Word is too long for dictionary entry\n`
 	string newline, `\n`
 	string empty_tag, `    `
 	string immediate_tag, `*   `
