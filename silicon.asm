@@ -18,6 +18,12 @@ extern ReadFile
 
 %define line_buffer_length 8 * 16
 
+%define immediate 0x80
+%define entry_0 0
+
+%assign dictionary_written 0
+%assign dictionary_head 0
+
 %macro run 0
 	jmp [wp]
 %endmacro
@@ -35,7 +41,10 @@ extern ReadFile
 %endmacro
 
 %macro code 1
-	code_field %1, %%here
+	[section .rdata]
+		code_field %1, %%here
+
+	__?SECT?__
 		%%here:
 %endmacro
 
@@ -74,6 +83,44 @@ extern ReadFile
 	dq %1 - %%here
 
 	%%here:
+%endmacro
+
+%macro predicated 2
+	dq predicate
+	dq %1
+	dq %2
+%endmacro
+
+%define dictionary_entry(id) entry_ %+ id
+
+%macro declare 1-2 0
+	%push
+
+	%if dictionary_written
+		%error "Cannot declare words after dictionary has been written"
+	%elif %strlen(%1) >= 0x80
+		%error "Word name too long"
+	%endif
+
+	%assign n dictionary_head + 1
+
+	[section .rdata]
+		dictionary_entry(n):
+			dq dictionary_entry(dictionary_head)
+			db %strlen(%1) | %2, %1, 0
+
+	__?SECT?__
+
+	%assign dictionary_head n
+
+	%pop
+%endmacro
+
+%macro commit_dictionary 0
+	section .rdata
+		declare "core-vocabulary"
+		constant core_vocabulary, entry_ %+ dictionary_head
+		%assign dictionary_written 1
 %endmacro
 
 section .text
@@ -116,6 +163,7 @@ section .text
 		next
 
 	; ( value -- )
+	declare "drop"
 	code drop
 		add dp, 8
 		next
@@ -145,6 +193,7 @@ section .text
 		next
 
 	; ( string length handle -- succeeded )
+	declare "write-file"
 	code write_file
 		mov rcx, [dp]
 		mov rdx, [dp + 8 * 2]
@@ -164,6 +213,7 @@ section .text
 		next
 
 	; ( address -- value )
+	declare "load"
 	code load
 		mov rax, [dp]
 		mov rax, [rax]
@@ -171,6 +221,7 @@ section .text
 		next
 
 	; ( value address -- )
+	declare "store"
 	code store
 		mov rax, [dp]
 		mov rbx, [dp + 8]
@@ -186,6 +237,7 @@ section .text
 		next
 
 	; ( buffer length handle -- count succeeded )
+	declare "read-file"
 	code read_file
 		mov rcx, [dp]
 		mov rdx, [dp + 8 * 2]
@@ -200,6 +252,7 @@ section .text
 		next
 
 	; ( a b -- (a - b) )
+	declare "-"
 	code push_subtract
 		mov rax, [dp]
 		add dp, 8
@@ -221,6 +274,7 @@ section .text
 		next
 
 	; ( a -- (a < 0) )
+	declare "0>"
 	code push_is_negative
 		cmp qword [dp], 0
 		jl .true
@@ -232,6 +286,7 @@ section .text
 		next
 
 	; ( value -- value value )
+	declare "copy"
 	code copy
 		mov rax, [dp]
 		sub dp, 8
@@ -239,10 +294,24 @@ section .text
 		next
 
 	; ( value -- (value == 0) )
+	declare "0="
 	code push_is_zero
 		mov rax, [dp]
 		test rax, rax
 		jz .true
+		mov qword [dp], 0
+		next
+
+		.true:
+		mov qword [dp], ~0
+		next
+
+	; ( value -- (value != 0) )
+	declare "0~="
+	code push_is_nzero
+		mov rax, [dp]
+		test rax, rax
+		jnz .true
 		mov qword [dp], 0
 		next
 
@@ -257,6 +326,7 @@ section .text
 		next
 
 	; ( a b -- (a + b) )
+	declare "+"
 	code push_add
 		mov rax, [dp]
 		add dp, 8
@@ -264,6 +334,7 @@ section .text
 		next
 
 	; ( address -- byte )
+	declare "load-byte"
 	code load_byte
 		mov rax, [dp]
 		mov al, [rax]
@@ -272,6 +343,7 @@ section .text
 		next
 
 	; ( a b -- (a != b) )
+	declare "~="
 	code push_is_neq
 		mov rax, [dp]
 		add dp, 8
@@ -285,6 +357,7 @@ section .text
 		next
 
 	; ( a b -- (a == b) )
+	declare "="
 	code push_is_eq
 		mov rax, [dp]
 		add dp, 8
@@ -298,6 +371,7 @@ section .text
 		next
 
 	; ( value -- )
+	declare "stash"
 	code stash
 		mov rax, [dp]
 		add dp, 8
@@ -306,6 +380,7 @@ section .text
 		next
 
 	; ( -- value )
+	declare "unstash"
 	code unstash
 		mov rax, [rp]
 		add rp, 8
@@ -314,6 +389,7 @@ section .text
 		next
 
 	; ( a b -- b a )
+	declare "swap"
 	code swap
 		mov rax, [dp]
 		xchg rax, [dp + 8]
@@ -321,7 +397,8 @@ section .text
 		next
 
 	; ( a b -- a b a b )
-	code copy_two
+	declare "copy-pair"
+	code copy_pair
 		mov rax, [dp]
 		mov rbx, [dp + 8]
 		sub dp, 8 * 2
@@ -330,6 +407,7 @@ section .text
 		next
 
 	; ( a b -- b )
+	declare "nip"
 	code nip
 		mov rax, [dp]
 		add dp, 8
@@ -337,6 +415,7 @@ section .text
 		next
 
 	; ( a b -- a b a )
+	declare "over"
 	code over
 		mov rax, [dp + 8]
 		sub dp, 8
@@ -344,6 +423,7 @@ section .text
 		next
 
 	; ( value address -- )
+	declare "store-byte"
 	code store_byte
 		mov rax, [dp]
 		mov rbx, [dp + 8]
@@ -351,16 +431,50 @@ section .text
 		add dp, 8 * 2
 		next
 
+	; ( a -- ~a )
+	declare "~"
+	code push_not
+		not qword [dp]
+		next
+
+	; ( a b -- (a & b) )
+	declare "&"
+	code push_and
+		mov rax, [dp]
+		add dp, 8
+		and [dp], rax
+		next
+
+	; ( condition -- )
+	code predicate
+		mov rax, [tp]
+		mov rbx, [tp + 8]
+		add tp, 8 * 2
+		mov rcx, [dp]
+		add dp, 8
+		test rcx, rcx
+		jnz .true
+		mov wp, rbx
+		run
+
+		.true:
+		mov wp, rax
+		run
+
+
 section .rdata
 	; ( -- )
 	program:
 		dq set_stacks
 		dq init_handles
 		dq init_current_word
+		dq init_dictionary
+
+		dq information
 
 		.accept:
 		dq accept_word
-		branch_to .exit		
+		branch_to .exit
 		dq current_word
 		dq print_line
 		jump_to .accept
@@ -370,6 +484,7 @@ section .rdata
 		dq exit
 
 	; ( string length -- )
+	declare "print"
 	thread print
 		dq stdout_handle
 		dq load
@@ -394,6 +509,7 @@ section .rdata
 		dq return
 
 	; ( -- )
+	declare "nl"
 	thread new_line
 		dq newline
 		dq print
@@ -457,6 +573,7 @@ section .rdata
 		dq return
 
 	; ( string length -- )
+	declare "print-line"
 	thread print_line
 		dq print
 		dq new_line
@@ -504,11 +621,11 @@ section .rdata
 		branch_to .refill
 		dq copy
 		dq consume_word
-		dq copy_two
+		dq copy_pair
 		dq swap
 		dq push_subtract
 		dq nip
-		
+
 		dq current_word_pair
 		dq store_pair
 		dq zero
@@ -526,6 +643,7 @@ section .rdata
 		dq return
 
 	; ( a b address -- )
+	declare "store-pair"
 	thread store_pair
 		dq copy
 		dq stash
@@ -537,6 +655,7 @@ section .rdata
 		dq return
 
 	; ( address -- a b )
+	declare "load-pair"
 	thread load_pair
 		dq copy
 		dq cell_size
@@ -630,19 +749,97 @@ section .rdata
 		dq true
 		dq return
 
+	; ( -- )
+	declare "information"
+	thread information
+		dq info_banner
+		dq print_line
+		dq new_line
+
+		dq dictionary
+		dq load
+
+		.again:
+		dq copy
+		dq entry_metadata
+		predicated immediate_tag, empty_tag
+		dq print
+		dq print_line
+		dq load
+		dq copy
+		branch_to .again
+
+		dq drop
+		dq new_line
+		dq return
+
+	; ( entry -- name length immediate?  )
+	declare "entry-metadata"
+	thread entry_metadata
+		dq cell_size
+		dq push_add
+		dq copy
+		dq stash
+		dq one
+		dq push_add
+		dq unstash
+		dq load_byte
+		dq copy
+		dq literal
+		dq immediate
+		dq push_and
+		dq push_is_nzero
+		dq swap
+		dq literal
+		dq immediate
+		dq push_not
+		dq push_and
+		dq swap
+		dq return
+
+	; ( -- )
+	thread init_dictionary
+		dq core_vocabulary
+		dq dictionary
+		dq store
+		dq return
+
+	; ( -- )
+	declare "fn{"
+	thread define
+		dq return
+
+	; ( -- )
+	declare "}", immediate
+	thread end_define
+		dq return
+
+	declare "0"
 	constant zero, 0
+
+	declare "true"
 	constant true, ~0
+
+	declare "1"
 	constant one, 1
+
+	declare "cell-size"
 	constant cell_size, 8
-	
+
 	variable line_size, 1
 	variable stdin_handle, 1
 	variable stdout_handle, 1
-	variable line_buffer, (line_buffer_length / 8) + 1	; +1 to ensure null-termination
+	variable line_buffer, (line_buffer_length / 8) + 1 ; +1 to ensure null-termination
 	variable current_word_pair, 2
+
+	declare "dictionary"
+	variable dictionary, 1
 
 	string status_overfull, `Line overfull\n`
 	string newline, `\n`
+	string empty_tag, `    `
+	string immediate_tag, `*   `
+	string info_banner, `Silicon (c) 2023 @daviddetweiler`
 
 section .bss
 	data_stack:
@@ -650,3 +847,5 @@ section .bss
 
 	return_stack:
 		resq stack_depth
+
+commit_dictionary
