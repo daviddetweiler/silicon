@@ -505,6 +505,28 @@ section .text
 		mov [dp], rdx
 		jmp next
 
+	; ( a b -- (a / b) )
+	declare "/"
+	code push_divide
+		mov rax, [dp + 8]
+		mov rbx, [dp]
+		add dp, 8
+		xor rdx, rdx
+		idiv rbx
+		mov [dp], rax
+		jmp next
+
+	; ( a b -- (a % b) )
+	declare "%"
+	code push_modulo
+		mov rax, [dp + 8]
+		mov rbx, [dp]
+		add dp, 8
+		xor rdx, rdx
+		idiv rbx
+		mov [dp], rdx
+		jmp next
+
 	; ( -- )
 	code skip
 		jmp next
@@ -549,6 +571,15 @@ section .text
 		mov rax, [dp]
 		add dp, 8
 		mul qword [dp]
+		mov [dp], rax
+		jmp next
+
+	; ( a b -- (a * b) )
+	declare "*"
+	code push_multiply
+		mov rax, [dp]
+		add dp, 8
+		imul qword [dp]
 		mov [dp], rax
 		jmp next
 
