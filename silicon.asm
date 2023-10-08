@@ -13,7 +13,7 @@ extern ReadFile
 %define dp r13
 %define rp r12
 
-%define stack_depth 32
+%define stack_depth 512
 %define stack_base(stack) (stack + stack_depth * 8)
 
 %define term_buffer_length 8 * 16
@@ -1531,6 +1531,27 @@ section .rdata
 		dq store_byte
 		dq return
 
+	; ( -- arena-here )
+	declare "here"
+	thread here
+		dq arena_top
+		dq load
+		dq return
+
+	; ( -- word? )
+	declare "get-word"
+	thread get_word
+		dq accept_word
+		branch_to .cancelled
+		dq current_word
+		dq find
+		dq nip
+		dq return
+
+		.cancelled:
+		dq zero
+		dq return
+
 	declare "0"
 	constant zero, 0
 
@@ -1566,7 +1587,7 @@ section .rdata
 
 	string status_overfull, `\x1b[31mLine overfull\n\x1b[0m`
 	string status_unknown, `\x1b[31mUnknown word: \x1b[0m`
-	string status_leftovers, `\x1b[31mLeftovers on stack; press any key...\n\x1b[0m`
+	string status_leftovers, `\x1b[31mLeftovers on stack; press enter...\n\x1b[0m`
 	string status_word_too_long, `\x1b[31mWord is too long for dictionary entry\n\x1b[0m`
 	string newline, `\n`
 	string empty_tag, `    `

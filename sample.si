@@ -1,0 +1,11 @@
+fn{ const create dictionary store assemble-constant assemble }
+fn{ quote get-word assemble } immediate
+fn{ if [ assemble-literal ] ~ assemble assemble-branch here 0 assemble } immediate
+fn{ then here over cell-size + - swap store } immediate
+
+0 const false
+false ~ const true
+fn{ : fn{ } immediate
+fn{ ; quote } } immediate
+
+: v? if version then ;
