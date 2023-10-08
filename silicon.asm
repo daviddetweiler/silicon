@@ -1434,6 +1434,13 @@ section .rdata
 		dq store
 		dq return
 
+	; ( -- )
+	declare "clear"
+	thread clear
+		dq clear_sequence
+		dq print
+		dq return
+
 	declare "0"
 	constant zero, 0
 
@@ -1475,6 +1482,7 @@ section .rdata
 	string immediate_tag, `*   `
 	string info_banner, %strcat(`Silicon (`, git_version, `) (c) 2023 @daviddetweiler`)
 	string negative, `-`
+	string clear_sequence, `\x1b[2J\x1b[H`
 
 section .bss
 	data_stack:

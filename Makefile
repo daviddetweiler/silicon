@@ -17,7 +17,6 @@ silicon.exe: silicon.obj
         /ignore:4254 \
         /section:silicon,RWE \
         /merge:.rdata=silicon \
-        /merge:.bss=silicon \
         /merge:.text=silicon \
         /Brepro \
         $(debug_link_flags)
