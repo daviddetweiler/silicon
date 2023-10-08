@@ -611,7 +611,6 @@ section .rdata
 		branch_to .found
 		dq drop_pair
 
-		; Maybe it's a number?
 		dq current_word
 		dq parse_number
 		branch_to .accept_number
@@ -1118,15 +1117,15 @@ section .rdata
 	declare "cell-align"
 	thread cell_align
 		dq copy
-		dq literal ; address 7
+		dq literal
 		dq 7
-		dq push_and ; (address & 7)
-		dq cell_size ; (address & 7) 8
-		dq swap ; 8 (address & 7)
-		dq push_subtract ; (8 - (address & 7))
-		dq literal ; (8 - (address & 7)) 7
+		dq push_and
+		dq cell_size
+		dq swap
+		dq push_subtract
+		dq literal
 		dq 7
-		dq push_and ; ((8 - (address & 7)) & 7)
+		dq push_and
 		dq push_add
 		dq return
 
