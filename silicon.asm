@@ -589,6 +589,14 @@ section .text
 		int3
 		jmp next
 
+	; ( a b -- (a | b) )
+	declare "|"
+	code push_or
+		mov rax, [dp]
+		add dp, 8
+		or [dp], rax
+		jmp next
+
 section .rdata
 	; ( -- )
 	program:
@@ -627,11 +635,11 @@ section .rdata
 		.found:
 		dq swap
 		dq push_not
-		dq partial_definition
+		dq is_compiling
 		dq load
 		dq push_is_nzero
 		dq push_and
-		predicated compile, invoke
+		predicated assemble, invoke
 		jump_to .accept
 
 		.exit:
@@ -640,14 +648,12 @@ section .rdata
 		dq exit_process
 
 		.accept_number:
-		dq partial_definition
+		dq is_compiling
 		dq load
 		dq push_not
 		branch_to .accept
-		dq literal
-		dq literal
-		dq compile
-		dq compile
+		dq assemble_literal
+		dq assemble
 		jump_to .accept
 
 	; ( string length -- )
@@ -958,12 +964,11 @@ section .rdata
 	; ( -- )
 	declare "fn{"
 	thread define
+		dq set_compiling
 		dq create
 		dq partial_definition
 		dq store
-		dq literal
-		dq invoke_thread
-		dq compile
+		dq assemble_thread
 		dq return
 
 	; ( -- )
@@ -976,9 +981,72 @@ section .rdata
 		dq zero
 		dq partial_definition
 		dq store
+		dq assemble_return
+		dq unset_compiling
+		dq return
+
+	; ( -- )
+	declare "[", immediate
+	thread unset_compiling
+		dq zero
+		dq is_compiling
+		dq store
+		dq return
+
+	; ( -- )
+	declare "]"
+	thread set_compiling
+		dq true
+		dq is_compiling
+		dq store
+		dq return
+
+	; ( -- )
+	declare "assemble-literal"
+	thread assemble_literal
+		dq literal
+		dq literal
+		dq assemble
+		dq return
+
+	; ( -- )
+	declare "assemble-thread"
+	thread assemble_thread
+		dq literal
+		dq invoke_thread
+		dq assemble
+		dq return
+
+	; ( -- )
+	declare "assemble-return"
+	thread assemble_return
 		dq literal
 		dq return
-		dq compile
+		dq assemble
+		dq return
+
+	; ( -- )
+	declare "assemble-constant"
+	thread assemble_constant
+		dq literal
+		dq invoke_constant
+		dq assemble
+		dq return
+
+	; ( -- )
+	declare "assemble-branch"
+	thread assemble_branch
+		dq literal
+		dq branch
+		dq assemble
+		dq return
+
+	; ( -- )
+	declare "assemble-jump"
+	thread assemble_jump
+		dq literal
+		dq jump
+		dq assemble
 		dq return
 
 	; ( a-string a-length b-string b-length -- same? )
@@ -1337,12 +1405,12 @@ section .rdata
 		dq cell_align_arena
 		dq dictionary
 		dq load
-		dq compile
+		dq assemble
 		dq copy
-		dq compile_byte
-		dq compile_string
+		dq assemble_byte
+		dq assemble_string
 		dq zero
-		dq compile_byte
+		dq assemble_byte
 		dq cell_align_arena
 		dq unstash
 		dq return
@@ -1369,7 +1437,8 @@ section .rdata
 		dq return
 
 	; ( cell -- )
-	thread compile
+	declare "assemble"
+	thread assemble
 		dq arena_top
 		dq load
 		dq store
@@ -1382,7 +1451,8 @@ section .rdata
 		dq return
 
 	; ( byte -- )
-	thread compile_byte
+	declare "assemble-byte"
+	thread assemble_byte
 		dq arena_top
 		dq load
 		dq store_byte
@@ -1395,7 +1465,8 @@ section .rdata
 		dq return
 
 	; ( string length -- )
-	thread compile_string
+	declare "assemble-string"
+	thread assemble_string
 		dq string_a
 		dq store_pair
 
@@ -1403,7 +1474,7 @@ section .rdata
 		dq string_a
 		dq load
 		dq load_byte
-		dq compile_byte
+		dq assemble_byte
 
 		dq string_a
 		dq load
@@ -1440,6 +1511,22 @@ section .rdata
 		dq print
 		dq return
 
+	; ( -- )
+	declare "immediate"
+	thread make_immediate
+		dq dictionary
+		dq load
+		dq cell_size
+		dq push_add
+		dq copy
+		dq load_byte
+		dq literal
+		dq immediate
+		dq push_or
+		dq swap
+		dq store_byte
+		dq return
+
 	declare "0"
 	constant zero, 0
 
@@ -1468,6 +1555,7 @@ section .rdata
 	variable arena_base, arena_length / 8
 	variable arena_top, 1
 	variable partial_definition, 1
+	variable is_compiling, 1
 
 	declare "dictionary"
 	variable dictionary, 1
