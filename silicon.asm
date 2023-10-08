@@ -578,12 +578,12 @@ section .rdata
 		dq find
 		dq copy
 		branch_to .found
-		dq drop
+		dq drop_pair
 
 		; Maybe it's a number?
 		dq current_word
 		dq parse_number
-		branch_to .accept
+		branch_to .accept_number
 		dq drop
 
 		dq status_unknown
@@ -595,13 +595,30 @@ section .rdata
 		jump_to .accept
 
 		.found:
-		dq invoke
+		dq swap
+		dq push_not
+		dq partial_definition
+		dq load
+		dq push_is_nzero
+		dq push_and
+		predicated compile, invoke
 		jump_to .accept
 
 		.exit:
 		dq test_stacks
 		predicated report_leftovers
 		dq exit_process
+
+		.accept_number:
+		dq partial_definition
+		dq load
+		dq push_not
+		branch_to .accept
+		dq literal
+		dq literal
+		dq compile
+		dq compile
+		jump_to .accept
 
 	; ( string length -- )
 	declare "print"
@@ -914,6 +931,9 @@ section .rdata
 		dq create
 		dq partial_definition
 		dq store
+		dq literal
+		dq invoke_thread
+		dq compile
 		dq return
 
 	; ( -- )
@@ -926,6 +946,9 @@ section .rdata
 		dq zero
 		dq partial_definition
 		dq store
+		dq literal
+		dq return
+		dq compile
 		dq return
 
 	; ( a-string a-length b-string b-length -- same? )
@@ -985,7 +1008,7 @@ section .rdata
 		dq true
 		dq return
 
-	; ( string length -- word? )
+	; ( string length -- immediate? word? )
 	declare "find"
 	thread find
 		dq dictionary
@@ -1007,7 +1030,6 @@ section .rdata
 		dq copy
 		branch_to .again
 
-		dq drop
 		dq drop_pair
 		dq zero
 		dq return
@@ -1015,6 +1037,9 @@ section .rdata
 		.found:
 		dq drop_pair
 		dq unstash
+		dq copy
+		dq entry_immediate
+		dq swap
 		dq entry_data_ptr
 		dq return
 
