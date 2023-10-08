@@ -16,7 +16,7 @@ extern ReadFile
 %define stack_depth 32
 %define stack_base(stack) (stack + stack_depth * 8)
 
-%define line_buffer_length 8 * 16
+%define term_buffer_length 8 * 16
 %define formatted_decimal_length 8 * 4
 %define arena_length 1024 * 1024
 
@@ -689,17 +689,17 @@ section .rdata
 		dq return
 
 	; ( -- count )
-	thread read_line
-		dq line_buffer
+	thread term_read_line
+		dq term_buffer
 		dq literal
-		dq line_buffer_length
+		dq term_buffer_length
 		dq stdin_handle
 		dq load
 		dq read_file
 		dq drop
 		dq zero
 		dq over
-		dq line_buffer
+		dq term_buffer
 		dq push_add
 		dq store_byte
 		dq literal
@@ -710,9 +710,9 @@ section .rdata
 		dq return
 
 	; ( -- exit? )
-	thread accept_line
+	thread term_accept_line
 		.again:
-		dq read_line
+		dq term_read_line
 
 		dq line_size
 		dq load
@@ -724,7 +724,7 @@ section .rdata
 		dq push_is_zero
 		branch_to .again
 
-		dq is_line_overfull
+		dq term_is_overfull
 		branch_to .line_overfull
 
 		dq zero
@@ -735,8 +735,8 @@ section .rdata
 		dq print_line
 
 		.flush:
-		dq read_line
-		dq is_line_overfull
+		dq term_read_line
+		dq term_is_overfull
 		branch_to .flush
 		jump_to .again
 
@@ -753,8 +753,8 @@ section .rdata
 		dq return
 
 	; ( -- overfull? )
-	thread is_line_overfull
-		dq line_buffer
+	thread term_is_overfull
+		dq term_buffer
 		dq line_size
 		dq load
 		dq one
@@ -768,7 +768,7 @@ section .rdata
 
 	; ( -- line length )
 	thread current_line
-		dq line_buffer
+		dq term_buffer
 		dq line_size
 		dq load
 		dq return
@@ -780,7 +780,7 @@ section .rdata
 		dq push_add
 		dq copy
 
-		dq line_buffer
+		dq term_buffer
 		dq push_subtract
 		dq line_size
 		dq load
@@ -806,7 +806,7 @@ section .rdata
 
 		.refill:
 		dq drop
-		dq accept_line
+		dq term_accept_line
 		branch_to .exit
 		dq init_current_word
 		jump_to .again
@@ -847,7 +847,7 @@ section .rdata
 
 	; ( -- )
 	thread init_current_word
-		dq line_buffer
+		dq term_buffer
 		dq zero
 		dq current_word_pair
 		dq store_pair
@@ -935,6 +935,10 @@ section .rdata
 		dq entry_metadata
 		predicated immediate_tag, empty_tag
 		dq print
+		dq yellow_sequence
+		dq print
+		dq print
+		dq default_sequence
 		dq print_line
 		dq load
 		dq copy
@@ -1203,7 +1207,7 @@ section .rdata
 		dq current_word
 		dq drop
 		dq copy
-		dq line_buffer
+		dq term_buffer
 		dq push_subtract
 		dq line_size
 		dq load
@@ -1279,7 +1283,7 @@ section .rdata
 	thread report_leftovers
 		dq status_leftovers
 		dq print_line
-		dq read_line
+		dq term_read_line
 		dq return
 
 	; ( char -- digit? )
@@ -1545,7 +1549,7 @@ section .rdata
 	variable line_size, 1
 	variable stdin_handle, 1
 	variable stdout_handle, 1
-	variable line_buffer, (line_buffer_length / 8) + 1 ; +1 to ensure null-termination
+	variable term_buffer, (term_buffer_length / 8) + 1 ; +1 to ensure null-termination
 	variable current_word_pair, 2
 	variable string_a, 2
 	variable string_b, 2
@@ -1560,16 +1564,18 @@ section .rdata
 	declare "dictionary"
 	variable dictionary, 1
 
-	string status_overfull, `Line overfull\n`
-	string status_unknown, `Unknown word: `
-	string status_leftovers, `Leftovers on stack; press any key...\n`
-	string status_word_too_long, `Word is too long for dictionary entry\n`
+	string status_overfull, `\x1b[31mLine overfull\n\x1b[0m`
+	string status_unknown, `\x1b[31mUnknown word: \x1b[0m`
+	string status_leftovers, `\x1b[31mLeftovers on stack; press any key...\n\x1b[0m`
+	string status_word_too_long, `\x1b[31mWord is too long for dictionary entry\n\x1b[0m`
 	string newline, `\n`
 	string empty_tag, `    `
-	string immediate_tag, `*   `
-	string info_banner, %strcat(`Silicon (`, git_version, `) (c) 2023 @daviddetweiler`)
+	string immediate_tag, `\x1b[31m*   \x1b[0m`
+	string info_banner, %strcat(`\x1b[36mSilicon (`, git_version, `) (c) 2023 @daviddetweiler\x1b[0m`)
 	string negative, `-`
 	string clear_sequence, `\x1b[2J\x1b[H`
+	string yellow_sequence, `\x1b[33m`
+	string default_sequence, `\x1b[0m`
 
 section .bss
 	data_stack:
