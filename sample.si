@@ -14,6 +14,20 @@ quote dictionary
 quote store
 assemble-return
 
+create ] dictionary store immediate
+assemble-thread
+assemble-literal -1 assemble
+quote is-assembling
+quote store
+assemble-return
+
+create [ dictionary store immediate
+assemble-thread
+quote 0				flush-line	`quote 0` only works because `0` is in the dictionary, but -1 isn't
+quote is-assembling
+quote store
+assemble-return
+
 flush-line	`fn` defines a new word, specifies it as a thread, and enables assembly mode in the interpreter
 
 define fn
@@ -107,9 +121,9 @@ end-fn immediate
 
 \ -- target
 \
-\ For a `while <condition> do <body> loop` construct, the underlying code is essentially the condition, followed by an
-\ `if`-block guarding the loop body and an additional unconditional jump back to the condition. As such, the only
-\ purpose of the `while` word is to record the address of the condition, so that the `loop` word can assemble the
+\ For a `while <condition> do <body> end-while` construct, the underlying code is essentially the condition, followed by
+\ an `if`-block guarding the loop body and an additional unconditional jump back to the condition. As such, the only
+\ purpose of the `while` word is to record the address of the condition, so that the `end-while` word can assemble the
 \ jump back to it.
 fn while	here		end-fn immediate
 
@@ -120,10 +134,10 @@ fn do		quote if	end-fn immediate
 
 \ target patch-addr --
 \
-\ Finally, `loop` assembles the jump back to the condition, while also ending the `if`-block guarding the loop body.
-\ A `swap` is needed since at the time it is executed, it expects to see the patch address of the preceding `do` at the
-\ top of the stack, but it needs to assemble the backwards jump first, not perform the patch.
-fn loop
+\ Finally, `end-while` assembles the jump back to the condition, while also ending the `if`-block guarding the loop
+\ body. A `swap` is needed since at the time it is executed, it expects to see the patch address of the preceding `do`
+\ at the top of the stack, but it needs to assemble the backwards jump first, not perform the patch.
+fn end-while
 	assemble-jump
 
 	swap
@@ -142,6 +156,34 @@ fn test
 		copy print-# nl
 		copy 2 % 0= v?
 		1 -
-	loop
+	end-while
 	drop
+end-fn
+
+\ --
+fn recurse
+	partial-definition load entry-data-ptr assemble
+end-fn immediate
+
+\ patch-addr -- new-patch-addr
+\
+\ This one's a bit tricky: the idea is to put an uncoditional jump at the end of the preceding if-block, end the
+\ if-block, and leaving the address of the jump offset as the new patch address. This way, when `end-if` is executed, it
+\ will patch this uncoditional jump, so that upon executing the if-block, execution will jump to just after the
+\ `end-if`, and not fall through into the else-block.
+fn else
+	assemble-jump
+	here 0 assemble
+	swap quote end-if
+end-fn immediate
+
+\ depth --
+fn recursion-test
+	copy 0~=
+	if
+		copy print-# nl
+		1 - recurse
+	else
+		drop
+	end-if
 end-fn

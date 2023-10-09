@@ -989,22 +989,6 @@ section .rdata
 		dq return
 
 	; ( -- )
-	declare "[", immediate
-	thread unset_assembling
-		dq zero
-		dq is_assembling
-		dq store
-		dq return
-
-	; ( -- )
-	declare "]"
-	thread set_assembling
-		dq true
-		dq is_assembling
-		dq store
-		dq return
-
-	; ( -- )
 	declare "assemble-literal"
 	thread assemble_literal
 		dq literal
@@ -1577,6 +1561,8 @@ section .rdata
 	variable should_exit, 1
 	variable arena_base, arena_length / 8
 	variable arena_top, 1
+
+	declare "is-assembling"
 	variable is_assembling, 1
 
 	declare "partial-definition"
