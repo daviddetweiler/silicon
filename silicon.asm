@@ -123,7 +123,8 @@ extern ReadFile
 section .text
 	; ( -- )
 	start:
-		sub rsp, 8 + 8 * 16 ; enough room for 16 parameters, plus stack alignment
+		; enough room for 16 parameters, plus stack alignment
+		sub rsp, 8 + 8 * 16
 		lea tp, program
 		jmp next
 
@@ -649,7 +650,7 @@ section .rdata
 		.found:
 		dq swap
 		dq push_not
-		dq is_compiling
+		dq is_assembling
 		dq load
 		dq push_is_nzero
 		dq push_and
@@ -662,7 +663,7 @@ section .rdata
 		dq exit_process
 
 		.accept_number:
-		dq is_compiling
+		dq is_assembling
 		dq load
 		dq push_not
 		branch_to .accept
@@ -982,7 +983,7 @@ section .rdata
 	; ( -- )
 	declare "fn"
 	thread define
-		dq set_compiling
+		dq set_assembling
 		dq create
 		dq partial_definition
 		dq store
@@ -1000,22 +1001,22 @@ section .rdata
 		dq partial_definition
 		dq store
 		dq assemble_return
-		dq unset_compiling
+		dq unset_assembling
 		dq return
 
 	; ( -- )
 	declare "[", immediate
-	thread unset_compiling
+	thread unset_assembling
 		dq zero
-		dq is_compiling
+		dq is_assembling
 		dq store
 		dq return
 
 	; ( -- )
 	declare "]"
-	thread set_compiling
+	thread set_assembling
 		dq true
-		dq is_compiling
+		dq is_assembling
 		dq store
 		dq return
 
@@ -1584,7 +1585,9 @@ section .rdata
 	variable line_size, 1
 	variable stdin_handle, 1
 	variable stdout_handle, 1
-	variable term_buffer, (term_buffer_length / 8) + 1 ; +1 to ensure null-termination
+
+	; +1 to ensure null-termination
+	variable term_buffer, (term_buffer_length / 8) + 1
 	variable current_word_pair, 2
 	variable string_a, 2
 	variable string_b, 2
@@ -1594,7 +1597,7 @@ section .rdata
 	variable arena_base, arena_length / 8
 	variable arena_top, 1
 	variable partial_definition, 1
-	variable is_compiling, 1
+	variable is_assembling, 1
 
 	declare "dictionary"
 	variable dictionary, 1
@@ -1602,11 +1605,19 @@ section .rdata
 	string status_overfull, `\x1b[31mLine overfull\n\x1b[0m`
 	string status_unknown, `\x1b[31mUnknown word: \x1b[0m`
 	string status_leftovers, `\x1b[31mLeftovers on stack; press enter...\x1b[0m`
-	string status_word_too_long, `\x1b[31mWord is too long for dictionary entry\n\x1b[0m`
+	string status_word_too_long, \
+		`\x1b[31mWord is too long for dictionary entry\n\x1b[0m`
+
 	string newline, `\n`
 	string empty_tag, `    `
 	string immediate_tag, `\x1b[31m*   \x1b[0m`
-	string info_banner, %strcat(`\x1b[36mSilicon (`, git_version, `) (c) 2023 @daviddetweiler\x1b[0m`)
+	string info_banner, \
+		%strcat( \
+			`\x1b[36mSilicon (`, \
+			git_version, \
+			`) (c) 2023 @daviddetweiler\x1b[0m` \
+		)
+
 	string negative, `-`
 	string clear_sequence, `\x1b[2J\x1b[H`
 	string yellow_sequence, `\x1b[33m`
