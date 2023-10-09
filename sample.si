@@ -1,8 +1,11 @@
-create quote dictionary store
+create quote dictionary store immediate
 assemble-thread
 get-word get-word	assemble
 get-word assemble	assemble
 assemble-return
+
+flush-line	`define` acts to create a new word at the tip of the dictionary, with subsequent `assemble` instructions
+flush-line	appending to its definition
 
 create define dictionary store
 assemble-thread
@@ -10,6 +13,8 @@ quote create
 quote dictionary
 quote store
 assemble-return
+
+flush-line	`fn` defines a new word, specifies it as a thread, and enables assembly mode in the interpreter
 
 define fn
 assemble-thread
@@ -19,6 +24,8 @@ quote partial-definition
 quote store
 quote assemble-thread
 assemble-return
+
+flush-line	`end-fn` terminates the current definition with a `return`, and disables assembly mode in the interpreter
 
 define end-fn immediate
 assemble-thread
@@ -33,23 +40,33 @@ quote assemble-return
 quote [
 assemble-return
 
+flush-line	Now we use `fn`-`end-fn` to define `\` as an alias for `flush-line`, for nicer comment syntax
+flush-line	Note that this definition is marked `immediate`, so that it even works in the middle of a definition
+flush-line	Otherwise `\` would be simply assembled into the definition, with unusual results upon execution
+
 fn \
 	flush-line
 end-fn immediate
 
 \ value --
+\
+\ `const` merely defines a word with a reference to `invoke_constant` in the kernel, and appends the actual constant
+\ value from the data stack
 fn const
 	define
 	assemble-constant assemble
 end-fn
 
-\ --
-fn quote
-	get-word assemble
-end-fn immediate
-
 \ -- patch-addr
-fn if		
+\
+\ One of the neat bits of TILs is that control flow constructs are themselves just words, and can be defined as such.
+\ To function, they are tagged with `immediate`, which causes them to be executed at definition time when used, and as
+\ such are able to modify the in-progress definition.
+\
+\ `if` works by appending the `~ branch <target>` sequence to the definition, leaving the address of `<target>` on the
+\ stack to be patched by the corresponding `end-if`. As such, the final, assembled definition will branch past the
+\ wrapped code if the top of the stack is zero, and fall through otherwise.
+fn if
 	[ assemble-literal ] ~ assemble
 	assemble-branch
 	here
@@ -57,44 +74,62 @@ fn if
 end-fn immediate
 
 \ patch-addr --
-fn end-if	
+\
+\ `end-if` expects to find the patch address left by the corresponding `if` on the stack, and uses it compute and patch
+\ in the true branch target.
+fn end-if
 	here over cell-size + - swap store
 end-fn immediate
 
+\ And here we see example uses of `const` to define `false` as 0 and `true` as ~0, or -1 in signed representation.
 0		const false
 false ~	const true
 
 \ --
-fn :		
+fn :
 	fn
-end-fn immediate
+end-fn
 
 \ --
-fn ;		
+\
+\ The use of `quote` here is needed, since `end-fn` was tagged `immediate` and would be immediately executed if directly
+\ referenced, instead of being assembled in, as intended.
+fn ;
 	quote end-fn
 end-fn immediate
 
 \ condition --
-: v?		
+: v?
 	if
 		version
 	end-if
 ;
 
 \ -- target
+\
+\ For a `while <condition> do <body> loop` construct, the underlying code is essentially the condition, followed by an
+\ `if`-block guarding the loop body and an additional unconditional jump back to the condition. As such, the only
+\ purpose of the `while` word is to record the address of the condition, so that the `loop` word can assemble the
+\ jump back to it.
 fn while	here		end-fn immediate
 
 \ -- patch-addr
+\
+\ As discussed with `while`, the responsibility of `do` is to begin the underlying `if`-block guarding the loop body
 fn do		quote if	end-fn immediate
 
 \ target patch-addr --
+\
+\ Finally, `loop` assembles the jump back to the condition, while also ending the `if`-block guarding the loop body.
+\ A `swap` is needed since at the time it is executed, it expects to see the patch address of the preceding `do` at the
+\ top of the stack, but it needs to assemble the backwards jump first, not perform the patch.
 fn loop
 	assemble-jump
 
 	swap
 	here cell-size +
 	- assemble
-	
+
 	quote end-if
 end-fn immediate
 
@@ -105,6 +140,7 @@ fn test
 		copy 0 >=
 	do
 		copy print-# nl
+		copy 2 % 0= v?
 		1 -
 	loop
 	drop
