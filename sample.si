@@ -1,6 +1,45 @@
+create quote dictionary store
+assemble-thread
+get-word get-word	assemble
+get-word assemble	assemble
+assemble-return
+
+create define dictionary store
+assemble-thread
+quote create
+quote dictionary
+quote store
+assemble-return
+
+define fn
+assemble-thread
+quote ]
+quote create
+quote partial-definition
+quote store
+quote assemble-thread
+assemble-return
+
+define end-fn immediate
+assemble-thread
+quote partial-definition
+quote load
+quote dictionary
+quote store
+quote 0
+quote partial-definition
+quote store
+quote assemble-return
+quote [
+assemble-return
+
+fn \
+	flush-line
+end-fn immediate
+
 \ value --
 fn const
-	create dictionary store
+	define
 	assemble-constant assemble
 end-fn
 

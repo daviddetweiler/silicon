@@ -652,7 +652,7 @@ section .rdata
 		dq current_word
 		dq print_line
 		dq new_line
-		dq flush_input_line
+		dq term_flush_line
 		jump_to .accept
 
 		.found:
@@ -989,30 +989,6 @@ section .rdata
 		dq return
 
 	; ( -- )
-	declare "fn"
-	thread define
-		dq set_assembling
-		dq create
-		dq partial_definition
-		dq store
-		dq assemble_thread
-		dq return
-
-	; ( -- )
-	declare "end-fn", immediate
-	thread end_define
-		dq partial_definition
-		dq load
-		dq dictionary
-		dq store
-		dq zero
-		dq partial_definition
-		dq store
-		dq assemble_return
-		dq unset_assembling
-		dq return
-
-	; ( -- )
 	declare "[", immediate
 	thread unset_assembling
 		dq zero
@@ -1225,8 +1201,8 @@ section .rdata
 		dq return
 
 	; ( -- )
-	declare "\", immediate
-	thread flush_input_line
+	declare "flush-line"
+	thread term_flush_line
 		dq current_word
 		dq drop
 		dq copy
@@ -1415,7 +1391,7 @@ section .rdata
 		dq store
 		dq return
 
-	; ( -- entry? )
+	; ( -- word? )
 	declare "create"
 	thread create
 		dq accept_word
@@ -1448,7 +1424,6 @@ section .rdata
 		dq drop
 		dq status_word_too_long
 		dq print_line
-		dq return
 
 		.rejected:
 		dq zero
@@ -1602,8 +1577,10 @@ section .rdata
 	variable should_exit, 1
 	variable arena_base, arena_length / 8
 	variable arena_top, 1
-	variable partial_definition, 1
 	variable is_assembling, 1
+
+	declare "partial-definition"
+	variable partial_definition, 1
 
 	declare "dictionary"
 	variable dictionary, 1
