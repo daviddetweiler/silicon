@@ -1,36 +1,72 @@
-fn const	\ value --
+\ value --
+fn const
 	create dictionary store
 	assemble-constant assemble
 end-fn
 
-fn quote	\ --
+\ --
+fn quote
 	get-word assemble
 end-fn immediate
 
-fn if		\ -- patch-addr
+\ -- patch-addr
+fn if		
 	[ assemble-literal ] ~ assemble
 	assemble-branch
 	here
 	0 assemble
 end-fn immediate
 
-fn end-if	\ patch-addr --
+\ patch-addr --
+fn end-if	
 	here over cell-size + - swap store
 end-fn immediate
 
 0		const false
 false ~	const true
 
-fn :		\ --
+\ --
+fn :		
 	fn
 end-fn immediate
 
-fn ;		\ --
+\ --
+fn ;		
 	quote end-fn
 end-fn immediate
 
-: v?		\ --
+\ condition --
+: v?		
 	if
 		version
 	end-if
 ;
+
+\ -- target
+fn while	here		end-fn immediate
+
+\ -- patch-addr
+fn do		quote if	end-fn immediate
+
+\ target patch-addr --
+fn loop
+	assemble-jump
+
+	swap
+	here cell-size +
+	- assemble
+	
+	quote end-if
+end-fn immediate
+
+\ --
+fn test
+	10
+	while
+		copy 0 >=
+	do
+		copy print-# nl
+		1 -
+	loop
+	drop
+end-fn
