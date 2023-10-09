@@ -123,8 +123,7 @@ extern ReadFile
 section .text
 	; ( -- )
 	start:
-		; enough room for 16 parameters, plus stack alignment
-		sub rsp, 8 + 8 * 16
+		sub rsp, 8 + 8 * 16 ; enough room for 16 parameters, plus stack alignment
 		lea tp, program
 		jmp next
 
@@ -1585,9 +1584,7 @@ section .rdata
 	variable line_size, 1
 	variable stdin_handle, 1
 	variable stdout_handle, 1
-
-	; +1 to ensure null-termination
-	variable term_buffer, (term_buffer_length / 8) + 1
+	variable term_buffer, (term_buffer_length / 8) + 1 ; +1 to ensure null-termination
 	variable current_word_pair, 2
 	variable string_a, 2
 	variable string_b, 2
@@ -1605,21 +1602,13 @@ section .rdata
 	string status_overfull, `\x1b[31mLine overfull\n\x1b[0m`
 	string status_unknown, `\x1b[31mUnknown word: \x1b[0m`
 	string status_leftovers, `\x1b[31mLeftovers on stack; press enter...\x1b[0m`
-	string status_word_too_long, \
-		`\x1b[31mWord is too long for dictionary entry\n\x1b[0m`
-
+	string status_word_too_long, `\x1b[31mWord is too long for dictionary entry\n\x1b[0m`
 	string newline, `\n`
 	string empty_tag, `    `
 	string immediate_tag, `\x1b[31m*   \x1b[0m`
-	string info_banner, \
-		%strcat( \
-			`\x1b[36mSilicon (`, \
-			git_version, \
-			`) (c) 2023 @daviddetweiler\x1b[0m` \
-		)
-
+	string info_banner, %strcat(`\x1b[36mSilicon (`, git_version, `) (c) 2023 @daviddetweiler\x1b[0m`)
 	string negative, `-`
-	string clear_sequence, `\x1b[2J\x1b[H`
+	string clear_sequence, `\x1b[2J\x1b[3J\x1b[H`
 	string yellow_sequence, `\x1b[33m`
 	string default_sequence, `\x1b[0m`
 
