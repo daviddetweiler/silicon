@@ -77,10 +77,15 @@ extern ReadFile
 	%%here:
 %endmacro
 
-%macro predicated 1-2 skip
+%macro predicated 2
 	dq predicate
 	dq %1
 	dq %2
+%endmacro
+
+%macro maybe 1
+	dq maybe_execute
+	dq %1
 %endmacro
 
 %define dictionary_entry(id) entry_ %+ id
@@ -527,10 +532,6 @@ section .text
 		mov [dp], rdx
 		jmp next
 
-	; ( -- )
-	code skip
-		jmp next
-
 	; ( n -- -n )
 	declare "0-"
 	code push_negate
@@ -597,6 +598,19 @@ section .text
 		or [dp], rax
 		jmp next
 
+	; ( -- )
+	code maybe_execute
+		mov rax, [dp]
+		add dp, 8
+		mov wp, [tp]
+		add tp, 8
+		test rax, rax
+		jz .skip
+		jmp run
+
+		.skip:
+		jmp next
+
 section .rdata
 	; ( -- )
 	program:
@@ -644,7 +658,7 @@ section .rdata
 
 		.exit:
 		dq test_stacks
-		predicated report_leftovers
+		maybe report_leftovers
 		dq exit_process
 
 		.accept_number:
@@ -1587,7 +1601,7 @@ section .rdata
 
 	string status_overfull, `\x1b[31mLine overfull\n\x1b[0m`
 	string status_unknown, `\x1b[31mUnknown word: \x1b[0m`
-	string status_leftovers, `\x1b[31mLeftovers on stack; press enter...\n\x1b[0m`
+	string status_leftovers, `\x1b[31mLeftovers on stack; press enter...\x1b[0m`
 	string status_word_too_long, `\x1b[31mWord is too long for dictionary entry\n\x1b[0m`
 	string newline, `\n`
 	string empty_tag, `    `
