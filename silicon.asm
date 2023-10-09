@@ -26,6 +26,15 @@ extern ReadFile
 %assign dictionary_written 0
 %assign dictionary_head 0
 
+%define vt_red `\x1b[31m`
+%define vt_default `\x1b[0m`
+%define vt_cyan `\x1b[36m`
+%define vt_yellow `\x1b[33m`
+%define vt_clear `\x1b[2J\x1b[3J\x1b[H`
+%define red(string) %strcat(vt_red, string, vt_default)
+%define cyan(string) %strcat(vt_cyan, string, vt_default)
+%define version_string %strcat(`Silicon (`, git_version, `) (c) 2023 @daviddetweiler`)
+
 %macro code_field 2
 	align 8
 	%1:
@@ -949,10 +958,10 @@ section .rdata
 		dq entry_metadata
 		predicated immediate_tag, empty_tag
 		dq print
-		dq yellow_sequence
+		dq seq_yellow
 		dq print
 		dq print
-		dq default_sequence
+		dq seq_default
 		dq print_line
 		dq load
 		dq copy
@@ -1234,7 +1243,7 @@ section .rdata
 	; ( -- )
 	declare "version"
 	thread version
-		dq info_banner
+		dq version_banner
 		dq print_line
 		dq new_line
 		dq return
@@ -1525,7 +1534,7 @@ section .rdata
 	; ( -- )
 	declare "clear"
 	thread clear
-		dq clear_sequence
+		dq seq_clear
 		dq print
 		dq return
 
@@ -1599,18 +1608,18 @@ section .rdata
 	declare "dictionary"
 	variable dictionary, 1
 
-	string status_overfull, `\x1b[31mLine overfull\n\x1b[0m`
-	string status_unknown, `\x1b[31mUnknown word: \x1b[0m`
-	string status_leftovers, `\x1b[31mLeftovers on stack; press enter...\x1b[0m`
-	string status_word_too_long, `\x1b[31mWord is too long for dictionary entry\n\x1b[0m`
+	string status_overfull, red(`Line overfull\n`)
+	string status_unknown, red(`Unknown word: `)
+	string status_leftovers, red(`Leftovers on stack; press enter...`)
+	string status_word_too_long, red(`Word is too long for dictionary entry\n`)
 	string newline, `\n`
 	string empty_tag, `    `
-	string immediate_tag, `\x1b[31m*   \x1b[0m`
-	string info_banner, %strcat(`\x1b[36mSilicon (`, git_version, `) (c) 2023 @daviddetweiler\x1b[0m`)
+	string immediate_tag, red(`*   `)
+	string version_banner, cyan(version_string)
 	string negative, `-`
-	string clear_sequence, `\x1b[2J\x1b[3J\x1b[H`
-	string yellow_sequence, `\x1b[33m`
-	string default_sequence, `\x1b[0m`
+	string seq_clear, vt_clear
+	string seq_yellow, vt_yellow
+	string seq_default, vt_default
 
 section .bss
 	data_stack:
