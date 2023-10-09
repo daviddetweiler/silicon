@@ -966,7 +966,7 @@ section .rdata
 		dq return
 
 	; ( -- )
-	declare "fn{"
+	declare "fn"
 	thread define
 		dq set_compiling
 		dq create
@@ -976,7 +976,7 @@ section .rdata
 		dq return
 
 	; ( -- )
-	declare "}", immediate
+	declare "end-fn", immediate
 	thread end_define
 		dq partial_definition
 		dq load

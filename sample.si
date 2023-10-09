@@ -1,11 +1,36 @@
-fn{ const create dictionary store assemble-constant assemble }
-fn{ quote get-word assemble } immediate
-fn{ if [ assemble-literal ] ~ assemble assemble-branch here 0 assemble } immediate
-fn{ then here over cell-size + - swap store } immediate
+fn const	\ value --
+	create dictionary store
+	assemble-constant assemble
+end-fn
 
-0 const false
-false ~ const true
-fn{ : fn{ } immediate
-fn{ ; quote } } immediate
+fn quote	\ --
+	get-word assemble
+end-fn immediate
 
-: v? if version then ;
+fn if		\ -- patch-addr
+	[ assemble-literal ] ~ assemble
+	assemble-branch
+	here
+	0 assemble
+end-fn immediate
+
+fn end-if	\ patch-addr --
+	here over cell-size + - swap store
+end-fn immediate
+
+0		const false
+false ~	const true
+
+fn :		\ --
+	fn
+end-fn immediate
+
+fn ;		\ --
+	quote end-fn
+end-fn immediate
+
+: v?		\ --
+	if
+		version
+	end-if
+;
