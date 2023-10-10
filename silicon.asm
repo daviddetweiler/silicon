@@ -7,6 +7,7 @@ extern ExitProcess
 extern GetStdHandle
 extern WriteFile
 extern ReadFile
+extern CreateFileA
 extern SetFilePointer
 extern CloseHandle
 
@@ -41,6 +42,7 @@ extern CloseHandle
 %define vt_clear `\x1b[2J\x1b[3J\x1b[H`
 %define red(string) %strcat(vt_red, string, vt_default)
 %define cyan(string) %strcat(vt_cyan, string, vt_default)
+%define yellow(string) %strcat(vt_yellow, string, vt_default)
 %define version_string %strcat(`Silicon (`, git_version, `) (c) 2023 @daviddetweiler`)
 
 %macro code_field 2
@@ -63,7 +65,7 @@ extern CloseHandle
 
 %macro string 2
 	code_field %1, invoke_string
-		db %strlen(%2), %2
+		db %strlen(%2), %2, 0
 %endmacro
 
 %macro constant 2
@@ -628,6 +630,55 @@ section .text
 		.skip:
 		jmp next
 
+	; ( handle -- size )
+	declare "file-size"
+	code file_size
+		mov rbx, [dp]
+
+		mov rcx, rbx
+		xor rdx, rdx
+		mov [dp], rdx
+		mov r8, dp
+		mov r9, 2
+		call SetFilePointer
+		shl qword [dp], 32
+		or [dp], rax
+
+		mov rcx, rbx
+		xor rdx, rdx
+		xor r8, r8
+		xor r9, r9
+		call SetFilePointer
+
+		jmp next
+
+	; ( handle -- )
+	declare "close-handle"
+	code close_handle
+		mov rcx, [dp]
+		call CloseHandle
+		add dp, 8
+		jmp next
+
+	; ( c-string -- handle )
+	declare "open-file"
+	code open_file
+		mov rcx, [dp]
+		mov rdx, 0x80000000
+		xor r8, r8
+		xor r9, r9
+		mov qword [rsp + 8 * 4], 3
+		mov qword [rsp + 8 * 5], 0x80
+		mov qword [rsp + 8 * 6], r9
+		call CreateFileA
+		cmp rax, -1
+		jne .success
+		mov rax, 0
+
+		.success:
+		mov [dp], rax
+		jmp next
+
 section .rdata
 	; ( -- )
 	program:
@@ -637,6 +688,7 @@ section .rdata
 		dq init_current_word
 		dq init_dictionary
 		dq init_arena
+		dq load_init_library
 
 		.accept:
 		dq should_exit
@@ -694,6 +746,31 @@ section .rdata
 		dq assemble_literal
 		dq assemble
 		jump_to .accept
+
+	; ( -- )
+	thread load_init_library
+		; Error checking??? See also our unchecked usage of ReadFile/WriteFile
+		dq init_library_name
+		dq drop
+		dq open_file
+		dq copy
+		branch_to .found
+		dq status_no_init_library
+		dq print_line
+		dq drop
+		dq return
+
+		.found:
+		dq copy
+		dq load_source_file
+		dq close_handle
+		dq return
+
+	; ( handle -- )
+	thread load_source_file
+		dq file_size
+		dq drop
+		dq return
 
 	; ( string length -- )
 	declare "print"
@@ -1660,6 +1737,7 @@ section .rdata
 	string status_unknown, red(`Unknown word: `)
 	string status_leftovers, red(`Leftovers on stack; press enter...`)
 	string status_word_too_long, red(`Word is too long for dictionary entry\n`)
+	string status_no_init_library, yellow(`No init library was loaded\n`)
 	string newline, `\n`
 	string empty_tag, `    `
 	string immediate_tag, red(`*   `)
@@ -1668,6 +1746,7 @@ section .rdata
 	string seq_clear, vt_clear
 	string seq_yellow, vt_yellow
 	string seq_default, vt_default
+	string init_library_name, `init.si`
 
 section .bss
 	data_stack:
