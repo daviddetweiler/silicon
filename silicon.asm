@@ -1513,9 +1513,9 @@ section .rdata
 		dq store_byte
 		dq return
 
-	; ( -- arena-here )
-	declare "here"
-	thread here
+	; ( -- ptr )
+	declare "assembly-ptr"
+	thread assembly_ptr
 		dq arena_top
 		dq load
 		dq return
