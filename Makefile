@@ -15,7 +15,7 @@ silicon.exe: silicon.obj
         /nologo \
         /fixed \
         /ignore:4254 \
-        /section:silicon,RWE \
+        /section:silicon,RE \
         /merge:.rdata=silicon \
         /merge:.text=silicon \
         /Brepro \

@@ -18,28 +18,18 @@ assemble-word dictionary
 assemble-word store
 assemble-return
 
-create ] dictionary store immediate
-assemble-thread
-assemble-literal -1 assemble
-assemble-word is-assembling
-assemble-word store
-assemble-return
-
-create [ dictionary store immediate
+define [ immediate
 assemble-thread
 assemble-word 0						\ `assemble-word 0` only works because `0` is in the dictionary
 assemble-word is-assembling
 assemble-word store
 assemble-return
 
-\ `fn` defines a new word, specifies it as a thread, and enables assembly mode in the interpreter
-define fn
+define ] immediate
 assemble-thread
-assemble-word ]
-assemble-word create
-assemble-word partial-definition
+assemble-literal -1 assemble
+assemble-word is-assembling
 assemble-word store
-assemble-word assemble-thread
 assemble-return
 
 \ `end-fn` terminates the current definition with a `return`, and disables assembly mode in the interpreter
@@ -55,6 +45,16 @@ assemble-word partial-definition
 assemble-word store
 assemble-word assemble-return
 assemble-word [
+assemble-return
+
+\ `fn` defines a new word, specifies it as a thread, and enables assembly mode in the interpreter
+define fn
+assemble-thread
+assemble-word ]
+assemble-word create
+assemble-word partial-definition
+assemble-word store
+assemble-word assemble-thread
 assemble-return
 
 \ value --

@@ -4,23 +4,31 @@ bits 64
 global start
 
 extern ExitProcess
-extern WriteFile
 extern GetStdHandle
+extern WriteFile
 extern ReadFile
+extern SetFilePointer
+extern CloseHandle
 
 %define tp r15
 %define wp r14
 %define dp r13
 %define rp r12
 
-%define stack_depth 512
+; While a per-word stack usage may be quite small (perhaps 8 cells at most?) call nesting can be much, much deeper, so
+; the data stack must be of a similar size to the return stack. It may be easiest to only ever check for underflow,
+; since overflows are unlikely to be recoverable anyways (though I did have a thought about a "circular stack" being
+; used to mitigate it without as onerous a runtime cost).
+%define stack_depth 1024
 %define stack_base(stack) (stack + stack_depth * 8)
 
-%define term_buffer_length 8 * 16
-%define formatted_decimal_length 8 * 4
-%define arena_length 1024 * 1024
+%define term_buffer_size 8 * 16
+%define formatted_decimal_size 8 * 4
+%define arena_size 1024 * 1024
+%define source_context_stack_depth 64
+%define source_context_cells 4
 
-%define immediate 0x80
+%define immediate (1 << 7)
 %define entry_0 0
 
 %assign dictionary_written 0
@@ -625,6 +633,7 @@ section .rdata
 	program:
 		dq set_stacks
 		dq init_handles
+		dq init_source_context
 		dq init_current_word
 		dq init_dictionary
 		dq init_arena
@@ -635,7 +644,7 @@ section .rdata
 		branch_to .exit
 
 		dq accept_word
-		branch_to .exit
+		branch_to .source_ended
 		dq current_word
 		dq find
 		dq copy
@@ -663,6 +672,13 @@ section .rdata
 		dq push_is_nzero
 		dq push_and
 		predicated assemble, invoke
+		jump_to .accept
+
+		.source_ended:
+		dq is_nested_source
+		dq push_not
+		branch_to .exit
+		dq pop_source_context
 		jump_to .accept
 
 		.exit:
@@ -715,7 +731,7 @@ section .rdata
 	thread term_read_line
 		dq term_buffer
 		dq literal
-		dq term_buffer_length
+		dq term_buffer_size
 		dq stdin_handle
 		dq load
 		dq read_file
@@ -733,7 +749,7 @@ section .rdata
 		dq return
 
 	; ( -- exit? )
-	thread term_accept_line
+	thread accept_line_interactive
 		.again:
 		dq term_read_line
 
@@ -829,13 +845,20 @@ section .rdata
 
 		.refill:
 		dq drop
-		dq term_accept_line
+		dq accept_line
 		branch_to .exit
 		dq init_current_word
 		jump_to .again
 
 		.exit:
 		dq true
+		dq return
+
+	; ( -- exit? )
+	thread accept_line
+		dq preloaded_source
+		dq load
+		predicated accept_line_preloaded, accept_line_interactive
 		dq return
 
 	; ( a b address -- )
@@ -1213,7 +1236,7 @@ section .rdata
 	thread print_unumber
 		dq formatted_decimal
 		dq literal
-		dq formatted_decimal_length
+		dq formatted_decimal_size
 		dq push_add
 		dq copy
 		dq stash
@@ -1534,6 +1557,63 @@ section .rdata
 		dq zero
 		dq return
 
+	; I believe that it's possible to implement file interpretation just by replacing `accept-line`
+	; Maybe rename accept_line_interactive to accept_line_interactive, etc.
+
+	; ( -- exit? )
+	thread accept_line_preloaded
+		dq true
+		dq return
+
+	; The context stack should be bounds-checked; `include` should report if recursion depth has been exceeded
+
+	; ( -- ptr-line-size )
+	thread line_size
+		dq source_context
+		dq load
+		dq return
+
+	; ( -- ptr-preloaded-source )
+	thread preloaded_source
+		dq source_context
+		dq load
+		dq cell_size
+		dq push_add
+		dq return
+
+	; ( -- ptr-word-pair )
+	thread current_word_pair
+		dq source_context
+		dq load
+		dq cell_size
+		dq copy
+		dq push_add
+		dq push_add
+		dq return
+
+	; ( -- )
+	thread init_source_context
+		dq source_context_stack
+		dq source_context
+		dq store
+		dq return
+
+	; ( -- )
+	thread push_source_context
+		dq return
+
+	; ( -- )
+	thread pop_source_context
+		dq return
+
+	; ( -- nested? )
+	thread is_nested_source
+		dq source_context
+		dq load
+		dq source_context_stack
+		dq push_is_neq
+		dq return
+
 	declare "0"
 	constant zero, 0
 
@@ -1549,18 +1629,7 @@ section .rdata
 	declare "10"
 	constant ten, 10
 
-	variable line_size, 1
-	variable stdin_handle, 1
-	variable stdout_handle, 1
-	variable term_buffer, (term_buffer_length / 8) + 1 ; +1 to ensure null-termination
-	variable current_word_pair, 2
-	variable string_a, 2
-	variable string_b, 2
-	variable formatted_decimal, formatted_decimal_length / 8
-	variable parsed_number, 2
-	variable should_exit, 1
-	variable arena_base, arena_length / 8
-	variable arena_top, 1
+	; Begin interpreter state variables
 
 	declare "is-assembling"
 	variable is_assembling, 1
@@ -1570,6 +1639,22 @@ section .rdata
 
 	declare "dictionary"
 	variable dictionary, 1
+
+	variable arena_top, 1
+	variable should_exit, 1
+	variable source_context, 1
+
+	; End interpreter state variables
+
+	variable stdin_handle, 1
+	variable stdout_handle, 1
+	variable term_buffer, (term_buffer_size / 8) + 1 ; +1 to ensure null-termination
+	variable string_a, 2
+	variable string_b, 2
+	variable formatted_decimal, formatted_decimal_size / 8
+	variable parsed_number, 2
+	variable arena_base, arena_size / 8
+	variable source_context_stack, source_context_stack_depth * source_context_cells
 
 	string status_overfull, red(`Line overfull\n`)
 	string status_unknown, red(`Unknown word: `)
