@@ -90,8 +90,9 @@ fn end-if
 	assembly-ptr over cell-size + - swap store
 end-fn immediate
 
-\ And here we see an example use of `const` to define `false` as 0
+\ And here we see an example use of `const` to define boolean constants
 0 const false
+-1 const true
 
 \ --
 fn :

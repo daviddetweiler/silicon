@@ -10,6 +10,9 @@ extern ReadFile
 extern CreateFileA
 extern SetFilePointer
 extern CloseHandle
+extern VirtualAlloc
+extern VirtualFree
+extern GetLastError
 
 %define tp r15
 %define wp r14
@@ -302,11 +305,11 @@ section .text
 	declare "0>"
 	code push_is_negative
 		cmp qword [dp], 0
-		jl .true
+		jl .all_ones
 		mov qword [dp], 0
 		jmp next
 
-		.true:
+		.all_ones:
 		mov qword [dp], ~0
 		jmp next
 
@@ -323,11 +326,11 @@ section .text
 	code push_is_zero
 		mov rax, [dp]
 		test rax, rax
-		jz .true
+		jz .all_ones
 		mov qword [dp], 0
 		jmp next
 
-		.true:
+		.all_ones:
 		mov qword [dp], ~0
 		jmp next
 
@@ -336,11 +339,11 @@ section .text
 	code push_is_nzero
 		mov rax, [dp]
 		test rax, rax
-		jnz .true
+		jnz .all_ones
 		mov qword [dp], 0
 		jmp next
 
-		.true:
+		.all_ones:
 		mov qword [dp], ~0
 		jmp next
 
@@ -373,11 +376,11 @@ section .text
 		mov rax, [dp]
 		add dp, 8
 		cmp [dp], rax
-		jne .true
+		jne .all_ones
 		mov qword [dp], 0
 		jmp next
 
-		.true:
+		.all_ones:
 		mov qword [dp], ~0
 		jmp next
 
@@ -387,11 +390,11 @@ section .text
 		mov rax, [dp]
 		add dp, 8
 		cmp [dp], rax
-		je .true
+		je .all_ones
 		mov qword [dp], 0
 		jmp next
 
-		.true:
+		.all_ones:
 		mov qword [dp], ~0
 		jmp next
 
@@ -478,11 +481,11 @@ section .text
 		mov rcx, [dp]
 		add dp, 8
 		test rcx, rcx
-		jnz .true
+		jnz .all_ones
 		mov wp, rbx
 		jmp run
 
-		.true:
+		.all_ones:
 		mov wp, rax
 		jmp run
 
@@ -563,11 +566,11 @@ section .text
 		mov rax, [dp]
 		add dp, 8
 		cmp [dp], rax
-		jge .true
+		jge .all_ones
 		mov qword [dp], 0
 		jmp next
 
-		.true:
+		.all_ones:
 		mov qword [dp], ~0
 		jmp next
 
@@ -577,11 +580,11 @@ section .text
 		mov rax, [dp]
 		add dp, 8
 		cmp [dp], rax
-		jle .true
+		jle .all_ones
 		mov qword [dp], 0
 		jmp next
 
-		.true:
+		.all_ones:
 		mov qword [dp], ~0
 		jmp next
 
@@ -630,26 +633,33 @@ section .text
 		.skip:
 		jmp next
 
-	; ( handle -- size )
-	declare "file-size"
-	code file_size
-		mov rbx, [dp]
-
-		mov rcx, rbx
-		xor rdx, rdx
-		mov [dp], rdx
-		mov r8, dp
-		mov r9, 2
-		call SetFilePointer
-		shl qword [dp], 32
-		or [dp], rax
-
-		mov rcx, rbx
-		xor rdx, rdx
-		xor r8, r8
-		xor r9, r9
+	; ( handle offset mode -- old-ptr? )
+	;
+	; We treat -1 as an error sentinel
+	declare "set-file-ptr"
+	code set_file_ptr
+		mov rcx, [dp + 8 * 2]
+		mov rdx, [dp + 8]
+		lea r8, [dp + 8 + 4]
+		mov r9, [dp]
 		call SetFilePointer
 
+		mov rcx, 4294967295 ; INVALID_SET_FILE_POINTER
+		cmp rax, rcx
+		jne .success
+		call GetLastError
+		test rax, rax
+		jnz .success
+
+		add dp, 8 * 2
+		mov qword [dp], -1
+		jmp next
+
+		.success:
+		mov [dp + 8], eax
+		mov rax, [dp + 8]
+		add dp, 8 * 2
+		mov [dp], rax
 		jmp next
 
 	; ( handle -- )
@@ -677,6 +687,12 @@ section .text
 
 		.success:
 		mov [dp], rax
+		jmp next
+
+	; ( size -- address )
+	declare "allocate-pages"
+	code allocate_pages
+
 		jmp next
 
 section .rdata
@@ -769,7 +785,37 @@ section .rdata
 	; ( handle -- )
 	thread load_source_file
 		dq file_size
-		dq drop
+		dq print_number
+		dq return
+
+	; ( handle -- size? )
+	;
+	; We treat -1 as an error sentinel
+	declare "file-size"
+	thread file_size
+		dq copy
+		dq zero
+		dq literal
+		dq 2
+		dq set_file_ptr
+		dq copy
+		dq all_ones
+		dq push_is_eq
+		branch_to .exit
+
+		dq swap
+		dq zero
+		dq zero
+		dq set_file_ptr
+		dq swap
+		dq over
+		dq all_ones
+		dq push_is_neq
+		branch_to .exit
+		dq swap
+
+		.exit:
+		dq nip
 		dq return
 
 	; ( string length -- )
@@ -858,7 +904,7 @@ section .rdata
 
 		.eof:
 		dq drop
-		dq true
+		dq all_ones
 		dq return
 
 	; ( string length -- )
@@ -928,7 +974,7 @@ section .rdata
 		jump_to .again
 
 		.exit:
-		dq true
+		dq all_ones
 		dq return
 
 	; ( -- exit? )
@@ -1016,33 +1062,33 @@ section .rdata
 		dq literal
 		dq ` `
 		dq push_is_eq
-		branch_to .true
+		branch_to .all_ones
 
 		dq copy
 		dq literal
 		dq `\t`
 		dq push_is_eq
-		branch_to .true
+		branch_to .all_ones
 
 		dq copy
 		dq literal
 		dq `\r`
 		dq push_is_eq
-		branch_to .true
+		branch_to .all_ones
 
 		dq copy
 		dq literal
 		dq `\n`
 		dq push_is_eq
-		branch_to .true
+		branch_to .all_ones
 
 		dq drop
 		dq zero
 		dq return
 
-		.true:
+		.all_ones:
 		dq drop
-		dq true
+		dq all_ones
 		dq return
 
 	; ( -- )
@@ -1166,7 +1212,7 @@ section .rdata
 		dq push_subtract
 		dq copy
 		dq push_is_zero
-		branch_to .true
+		branch_to .all_ones
 
 		dq string_b
 		dq load
@@ -1188,9 +1234,9 @@ section .rdata
 		dq zero
 		dq return
 
-		.true:
+		.all_ones:
 		dq drop
-		dq true
+		dq all_ones
 		dq return
 
 	; ( string length -- immediate? word? )
@@ -1424,7 +1470,7 @@ section .rdata
 		branch_to .again
 
 		dq unstash
-		dq true
+		dq all_ones
 		dq return
 
 		.nan:
@@ -1470,7 +1516,7 @@ section .rdata
 
 	declare "exit"
 	thread exit
-		dq true
+		dq all_ones
 		dq should_exit
 		dq store
 		dq return
@@ -1639,7 +1685,7 @@ section .rdata
 
 	; ( -- exit? )
 	thread accept_line_preloaded
-		dq true
+		dq all_ones
 		dq return
 
 	; The context stack should be bounds-checked; `include` should report if recursion depth has been exceeded
@@ -1694,8 +1740,8 @@ section .rdata
 	declare "0"
 	constant zero, 0
 
-	declare "true"
-	constant true, ~0
+	declare "-1"
+	constant all_ones, ~0
 
 	declare "1"
 	constant one, 1
