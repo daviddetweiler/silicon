@@ -1,1 +1,153 @@
+create assemble-word dictionary store immediate
+assemble-thread
+get-word get-word assemble
+get-word assemble assemble
+assemble-return
 
+create \ dictionary store immediate
+assemble-thread
+assemble-word flush-line
+assemble-return
+
+\ `define` acts to create a new word at the tip of the dictionary, with subsequent `assemble` instructions
+\ appending to its definition
+create define dictionary store
+assemble-thread
+assemble-word create
+assemble-word dictionary
+assemble-word store
+assemble-return
+
+define [ immediate
+assemble-thread
+assemble-word 0						\ `assemble-word 0` only works because `0` is in the dictionary
+assemble-word is-assembling
+assemble-word store
+assemble-return
+
+define ] immediate
+assemble-thread
+assemble-literal -1 assemble
+assemble-word is-assembling
+assemble-word store
+assemble-return
+
+\ `end-fn` terminates the current definition with a `return`, and disables assembly mode in the interpreter
+
+define end-fn immediate
+assemble-thread
+assemble-word partial-definition
+assemble-word load
+assemble-word dictionary
+assemble-word store
+assemble-word 0
+assemble-word partial-definition
+assemble-word store
+assemble-word assemble-return
+assemble-word [
+assemble-return
+
+\ `fn` defines a new word, specifies it as a thread, and enables assembly mode in the interpreter
+define fn
+assemble-thread
+assemble-word ]
+assemble-word create
+assemble-word partial-definition
+assemble-word store
+assemble-word assemble-thread
+assemble-return
+
+\ value --
+\
+\ `const` merely defines a word with a reference to `invoke_constant` in the kernel, and appends the actual constant
+\ value from the data stack
+fn const
+	define
+	assemble-constant assemble
+end-fn
+
+\ -- patch-addr
+\
+\ One of the neat bits of TILs is that control flow constructs are themselves just words, and can be defined as such.
+\ To function, they are tagged with `immediate`, which causes them to be executed at definition time when used, and as
+\ such are able to modify the in-progress definition.
+\
+\ `if` works by appending the `~ branch <target>` sequence to the definition, leaving the address of `<target>` on the
+\ stack to be patched by the corresponding `end-if`. As such, the final, assembled definition will branch past the
+\ wrapped code if the top of the stack is zero, and fall through otherwise.
+fn if
+	[ assemble-literal ] ~ assemble
+	assemble-branch
+	assembly-ptr
+	0 assemble
+end-fn immediate
+
+\ patch-addr --
+\
+\ `end-if` expects to find the patch address left by the corresponding `if` on the stack, and uses it compute and patch
+\ in the true branch target.
+fn end-if
+	assembly-ptr over cell-size + - swap store
+end-fn immediate
+
+\ And here we see an example use of `const` to define boolean constants
+0 const false
+-1 const true
+
+\ --
+fn :
+	fn
+end-fn
+
+\ --
+\
+\ The use of `assemble-word` here is needed, since `end-fn` was tagged `immediate` and would be immediately executed if
+\ directly referenced, instead of being assembled in, as intended.
+fn ;
+	assemble-word end-fn
+end-fn immediate
+
+\ -- target
+\
+\ For a `while <condition> do <body> end-while` construct, the underlying code is essentially the condition, followed by
+\ an `if`-block guarding the loop body and an additional unconditional jump back to the condition. As such, the only
+\ purpose of the `while` word is to record the address of the condition, so that the `end-while` word can assemble the
+\ jump back to it.
+fn while assembly-ptr end-fn immediate
+
+\ -- patch-addr
+\
+\ As discussed with `while`, the responsibility of `do` is to begin the underlying `if`-block guarding the loop body
+fn do assemble-word if end-fn immediate
+
+\ target patch-addr --
+\
+\ Finally, `end-while` assembles the jump back to the condition, while also ending the `if`-block guarding the loop
+\ body. A `swap` is needed since at the time it is executed, it expects to see the patch address of the preceding `do`
+\ at the top of the stack, but it needs to assemble the backwards jump first, not perform the patch.
+fn end-while
+	assemble-jump
+
+	swap
+	assembly-ptr cell-size +
+	- assemble
+
+	assemble-word end-if
+end-fn immediate
+
+\ --
+fn recurse
+	partial-definition load entry-data-ptr assemble
+end-fn immediate
+
+\ patch-addr -- new-patch-addr
+\
+\ This one's a bit tricky: the idea is to put an uncoditional jump at the end of the preceding if-block, end the
+\ if-block, and leaving the address of the jump offset as the new patch address. This way, when `end-if` is executed, it
+\ will patch this uncoditional jump, so that upon executing the if-block, execution will jump to just after the
+\ `end-if`, and not fall through into the else-block.
+fn else
+	assemble-jump
+	assembly-ptr 0 assemble
+	swap assemble-word end-if
+end-fn immediate

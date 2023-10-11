@@ -30,7 +30,7 @@ extern GetLastError
 %define formatted_decimal_size 8 * 4
 %define arena_size 1024 * 1024
 %define source_context_stack_depth 64
-%define source_context_cells 4
+%define source_context_cells 5
 
 %define immediate (1 << 7)
 %define entry_0 0
@@ -750,7 +750,7 @@ section .rdata
 		dq current_word
 		dq print_line
 		dq new_line
-		dq term_flush_line
+		dq flush_line
 		jump_to .accept
 
 		.found:
@@ -800,12 +800,26 @@ section .rdata
 		.found:
 		dq copy
 		dq load_source_file
-		dq free_pages
-		branch_to .freed
-		dq break
-
-		.freed:
+		dq swap
 		dq close_handle
+
+		dq push_source_context
+
+		dq copy
+		dq preloaded_source
+		dq store
+
+		dq copy
+		dq zero
+		dq current_word_pair
+		dq store_pair
+
+		dq copy
+		dq line_start
+		dq store
+		
+		dq set_line_size
+
 		dq return
 
 	; ( handle -- source? )
@@ -824,6 +838,8 @@ section .rdata
 
 		.allocate:
 		dq copy
+		dq one
+		dq push_add
 		dq allocate_pages
 		dq copy
 		dq push_is_nzero
@@ -944,6 +960,11 @@ section .rdata
 
 	; ( -- exit? )
 	thread accept_line_interactive
+		dq init_current_word
+		dq term_buffer
+		dq line_start
+		dq store
+
 		.again:
 		dq term_read_line
 
@@ -1013,7 +1034,8 @@ section .rdata
 		dq push_add
 		dq copy
 
-		dq term_buffer
+		dq line_start
+		dq load
 		dq push_subtract
 		dq line_size
 		dq load
@@ -1041,7 +1063,6 @@ section .rdata
 		dq drop
 		dq accept_line
 		branch_to .exit
-		dq init_current_word
 		jump_to .again
 
 		.exit:
@@ -1403,11 +1424,12 @@ section .rdata
 
 	; ( -- )
 	declare "flush-line"
-	thread term_flush_line
+	thread flush_line
 		dq current_word
 		dq drop
 		dq copy
-		dq term_buffer
+		dq line_start
+		dq load
 		dq push_subtract
 		dq line_size
 		dq load
@@ -1756,7 +1778,56 @@ section .rdata
 
 	; ( -- exit? )
 	thread accept_line_preloaded
+		dq current_word
+		dq push_add
+
+		dq copy
+		dq load_byte
+		branch_to .next_line
+		dq drop
 		dq all_ones
+		dq return
+
+		.next_line:
+		dq literal ; Assumes CRLF line endings :(
+		dq 2
+		dq push_add
+		dq copy
+		dq zero
+		dq current_word_pair
+		dq store_pair
+
+		dq copy
+		dq line_start
+		dq store
+		dq set_line_size
+		dq zero
+		dq return
+
+	; ( line-ptr -- )
+	thread set_line_size
+		dq copy
+
+		.again:
+		dq copy
+		dq load_byte
+		dq literal ; Assumes CRLF line endings :(
+		dq `\r`
+		dq push_is_eq
+		branch_to .found_line_end
+		dq copy
+		dq load_byte
+		dq push_is_zero
+		branch_to .found_line_end
+		dq one
+		dq push_add
+		jump_to .again
+
+		.found_line_end:
+		dq swap
+		dq push_subtract
+		dq line_size
+		dq store
 		dq return
 
 	; The context stack should be bounds-checked; `include` should report if recursion depth has been exceeded
@@ -1779,9 +1850,17 @@ section .rdata
 	thread current_word_pair
 		dq source_context
 		dq load
-		dq cell_size
-		dq copy
+		dq literal
+		dq 8 * 2
 		dq push_add
+		dq return
+
+	; ( -- ptr-line-start )
+	thread line_start
+		dq source_context
+		dq load
+		dq literal
+		dq 8 * 4
 		dq push_add
 		dq return
 
@@ -1794,10 +1873,26 @@ section .rdata
 
 	; ( -- )
 	thread push_source_context
+		dq source_context
+		dq copy
+		dq load
+		dq literal
+		dq source_context_cells * 8
+		dq push_add
+		dq swap
+		dq store
 		dq return
 
 	; ( -- )
 	thread pop_source_context
+		dq source_context
+		dq copy
+		dq load
+		dq literal
+		dq source_context_cells * 8
+		dq push_subtract
+		dq swap
+		dq store
 		dq return
 
 	; ( -- nested? )
