@@ -154,7 +154,10 @@ end-fn immediate
 
 \ ptr -- in-bounds?
 fn in-line-bounds?
-	line-start - line-size load <
+	line-start load
+	-
+	line-size load
+	<
 end-fn
 
 \ ASCII code for `"`
@@ -181,9 +184,7 @@ fn s"
 		current-word store-2nd			\ Store the length; the next accept-word will start at the end of the string
 		over -
 	else
-		\ FIXME: currently this branch seems to never actually be hit
 		\ If we didn't find the closing `"` before the end of the line, we need to discard the string
-		break
 		drop
 		drop
 		flush-line

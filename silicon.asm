@@ -1988,7 +1988,7 @@ section .rdata
 
 	string status_overfull, red(`Line overfull\n`)
 	string status_unknown, red(`Unknown word: `)
-	string status_stacks_unset, red(`Stacks were not cleared, or have underflowed\nPress enter to exit...\n`)
+	string status_stacks_unset, yellow(`Stacks were not cleared, or have underflowed\nPress enter to exit...\n`)
 	string status_word_too_long, red(`Word is too long for dictionary entry\n`)
 	string status_no_init_library, yellow(`No init library was loaded\n`)
 	string status_source_not_loaded, red(`Source file could not be read into memory\n`)
