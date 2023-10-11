@@ -195,3 +195,33 @@ fn s"
 		0 0
 	end-if
 end-fn
+
+\ --
+fn version
+	version-string print-line
+end-fn
+
+\ --
+fn information
+	version nl
+
+	dictionary load
+	while
+		copy 0~=
+	do
+		copy entry-metadata
+		if
+			immediate-tag
+		else
+			empty-tag
+		end-if
+
+		print seq-yellow print print seq-default print-line
+		
+		load
+	end-while
+
+	drop nl
+end-fn
+
+version nl

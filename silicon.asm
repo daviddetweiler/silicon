@@ -1221,32 +1221,6 @@ section .rdata
 		dq all_ones
 		dq return
 
-	; ( -- )
-	declare "information"
-	thread information
-		dq version
-
-		dq dictionary
-		dq load
-
-		.again:
-		dq copy
-		dq entry_metadata
-		predicated immediate_tag, empty_tag
-		dq print
-		dq seq_yellow
-		dq print
-		dq print
-		dq seq_default
-		dq print_line
-		dq load
-		dq copy
-		branch_to .again
-
-		dq drop
-		dq new_line
-		dq return
-
 	; ( entry -- name length immediate?  )
 	declare "entry-metadata"
 	thread entry_metadata
@@ -1475,14 +1449,6 @@ section .rdata
 		dq push_subtract
 		dq current_word
 		dq store_pair
-		dq return
-
-	; ( -- )
-	declare "version"
-	thread version
-		dq version_banner
-		dq print_line
-		dq new_line
 		dq return
 
 	; ( n -- )
@@ -1993,14 +1959,26 @@ section .rdata
 	string status_no_init_library, yellow(`No init library was loaded\n`)
 	string status_source_not_loaded, red(`Source file could not be read into memory\n`)
 	string newline, `\n`
-	string empty_tag, `    `
-	string immediate_tag, red(`*   `)
-	string version_banner, cyan(version_string)
-	string negative, `-`
-	string seq_clear, vt_clear
-	string seq_yellow, vt_yellow
-	string seq_default, vt_default
 	string init_library_name, `init.si`
+	string negative, `-`
+
+	declare "empty-tag"
+	string empty_tag, `    `
+
+	declare "immediate-tag"
+	string immediate_tag, red(`*   `)
+	
+	declare "seq-clear"
+	string seq_clear, vt_clear
+
+	declare "seq-yellow"
+	string seq_yellow, vt_yellow
+
+	declare "seq-default"
+	string seq_default, vt_default
+
+	declare "version-string"
+	string version_banner, cyan(version_string)
 
 section .bss
 	data_stack:
