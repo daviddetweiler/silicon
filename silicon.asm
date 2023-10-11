@@ -264,7 +264,7 @@ section .text
 		mov [dp], rax
 		jmp next
 
-	; ( buffer length handle -- count succeeded )
+	; ( buffer length handle -- count succeeded? )
 	declare "read-file"
 	code read_file
 		mov rcx, [dp]
@@ -276,6 +276,12 @@ section .text
 		mov qword [rsp + 8 * 4], rax
 		call ReadFile
 		add dp, 8
+		test rax, rax
+		jz .failed
+		mov qword [dp], -1
+		jmp next
+
+		.failed:
 		mov [dp], rax
 		jmp next
 
@@ -692,7 +698,22 @@ section .text
 	; ( size -- address )
 	declare "allocate-pages"
 	code allocate_pages
+		xor rcx, rcx
+		mov rdx, [dp]
+		mov r8, 0x1000 ; MEM_COMMIT
+		mov r9, 0x04 ; PAGE_READWRITE
+		call VirtualAlloc
+		mov [dp], rax
+		jmp next
 
+	; ( address -- succeeded? )
+	declare "free-pages"
+	code free_pages
+		mov rcx, [dp]
+		xor rdx, rdx
+		mov r8, 0x8000 ; MEM_RELEASE
+		call VirtualFree
+		mov [dp], rax
 		jmp next
 
 section .rdata
@@ -779,13 +800,63 @@ section .rdata
 		.found:
 		dq copy
 		dq load_source_file
+		dq free_pages
+		branch_to .freed
+		dq break
+
+		.freed:
 		dq close_handle
 		dq return
 
-	; ( handle -- )
+	; ( handle -- source? )
 	thread load_source_file
+		dq copy
+		dq stash
 		dq file_size
-		dq print_number
+		dq copy
+		dq all_ones
+		dq push_is_neq
+		branch_to .allocate
+		dq drop
+		dq unstash
+		dq drop
+		jump_to .failed
+
+		.allocate:
+		dq copy
+		dq allocate_pages
+		dq copy
+		dq push_is_nzero
+		branch_to .read
+		dq drop_pair
+		dq unstash
+		dq drop
+		jump_to .failed
+
+		.read:
+		dq copy
+		dq unstash
+		dq swap
+		dq stash
+		dq stash
+		dq swap
+		dq unstash
+		dq read_file
+		dq nip
+		branch_to .succeeded
+		dq unstash
+		dq free_pages
+		dq drop
+		jump_to .failed
+
+		.succeeded:
+		dq unstash
+		dq return
+
+		.failed:
+		dq status_source_not_loaded
+		dq print_line
+		dq zero
 		dq return
 
 	; ( handle -- size? )
@@ -1410,7 +1481,7 @@ section .rdata
 
 	; ( -- )
 	thread report_leftovers
-		dq status_leftovers
+		dq status_stacks_unset
 		dq print_line
 		dq term_read_line
 		dq return
@@ -1781,9 +1852,10 @@ section .rdata
 
 	string status_overfull, red(`Line overfull\n`)
 	string status_unknown, red(`Unknown word: `)
-	string status_leftovers, red(`Leftovers on stack; press enter...`)
+	string status_stacks_unset, red(`Stacks were not cleared, or have underflowed\n`)
 	string status_word_too_long, red(`Word is too long for dictionary entry\n`)
 	string status_no_init_library, yellow(`No init library was loaded\n`)
+	string status_source_not_loaded, red(`Source file could not be read into memory\n`)
 	string newline, `\n`
 	string empty_tag, `    `
 	string immediate_tag, red(`*   `)
