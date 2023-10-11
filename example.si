@@ -1,3 +1,16 @@
+\ --
+fn :
+	fn
+end-fn
+
+\ --
+\
+\ The use of `assemble-word:` here is needed, since `end-fn` was tagged `immediate` and would be immediately executed if
+\ directly referenced, instead of being assembled in, as intended.
+fn ;
+	assemble-word: end-fn
+end-fn immediate
+
 \ condition --
 : v?
 	if
@@ -28,3 +41,8 @@ fn recursion-test
 		drop
 	end-if
 end-fn
+
+test
+10 recursion-test
+
+s" Hello, world!" print-line

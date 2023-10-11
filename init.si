@@ -1,67 +1,67 @@
-create assemble-word dictionary store immediate
+create assemble-word: dictionary store immediate
 assemble-thread
-get-word get-word assemble
-get-word assemble assemble
+get-word: get-word: assemble
+get-word: assemble assemble
 assemble-return
 
 create \ dictionary store immediate
 assemble-thread
-assemble-word flush-line
+assemble-word: flush-line
 assemble-return
 
 \ `define` acts to create a new word at the tip of the dictionary, with subsequent `assemble` instructions
 \ appending to its definition
 create define dictionary store
 assemble-thread
-assemble-word create
-assemble-word dictionary
-assemble-word store
+assemble-word: create
+assemble-word: dictionary
+assemble-word: store
 assemble-return
 
 define [ immediate
 assemble-thread
-assemble-word 0						\ `assemble-word 0` only works because `0` is in the dictionary
-assemble-word is-assembling
-assemble-word store
+assemble-word: 0						\ `assemble-word: 0` only works because `0` is in the dictionary
+assemble-word: is-assembling
+assemble-word: store
 assemble-return
 
 define ] immediate
 assemble-thread
 assemble-literal -1 assemble
-assemble-word is-assembling
-assemble-word store
+assemble-word: is-assembling
+assemble-word: store
 assemble-return
 
 \ `end-fn` terminates the current definition with a `return`, and disables assembly mode in the interpreter
 
 define end-fn immediate
 assemble-thread
-assemble-word partial-definition
-assemble-word load
-assemble-word dictionary
-assemble-word store
-assemble-word 0
-assemble-word partial-definition
-assemble-word store
-assemble-word assemble-return
-assemble-word [
+assemble-word: partial-definition
+assemble-word: load
+assemble-word: dictionary
+assemble-word: store
+assemble-word: 0
+assemble-word: partial-definition
+assemble-word: store
+assemble-word: assemble-return
+assemble-word: [
 assemble-return
 
 \ `fn` defines a new word, specifies it as a thread, and enables assembly mode in the interpreter
 define fn
 assemble-thread
-assemble-word ]
-assemble-word create
-assemble-word partial-definition
-assemble-word store
-assemble-word assemble-thread
+assemble-word: ]
+assemble-word: create
+assemble-word: partial-definition
+assemble-word: store
+assemble-word: assemble-thread
 assemble-return
 
 \ value --
 \
-\ `const` merely defines a word with a reference to `invoke_constant` in the kernel, and appends the actual constant
+\ `const:` merely defines a word with a reference to `invoke_constant` in the kernel, and appends the actual constant
 \ value from the data stack
-fn const
+fn const:
 	define
 	assemble-constant assemble
 end-fn
@@ -90,22 +90,9 @@ fn end-if
 	assembly-ptr over cell-size + - swap store
 end-fn immediate
 
-\ And here we see an example use of `const` to define boolean constants
-0 const false
--1 const true
-
-\ --
-fn :
-	fn
-end-fn
-
-\ --
-\
-\ The use of `assemble-word` here is needed, since `end-fn` was tagged `immediate` and would be immediately executed if
-\ directly referenced, instead of being assembled in, as intended.
-fn ;
-	assemble-word end-fn
-end-fn immediate
+\ And here we see an example use of `const:` to define boolean constants
+0 const: false
+-1 const: true
 
 \ -- target
 \
@@ -118,7 +105,7 @@ fn while assembly-ptr end-fn immediate
 \ -- patch-addr
 \
 \ As discussed with `while`, the responsibility of `do` is to begin the underlying `if`-block guarding the loop body
-fn do assemble-word if end-fn immediate
+fn do assemble-word: if end-fn immediate
 
 \ target patch-addr --
 \
@@ -132,7 +119,7 @@ fn end-while
 	assembly-ptr cell-size +
 	- assemble
 
-	assemble-word end-if
+	assemble-word: end-if
 end-fn immediate
 
 \ --
@@ -149,7 +136,7 @@ end-fn immediate
 fn else
 	assemble-jump
 	assembly-ptr 0 assemble
-	swap assemble-word end-if
+	swap assemble-word: end-if
 end-fn immediate
 
 \ ptr -- in-bounds?
@@ -160,8 +147,25 @@ fn in-line-bounds?
 	<
 end-fn
 
-\ ASCII code for `"`
-34 const dquote-char
+\ -- code
+\ 
+\ Pushes the first character after the first space character, advancing the line pointer to just after it
+fn char:
+	current-word load-pair +	\ We now have a pointer to the rest of the line after ourselves
+	1 + 						\ Skip the initial space
+	copy in-line-bounds?
+	if
+		copy load-byte stash
+		1 +
+		current-word load -
+		current-word store-2nd
+		unstash
+	else
+		drop 0 flush-line
+	end-if
+end-fn immediate
+
+char: " const: dquote-char
 
 \ -- string? length
 \

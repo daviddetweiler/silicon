@@ -1798,7 +1798,7 @@ section .rdata
 		dq return
 
 	; ( -- word? )
-	declare "get-word"
+	declare "get-word:"
 	thread get_word
 		dq accept_word
 		branch_to .cancelled
