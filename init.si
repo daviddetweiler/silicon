@@ -151,3 +151,42 @@ fn else
 	assembly-ptr 0 assemble
 	swap assemble-word end-if
 end-fn immediate
+
+\ ptr -- in-bounds?
+fn in-line-bounds?
+	line-start - line-size load <
+end-fn
+
+\ ASCII code for `"`
+34 const dquote-char
+
+\ -- string? length
+\
+\ Fails if there is no terminating `"` before the end of the line. Please note that it ignores the initial space.
+fn s"
+	current-word load-pair +	\ We now have a pointer to the rest of the line after ourselves
+	1 + copy					\ Skip the initial space
+	while
+		copy in-line-bounds?
+		over load-byte dquote-char ~=
+		&
+	do
+		1 +
+	end-while
+
+	\ By this point we only have a pointer on the stack, which either points to the end of the line, or the `"`
+	copy in-line-bounds?
+	if
+		copy current-word load - 1 +	\ Length of the skipped portion
+		current-word store-2nd			\ Store the length; the next accept-word will start at the end of the string
+		over -
+	else
+		\ FIXME: currently this branch seems to never actually be hit
+		\ If we didn't find the closing `"` before the end of the line, we need to discard the string
+		break
+		drop
+		drop
+		flush-line
+		0 0
+	end-if
+end-fn

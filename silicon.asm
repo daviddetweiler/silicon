@@ -503,6 +503,15 @@ section .text
 		mov [dp], rax
 		jmp next
 
+	; ( value address -- )
+	declare "store-2nd"
+	code store_2nd
+		mov rax, [dp]
+		mov rbx, [dp + 8]
+		mov [rax + 8], rbx
+		add dp, 8 * 2
+		jmp next
+
 	; ( a b -- )
 	declare "drop-pair"
 	code drop_pair
@@ -587,6 +596,34 @@ section .text
 		add dp, 8
 		cmp [dp], rax
 		jle .all_ones
+		mov qword [dp], 0
+		jmp next
+
+		.all_ones:
+		mov qword [dp], ~0
+		jmp next
+
+	; ( a b -- (a > b) )
+	declare ">"
+	code push_is_gt
+		mov rax, [dp]
+		add dp, 8
+		cmp [dp], rax
+		jg .all_ones
+		mov qword [dp], 0
+		jmp next
+
+		.all_ones:
+		mov qword [dp], ~0
+		jmp next
+
+	; ( a b -- (a < b) )
+	declare "<"
+	code push_is_lt
+		mov rax, [dp]
+		add dp, 8
+		cmp [dp], rax
+		jl .all_ones
 		mov qword [dp], 0
 		jmp next
 
@@ -734,20 +771,20 @@ section .rdata
 
 		dq accept_word
 		branch_to .source_ended
-		dq current_word
+		dq get_current_word
 		dq find
 		dq copy
 		branch_to .found
 		dq drop_pair
 
-		dq current_word
+		dq get_current_word
 		dq parse_number
 		branch_to .accept_number
 		dq drop
 
 		dq status_unknown
 		dq print
-		dq current_word
+		dq get_current_word
 		dq print_line
 		dq new_line
 		dq flush_line
@@ -811,7 +848,7 @@ section .rdata
 
 		dq copy
 		dq zero
-		dq current_word_pair
+		dq current_word
 		dq store_pair
 
 		dq copy
@@ -1030,7 +1067,7 @@ section .rdata
 	; ( -- exit? )
 	thread accept_word
 		.again:
-		dq current_word
+		dq get_current_word
 		dq push_add
 		dq copy
 
@@ -1054,7 +1091,7 @@ section .rdata
 		dq push_subtract
 		dq nip
 
-		dq current_word_pair
+		dq current_word
 		dq store_pair
 		dq zero
 		dq return
@@ -1070,6 +1107,7 @@ section .rdata
 		dq return
 
 	; ( -- exit? )
+	declare "accept-line"
 	thread accept_line
 		dq preloaded_source
 		dq load
@@ -1101,8 +1139,8 @@ section .rdata
 		dq return
 
 	; ( -- word length )
-	thread current_word
-		dq current_word_pair
+	thread get_current_word
+		dq current_word
 		dq load_pair
 		dq return
 
@@ -1110,7 +1148,7 @@ section .rdata
 	thread init_current_word
 		dq term_buffer
 		dq zero
-		dq current_word_pair
+		dq current_word
 		dq store_pair
 		dq return
 
@@ -1425,7 +1463,7 @@ section .rdata
 	; ( -- )
 	declare "flush-line"
 	thread flush_line
-		dq current_word
+		dq get_current_word
 		dq drop
 		dq copy
 		dq line_start
@@ -1435,7 +1473,7 @@ section .rdata
 		dq load
 		dq swap
 		dq push_subtract
-		dq current_word_pair
+		dq current_word
 		dq store_pair
 		dq return
 
@@ -1619,7 +1657,7 @@ section .rdata
 	thread create
 		dq accept_word
 		branch_to .rejected
-		dq current_word
+		dq get_current_word
 		dq copy
 		dq literal
 		dq 128
@@ -1764,7 +1802,7 @@ section .rdata
 	thread get_word
 		dq accept_word
 		branch_to .cancelled
-		dq current_word
+		dq get_current_word
 		dq find
 		dq nip
 		dq return
@@ -1778,7 +1816,7 @@ section .rdata
 
 	; ( -- exit? )
 	thread accept_line_preloaded
-		dq current_word
+		dq get_current_word
 		dq push_add
 
 		dq copy
@@ -1794,7 +1832,7 @@ section .rdata
 		dq push_add
 		dq copy
 		dq zero
-		dq current_word_pair
+		dq current_word
 		dq store_pair
 
 		dq copy
@@ -1833,6 +1871,7 @@ section .rdata
 	; The context stack should be bounds-checked; `include` should report if recursion depth has been exceeded
 
 	; ( -- ptr-line-size )
+	declare "line-size"
 	thread line_size
 		dq source_context
 		dq load
@@ -1847,7 +1886,8 @@ section .rdata
 		dq return
 
 	; ( -- ptr-word-pair )
-	thread current_word_pair
+	declare "current-word"
+	thread current_word
 		dq source_context
 		dq load
 		dq literal
@@ -1856,6 +1896,7 @@ section .rdata
 		dq return
 
 	; ( -- ptr-line-start )
+	declare "line-start"
 	thread line_start
 		dq source_context
 		dq load
@@ -1947,7 +1988,7 @@ section .rdata
 
 	string status_overfull, red(`Line overfull\n`)
 	string status_unknown, red(`Unknown word: `)
-	string status_stacks_unset, red(`Stacks were not cleared, or have underflowed\n`)
+	string status_stacks_unset, red(`Stacks were not cleared, or have underflowed\nPress enter to exit...\n`)
 	string status_word_too_long, red(`Word is too long for dictionary entry\n`)
 	string status_no_init_library, yellow(`No init library was loaded\n`)
 	string status_source_not_loaded, red(`Source file could not be read into memory\n`)
