@@ -137,7 +137,7 @@ extern GetLastError
 
 %macro commit_dictionary 0
 	section .rdata
-		declare "core-vocabulary"
+		declare "kernel-dict"
 		constant core_vocabulary, entry_ %+ dictionary_head
 		%assign dictionary_written 1
 %endmacro
@@ -854,7 +854,7 @@ section .rdata
 		dq copy
 		dq line_start
 		dq store
-		
+
 		dq set_line_size
 
 		dq return
@@ -1187,6 +1187,10 @@ section .rdata
 		dq return
 
 	; ( char -- space? )
+	;
+	; Here's the issue: accept_word functionally implements the regex `[ \n\r\t]*([^ \n\r\t]+)?`
+	; Because of that, a whitespace-only line will just run away into eternity. As such, it needs to
+	; be contractual that accept_line will strip out empty lines.
 	thread is_space
 		dq copy
 		dq literal
@@ -1792,10 +1796,16 @@ section .rdata
 		dq all_ones
 		dq return
 
-		.next_line:
-		dq literal ; Assumes CRLF line endings :(
-		dq 2
+		.again:
+		dq one
 		dq push_add
+
+		.next_line:
+		dq copy
+		dq load_byte
+		dq is_space
+		branch_to .again
+
 		dq copy
 		dq zero
 		dq current_word
@@ -1967,7 +1977,7 @@ section .rdata
 
 	declare "immediate-tag"
 	string immediate_tag, red(`*   `)
-	
+
 	declare "seq-clear"
 	string seq_clear, vt_clear
 

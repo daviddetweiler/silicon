@@ -148,7 +148,7 @@ fn in-line-bounds?
 end-fn
 
 \ -- code
-\ 
+\
 \ Pushes the first character after the first space character, advancing the line pointer to just after it
 fn char:
 	current-word load-pair +	\ We now have a pointer to the rest of the line after ourselves
@@ -201,11 +201,10 @@ fn version
 	version-string print-line
 end-fn
 
-\ --
-fn information
-	version nl
+\ dict-ptr --
+fn vocabulary
+	nl
 
-	dictionary load
 	while
 		copy 0~=
 	do
@@ -217,11 +216,16 @@ fn information
 		end-if
 
 		print seq-yellow print print seq-default print-line
-		
+
 		load
 	end-while
 
 	drop nl
+end-fn
+
+\ --
+fn information
+	version dictionary load vocabulary
 end-fn
 
 version nl
