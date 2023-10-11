@@ -8,7 +8,7 @@ debug_link_flags=
 debug_nasm_flags=
 !endif
 
-silicon.exe: silicon.obj
+silicon.exe: silicon.obj Makefile
     link silicon.obj kernel32.lib \
         /subsystem:console \
         /entry:start \
@@ -21,15 +21,15 @@ silicon.exe: silicon.obj
         /Brepro \
         $(debug_link_flags)
 
-silicon.obj: silicon.asm
+silicon.obj: silicon.asm Makefile
     pwsh -c "nasm -fwin64 silicon.asm -Dgit_version=""$$(git describe --dirty --tags)"" $(debug_nasm_flags)"
 
-clean:
+clean: Makefile
     del *.obj *.exe *.pdb *.ilk *.zip
 
-zip: silicon.zip
+zip: silicon.zip Makefile
 
-silicon.zip: silicon.exe
+silicon.zip: silicon.exe Makefile
     echo Verify the hash of silicon.exe using this powershell command > README.txt
     echo Get-FileHash -Algorithm SHA256 silicon.exe >> README.txt
     echo. >> README.txt
