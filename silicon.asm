@@ -1290,6 +1290,14 @@ section .rdata
 		dq assemble
 		dq return
 
+	; ( -- )
+	declare "assemble-invoke-string"
+	thread assemble_invoke_string
+		dq literal
+		dq invoke_string
+		dq assemble
+		dq return
+
 	; ( a-string a-length b-string b-length -- same? )
 	declare "string="
 	thread string_eq
@@ -1623,7 +1631,7 @@ section .rdata
 		dq return
 
 	; ( -- word? )
-	declare "create"
+	declare "create:"
 	thread create
 		dq accept_word
 		branch_to .rejected
@@ -1661,6 +1669,7 @@ section .rdata
 		dq return
 
 	; ( -- )
+	declare "cell-align-arena"
 	thread cell_align_arena
 		dq arena_top
 		dq load
@@ -1971,12 +1980,6 @@ section .rdata
 	string newline, `\n`
 	string init_library_name, `init.si`
 	string negative, `-`
-
-	declare "empty-tag"
-	string empty_tag, `    `
-
-	declare "immediate-tag"
-	string immediate_tag, red(`*   `)
 
 	declare "seq-clear"
 	string seq_clear, vt_clear
