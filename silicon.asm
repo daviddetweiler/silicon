@@ -45,7 +45,7 @@ extern GetLastError
 %define red(string) %strcat(vt_red, string, vt_default)
 %define cyan(string) %strcat(vt_cyan, string, vt_default)
 %define yellow(string) %strcat(vt_yellow, string, vt_default)
-%define version_string %strcat(`Silicon (`, git_version, `) (c) 2023 @daviddetweiler`)
+%define version_string %strcat(`SILICON (`, git_version, `) (C) 2023 @DAVIDDETWEILER`)
 
 %macro code_field 2
 	align 8
@@ -176,7 +176,7 @@ section .text
 		jmp [wp]
 
 	; ( -- )
-	declare "return"
+	declare "RETURN"
 	code return
 		mov tp, [rp]
 		add rp, 8
@@ -215,7 +215,7 @@ section .text
 		jmp next
 
 	; ( value -- )
-	declare "drop"
+	declare "DROP"
 	code drop
 		add dp, 8
 		jmp next
@@ -239,7 +239,7 @@ section .text
 		jmp next
 
 	; ( string length handle -- succeeded )
-	declare "write-file"
+	declare "WRITE-FILE"
 	code write_file
 		mov rcx, [dp]
 		mov rdx, [dp + 8 * 2]
@@ -259,7 +259,7 @@ section .text
 		jmp next
 
 	; ( address -- value )
-	declare "load"
+	declare "LOAD"
 	code load
 		mov rax, [dp]
 		mov rax, [rax]
@@ -267,7 +267,7 @@ section .text
 		jmp next
 
 	; ( value address -- )
-	declare "store"
+	declare "STORE"
 	code store
 		mov rax, [dp]
 		mov rbx, [dp + 8]
@@ -283,7 +283,7 @@ section .text
 		jmp next
 
 	; ( buffer length handle -- count succeeded? )
-	declare "read-file"
+	declare "READ-FILE"
 	code read_file
 		mov rcx, [dp]
 		mov rdx, [dp + 8 * 2]
@@ -338,7 +338,7 @@ section .text
 		jmp next
 
 	; ( value -- value value )
-	declare "copy"
+	declare "COPY"
 	code copy
 		mov rax, [dp]
 		sub dp, 8
@@ -386,7 +386,7 @@ section .text
 		jmp next
 
 	; ( address -- byte )
-	declare "load-byte"
+	declare "LOAD-BYTE"
 	code load_byte
 		mov rax, [dp]
 		mov al, [rax]
@@ -423,7 +423,7 @@ section .text
 		jmp next
 
 	; ( value -- )
-	declare "stash"
+	declare "STASH"
 	code stash
 		mov rax, [dp]
 		add dp, 8
@@ -432,7 +432,7 @@ section .text
 		jmp next
 
 	; ( -- value )
-	declare "unstash"
+	declare "UNSTASH"
 	code unstash
 		mov rax, [rp]
 		add rp, 8
@@ -441,7 +441,7 @@ section .text
 		jmp next
 
 	; ( a b -- b a )
-	declare "swap"
+	declare "SWAP"
 	code swap
 		mov rax, [dp]
 		xchg rax, [dp + 8]
@@ -449,7 +449,7 @@ section .text
 		jmp next
 
 	; ( a b -- a b a b )
-	declare "copy-pair"
+	declare "COPY-PAIR"
 	code copy_pair
 		mov rax, [dp]
 		mov rbx, [dp + 8]
@@ -459,7 +459,7 @@ section .text
 		jmp next
 
 	; ( a b -- b )
-	declare "nip"
+	declare "NIP"
 	code nip
 		mov rax, [dp]
 		add dp, 8
@@ -467,7 +467,7 @@ section .text
 		jmp next
 
 	; ( a b -- a b a )
-	declare "over"
+	declare "OVER"
 	code over
 		mov rax, [dp + 8]
 		sub dp, 8
@@ -475,7 +475,7 @@ section .text
 		jmp next
 
 	; ( value address -- )
-	declare "store-byte"
+	declare "STORE-BYTE"
 	code store_byte
 		mov rax, [dp]
 		mov rbx, [dp + 8]
@@ -525,7 +525,7 @@ section .text
 		jmp run
 
 	; ( address -- value )
-	declare "load-2nd"
+	declare "LOAD-2ND"
 	code load_2nd
 		mov rax, [dp]
 		mov rax, [rax + 8]
@@ -533,7 +533,7 @@ section .text
 		jmp next
 
 	; ( value address -- )
-	declare "store-2nd"
+	declare "STORE-2ND"
 	code store_2nd
 		mov rax, [dp]
 		mov rbx, [dp + 8]
@@ -542,20 +542,20 @@ section .text
 		jmp next
 
 	; ( a b -- )
-	declare "drop-pair"
+	declare "DROP-PAIR"
 	code drop_pair
 		add dp, 8 * 2
 		jmp next
 
 	; ( word -- )
-	declare "invoke"
+	declare "INVOKE"
 	code invoke
 		mov wp, [dp]
 		add dp, 8
 		jmp run
 
 	; ( a b -- (a / b) )
-	declare "u/"
+	declare "U/"
 	code push_udivide
 		mov rax, [dp + 8]
 		mov rbx, [dp]
@@ -566,7 +566,7 @@ section .text
 		jmp next
 
 	; ( a b -- (a % b) )
-	declare "u%"
+	declare "U%"
 	code push_umodulo
 		mov rax, [dp + 8]
 		mov rbx, [dp]
@@ -661,7 +661,7 @@ section .text
 		jmp next
 
 	; ( a b -- (a * b) )
-	declare "u*"
+	declare "U*"
 	code push_umultiply
 		mov rax, [dp]
 		add dp, 8
@@ -679,7 +679,7 @@ section .text
 		jmp next
 
 	; ( -- )
-	declare "break"
+	declare "BREAK"
 	code break
 		int3
 		jmp next
@@ -708,7 +708,7 @@ section .text
 	; ( handle offset mode -- old-ptr? )
 	;
 	; We treat -1 as an error sentinel
-	declare "set-file-ptr"
+	declare "SET-FILE-PTR"
 	code set_file_ptr
 		mov rcx, [dp + 8 * 2]
 		mov rdx, [dp + 8]
@@ -735,7 +735,7 @@ section .text
 		jmp next
 
 	; ( handle -- )
-	declare "close-handle"
+	declare "CLOSE-HANDLE"
 	code close_handle
 		mov rcx, [dp]
 		call CloseHandle
@@ -743,7 +743,7 @@ section .text
 		jmp next
 
 	; ( c-string -- handle )
-	declare "open-file"
+	declare "OPEN-FILE"
 	code open_file
 		mov rcx, [dp]
 		mov rdx, 0x80000000
@@ -762,7 +762,7 @@ section .text
 		jmp next
 
 	; ( size -- address )
-	declare "allocate-pages"
+	declare "ALLOCATE-PAGES"
 	code allocate_pages
 		xor rcx, rcx
 		mov rdx, [dp]
@@ -773,7 +773,7 @@ section .text
 		jmp next
 
 	; ( address -- succeeded? )
-	declare "free-pages"
+	declare "FREE-PAGES"
 	code free_pages
 		mov rcx, [dp]
 		xor rdx, rdx
@@ -790,7 +790,7 @@ section .text
 		jmp next
 
 	; ( -- )
-	declare "crash"
+	declare "CRASH"
 	code crash
 		mov rcx, 7
 		int 0x29 ; Good ol' __fastfail(FAST_FAIL_FATAL_APP_EXIT)
@@ -877,7 +877,7 @@ section .rdata
 		dq return
 
 	; ( -- )
-	declare "soft-fault"
+	declare "SOFT-FAULT"
 	thread soft_fault
 		dq is_nested_source
 		predicated hard_fault
@@ -906,7 +906,7 @@ section .rdata
 	;
 	; This makes some rather dubious assumptions about the interpreter state; amounting to assuming that hard faults
 	; have left the interpreter in partial, unspecified, but otherwise valid state that it must simply reset from
-	declare "hard-fault"
+	declare "HARD-FAULT"
 	thread hard_fault
 		dq am_initing
 		dq load
@@ -1022,7 +1022,7 @@ section .rdata
 	; ( handle -- size? )
 	;
 	; We treat -1 as an error sentinel
-	declare "file-size"
+	declare "FILE-SIZE"
 	thread file_size
 		dq copy
 		dq zero
@@ -1050,7 +1050,7 @@ section .rdata
 		dq return
 
 	; ( string length -- )
-	declare "print"
+	declare "PRINT"
 	thread print
 		dq stdout_handle
 		dq load
@@ -1075,7 +1075,7 @@ section .rdata
 		dq return
 
 	; ( -- )
-	declare "nl"
+	declare "NL"
 	thread new_line
 		dq newline
 		dq print
@@ -1144,7 +1144,7 @@ section .rdata
 		dq return
 
 	; ( string length -- )
-	declare "print-line"
+	declare "PRINT-LINE"
 	thread print_line
 		dq print
 		dq new_line
@@ -1214,7 +1214,7 @@ section .rdata
 		dq return
 
 	; ( -- exit? )
-	declare "accept-line"
+	declare "ACCEPT-LINE"
 	thread accept_line
 		dq preloaded_source
 		dq load
@@ -1222,7 +1222,7 @@ section .rdata
 		dq return
 
 	; ( a b address -- )
-	declare "store-pair"
+	declare "STORE-PAIR"
 	thread store_pair
 		dq copy
 		dq stash
@@ -1234,7 +1234,7 @@ section .rdata
 		dq return
 
 	; ( address -- a b )
-	declare "load-pair"
+	declare "LOAD-PAIR"
 	thread load_pair
 		dq copy
 		dq cell_size
@@ -1333,7 +1333,7 @@ section .rdata
 		dq return
 
 	; ( entry -- name length immediate?  )
-	declare "entry-metadata"
+	declare "ENTRY-METADATA"
 	thread entry_metadata
 		dq copy
 		dq entry_immediate
@@ -1350,7 +1350,7 @@ section .rdata
 		dq return
 
 	; ( -- )
-	declare "assemble-literal"
+	declare "ASSEMBLE-LITERAL"
 	thread assemble_literal
 		dq literal
 		dq literal
@@ -1358,7 +1358,7 @@ section .rdata
 		dq return
 
 	; ( -- )
-	declare "assemble-invoke-thread"
+	declare "ASSEMBLE-INVOKE-THREAD"
 	thread assemble_invoke_thread
 		dq literal
 		dq invoke_thread
@@ -1366,7 +1366,7 @@ section .rdata
 		dq return
 
 	; ( -- )
-	declare "assemble-return"
+	declare "ASSEMBLE-RETURN"
 	thread assemble_return
 		dq literal
 		dq return
@@ -1374,7 +1374,7 @@ section .rdata
 		dq return
 
 	; ( -- )
-	declare "assemble-invoke-constant"
+	declare "ASSEMBLE-INVOKE-CONSTANT"
 	thread assemble_invoke_constant
 		dq literal
 		dq invoke_constant
@@ -1382,7 +1382,7 @@ section .rdata
 		dq return
 
 	; ( -- )
-	declare "assemble-branch"
+	declare "ASSEMBLE-BRANCH"
 	thread assemble_branch
 		dq literal
 		dq branch
@@ -1390,7 +1390,7 @@ section .rdata
 		dq return
 
 	; ( -- )
-	declare "assemble-jump"
+	declare "ASSEMBLE-JUMP"
 	thread assemble_jump
 		dq literal
 		dq jump
@@ -1398,7 +1398,7 @@ section .rdata
 		dq return
 
 	; ( -- )
-	declare "assemble-invoke-string"
+	declare "ASSEMBLE-INVOKE-STRING"
 	thread assemble_invoke_string
 		dq literal
 		dq invoke_string
@@ -1406,7 +1406,7 @@ section .rdata
 		dq return
 
 	; ( -- )
-	declare "assemble-invoke-variable"
+	declare "ASSEMBLE-INVOKE-VARIABLE"
 	thread assemble_invoke_variable
 		dq literal
 		dq invoke_variable
@@ -1414,7 +1414,7 @@ section .rdata
 		dq return
 
 	; ( a-string a-length b-string b-length -- same? )
-	declare "string="
+	declare "STRING="
 	thread string_eq
 		dq string_b
 		dq store_pair
@@ -1471,7 +1471,7 @@ section .rdata
 		dq return
 
 	; ( string length -- immediate? word? )
-	declare "find"
+	declare "FIND"
 	thread find
 		dq dictionary
 		dq load
@@ -1506,7 +1506,7 @@ section .rdata
 		dq return
 
 	; ( entry -- data )
-	declare "entry-data-ptr"
+	declare "ENTRY-DATA-PTR"
 	thread entry_data_ptr
 		dq entry_name
 		dq push_add
@@ -1516,7 +1516,7 @@ section .rdata
 		dq return
 
 	; ( entry -- name length )
-	declare "entry-name"
+	declare "ENTRY-NAME"
 	thread entry_name
 		dq cell_size
 		dq push_add
@@ -1534,7 +1534,7 @@ section .rdata
 		dq return
 
 	; ( entry -- immediate? )
-	declare "entry-immediate?"
+	declare "ENTRY-IMMEDIATE?"
 	thread entry_immediate
 		dq cell_size
 		dq push_add
@@ -1546,7 +1546,7 @@ section .rdata
 		dq return
 
 	; ( address -- aligned-address )
-	declare "cell-align"
+	declare "CELL-ALIGN"
 	thread cell_align
 		dq copy
 		dq literal
@@ -1562,7 +1562,7 @@ section .rdata
 		dq return
 
 	; ( -- )
-	declare "flush-line"
+	declare "FLUSH-LINE"
 	thread flush_line
 		dq get_current_word
 		dq drop
@@ -1600,7 +1600,7 @@ section .rdata
 		dq return
 
 	; ( string length -- n number? )
-	declare "parse-u#"
+	declare "PARSE-U#"
 	thread parse_unumber
 		dq parsed_number
 		dq store_pair
@@ -1650,7 +1650,7 @@ section .rdata
 		dq return
 
 	; ( string length -- n number? )
-	declare "parse-#"
+	declare "PARSE-#"
 	thread parse_number
 		dq over
 		dq load_byte
@@ -1684,7 +1684,7 @@ section .rdata
 		dq zero
 		dq return
 
-	declare "exit"
+	declare "EXIT"
 	thread exit
 		dq all_ones
 		dq should_exit
@@ -1692,7 +1692,7 @@ section .rdata
 		dq return
 
 	; ( -- word? )
-	declare "create:"
+	declare "CREATE:"
 	thread create
 		dq accept_word
 		branch_to .rejected
@@ -1732,7 +1732,7 @@ section .rdata
 		dq soft_fault
 
 	; ( -- )
-	declare "cell-align-arena"
+	declare "CELL-ALIGN-ARENA"
 	thread cell_align_arena
 		dq arena_top
 		dq load
@@ -1742,7 +1742,7 @@ section .rdata
 		dq return
 
 	; ( cell -- )
-	declare "assemble"
+	declare "ASSEMBLE"
 	thread assemble
 		dq arena_top
 		dq load
@@ -1756,7 +1756,7 @@ section .rdata
 		dq return
 
 	; ( byte -- )
-	declare "assemble-byte"
+	declare "ASSEMBLE-BYTE"
 	thread assemble_byte
 		dq arena_top
 		dq load
@@ -1770,7 +1770,7 @@ section .rdata
 		dq return
 
 	; ( string length -- )
-	declare "assemble-string"
+	declare "ASSEMBLE-STRING"
 	thread assemble_string
 		dq string_a
 		dq store_pair
@@ -1810,14 +1810,14 @@ section .rdata
 		dq return
 
 	; ( -- )
-	declare "clear"
+	declare "CLEAR"
 	thread clear
 		dq seq_clear
 		dq print
 		dq return
 
 	; ( -- )
-	declare "immediate"
+	declare "IMMEDIATE"
 	thread make_immediate
 		dq dictionary
 		dq load
@@ -1833,14 +1833,14 @@ section .rdata
 		dq return
 
 	; ( -- ptr )
-	declare "assembly-ptr"
+	declare "ASSEMBLY-PTR"
 	thread assembly_ptr
 		dq arena_top
 		dq load
 		dq return
 
 	; ( -- word? )
-	declare "get-word:"
+	declare "GET-WORD:"
 	thread get_word
 		dq accept_word
 		branch_to .cancelled
@@ -1916,7 +1916,7 @@ section .rdata
 	; The context stack should be bounds-checked; `include` should report if recursion depth has been exceeded
 
 	; ( -- ptr-line-size )
-	declare "line-size"
+	declare "LINE-SIZE"
 	thread line_size
 		dq source_context
 		dq load
@@ -1931,7 +1931,7 @@ section .rdata
 		dq return
 
 	; ( -- ptr-word-pair )
-	declare "current-word"
+	declare "CURRENT-WORD"
 	thread current_word
 		dq source_context
 		dq load
@@ -1941,7 +1941,7 @@ section .rdata
 		dq return
 
 	; ( -- ptr-line-start )
-	declare "line-start"
+	declare "LINE-START"
 	thread line_start
 		dq source_context
 		dq load
@@ -1951,7 +1951,7 @@ section .rdata
 		dq return
 
 	; ( -- ptr-is-assembling )
-	declare "is-assembling"
+	declare "IS-ASSEMBLING"
 	thread is_assembling
 		dq source_context
 		dq load
@@ -1960,7 +1960,7 @@ section .rdata
 		dq push_add
 		dq return
 
-	declare "current-definition"
+	declare "CURRENT-DEFINITION"
 	thread current_definition
 		dq source_context
 		dq load
@@ -2040,7 +2040,7 @@ section .rdata
 		dq return
 
 	; ( bytes -- )
-	declare "arena-allocate"
+	declare "ARENA-ALLOCATE"
 	thread arena_allocate
 		dq arena_top
 		dq load
@@ -2052,7 +2052,7 @@ section .rdata
 	; ( string length -- )
 	;
 	; A good candidate to be moved to init.si
-	declare "include"
+	declare "INCLUDE"
 	thread include
 		dq copy_pair
 		dq stash
@@ -2085,24 +2085,24 @@ section .rdata
 	declare "1"
 	constant one, 1
 
-	declare "cell-size"
+	declare "CELL-SIZE"
 	constant cell_size, 8
 
 	declare "10"
 	constant ten, 10
 
-	declare "bss-size"
+	declare "BSS-SIZE"
 	constant bss_size, end_bss - begin_bss
 
-	declare "rdata-size"
+	declare "RDATA-SIZE"
 	constant rdata_size, end_rdata - begin_rdata
 
-	declare "text-size"
+	declare "TEXT-SIZE"
 	constant text_size, end_text - begin_text
 
 	; Begin interpreter state variables
 
-	declare "dictionary"
+	declare "DICTIONARY"
 	variable dictionary, 1
 
 	variable arena_top, 1
@@ -2130,33 +2130,33 @@ section .rdata
 	; should probably just exit either way. Also need to have some sort of warning message for when a fault occurs
 	; during the init script, methinks.
 
-	string status_overfull, yellow(`Line overfull\n`) ; not a fault, dealt with in terminal subsystem
-	string status_unknown, red(`Unknown word: `) ; soft fault
-	string status_stacks_unset, yellow(`Stacks were not cleared, or have underflowed\nPress enter to exit...\n`)
-	string status_word_too_long, red(`Word is too long for dictionary entry\n`) ; soft fault
-	string status_no_init_library, yellow(`No init library was loaded\n`)
-	string status_source_not_loaded, red(`Source file could not be read into memory\n`) ; soft fault
-	string status_script_not_found, red(`Script not found: `) ; soft fault
-	string status_no_word, red(`Input was cancelled before word was named\n`) ; soft fault
-	string status_abort, yellow(`Aborted and restarted\n`)
-	string status_bad_init, yellow(`Fault during init script\nPress enter to exit...\n`)
+	string status_overfull, yellow(`LINE OVERFULL\n`) ; not a fault, dealt with in terminal subsystem
+	string status_unknown, red(`UNKNOWN WORD: `) ; soft fault
+	string status_stacks_unset, yellow(`STACKS WERE NOT CLEARED, OR HAVE UNDERFLOWED\NPRESS ENTER TO EXIT...\n`)
+	string status_word_too_long, red(`WORD IS TOO LONG FOR DICTIONARY ENTRY\n`) ; soft fault
+	string status_no_init_library, yellow(`NO INIT LIBRARY WAS LOADED\n`)
+	string status_source_not_loaded, red(`SOURCE FILE COULD NOT BE READ INTO MEMORY\n`) ; soft fault
+	string status_script_not_found, red(`SCRIPT NOT FOUND: `) ; soft fault
+	string status_no_word, red(`INPUT WAS CANCELLED BEFORE WORD WAS NAMED\n`) ; soft fault
+	string status_abort, yellow(`ABORTED AND RESTARTED\n`)
+	string status_bad_init, yellow(`FAULT DURING INIT SCRIPT\NPRESS ENTER TO EXIT...\n`)
 	string newline, `\n`
 	string init_library_name, `init.si`
 	string negative, `-`
 
-	declare "seq-clear"
+	declare "SEQ-CLEAR"
 	string seq_clear, vt_clear
 
-	declare "seq-yellow"
+	declare "SEQ-YELLOW"
 	string seq_yellow, vt_yellow
 
-	declare "seq-red"
+	declare "SEQ-RED"
 	string seq_red, vt_red
 
-	declare "seq-default"
+	declare "SEQ-DEFAULT"
 	string seq_default, vt_default
 
-	declare "version-string"
+	declare "VERSION-STRING"
 	string version_banner, cyan(version_string)
 
 section .bss
@@ -2176,3 +2176,4 @@ section .rdata
 
 section .bss
 	end_bss:
+

@@ -1,329 +1,329 @@
-create: assemble-word: dictionary store immediate
-assemble-invoke-thread
-get-word: get-word: assemble
-get-word: assemble assemble
-assemble-return
+CREATE: ASSEMBLE-WORD: DICTIONARY STORE IMMEDIATE
+ASSEMBLE-INVOKE-THREAD
+GET-WORD: GET-WORD: ASSEMBLE
+GET-WORD: ASSEMBLE ASSEMBLE
+ASSEMBLE-RETURN
 
-create: \ dictionary store immediate
-assemble-invoke-thread
-assemble-word: flush-line
-assemble-return
+CREATE: \ DICTIONARY STORE IMMEDIATE
+ASSEMBLE-INVOKE-THREAD
+ASSEMBLE-WORD: FLUSH-LINE
+ASSEMBLE-RETURN
 
-\ `define:` acts to create a new word at the tip of the dictionary, with subsequent `assemble` instructions
-\ appending to its definition
-create: define: dictionary store
-assemble-invoke-thread
-assemble-word: create:
-assemble-word: dictionary
-assemble-word: store
-assemble-return
+\ `DEFINE:` ACTS TO CREATE A NEW WORD AT THE TIP OF THE DICTIONARY, WITH SUBSEQUENT `ASSEMBLE` INSTRUCTIONS
+\ APPENDING TO ITS DEFINITION
+CREATE: DEFINE: DICTIONARY STORE
+ASSEMBLE-INVOKE-THREAD
+ASSEMBLE-WORD: CREATE:
+ASSEMBLE-WORD: DICTIONARY
+ASSEMBLE-WORD: STORE
+ASSEMBLE-RETURN
 
-define: [ immediate
-assemble-invoke-thread
-assemble-word: 0						\ `assemble-word: 0` only works because `0` is in the dictionary
-assemble-word: is-assembling
-assemble-word: store
-assemble-return
+DEFINE: [ IMMEDIATE
+ASSEMBLE-INVOKE-THREAD
+ASSEMBLE-WORD: 0						\ `ASSEMBLE-WORD: 0` ONLY WORKS BECAUSE `0` IS IN THE DICTIONARY
+ASSEMBLE-WORD: IS-ASSEMBLING
+ASSEMBLE-WORD: STORE
+ASSEMBLE-RETURN
 
-define: ]
-assemble-invoke-thread
-assemble-literal -1 assemble
-assemble-word: is-assembling
-assemble-word: store
-assemble-return
+DEFINE: ]
+ASSEMBLE-INVOKE-THREAD
+ASSEMBLE-LITERAL -1 ASSEMBLE
+ASSEMBLE-WORD: IS-ASSEMBLING
+ASSEMBLE-WORD: STORE
+ASSEMBLE-RETURN
 
-\ `end-fn` terminates the current definition with a `return`, and disables assembly mode in the interpreter
+\ `END-FN` TERMINATES THE CURRENT DEFINITION WITH A `RETURN`, AND DISABLES ASSEMBLY MODE IN THE INTERPRETER
 
-define: end-fn immediate
-assemble-invoke-thread
-assemble-word: current-definition
-assemble-word: load
-assemble-word: dictionary
-assemble-word: store
-assemble-word: 0
-assemble-word: current-definition
-assemble-word: store
-assemble-word: assemble-return
-assemble-word: [
-assemble-return
+DEFINE: END-FN IMMEDIATE
+ASSEMBLE-INVOKE-THREAD
+ASSEMBLE-WORD: CURRENT-DEFINITION
+ASSEMBLE-WORD: LOAD
+ASSEMBLE-WORD: DICTIONARY
+ASSEMBLE-WORD: STORE
+ASSEMBLE-WORD: 0
+ASSEMBLE-WORD: CURRENT-DEFINITION
+ASSEMBLE-WORD: STORE
+ASSEMBLE-WORD: ASSEMBLE-RETURN
+ASSEMBLE-WORD: [
+ASSEMBLE-RETURN
 
-\ `fn:` defines a new word, specifies it as a thread, and enables assembly mode in the interpreter
-define: fn:
-assemble-invoke-thread
-assemble-word: ]
-assemble-word: create:
-assemble-word: current-definition
-assemble-word: store
-assemble-word: assemble-invoke-thread
-assemble-return
+\ `FN:` DEFINES A NEW WORD, SPECIFIES IT AS A THREAD, AND ENABLES ASSEMBLY MODE IN THE INTERPRETER
+DEFINE: FN:
+ASSEMBLE-INVOKE-THREAD
+ASSEMBLE-WORD: ]
+ASSEMBLE-WORD: CREATE:
+ASSEMBLE-WORD: CURRENT-DEFINITION
+ASSEMBLE-WORD: STORE
+ASSEMBLE-WORD: ASSEMBLE-INVOKE-THREAD
+ASSEMBLE-RETURN
 
-\ value --
+\ VALUE --
 \
-\ `const:` merely defines a word with a reference to `invoke_constant` in the kernel, and appends the actual constant
-\ value from the data stack
-fn: const:
-	define:
-	assemble-invoke-constant assemble
-end-fn
+\ `CONST:` MERELY DEFINES A WORD WITH A REFERENCE TO `INVOKE_CONSTANT` IN THE KERNEL, AND APPENDS THE ACTUAL CONSTANT
+\ VALUE FROM THE DATA STACK
+FN: CONST:
+	DEFINE:
+	ASSEMBLE-INVOKE-CONSTANT ASSEMBLE
+END-FN
 
-\ -- patch-addr
+\ -- PATCH-ADDR
 \
-\ One of the neat bits of TILs is that control flow constructs are themselves just words, and can be defined as such.
-\ To function, they are tagged with `immediate`, which causes them to be executed at definition time when used, and as
-\ such are able to modify the in-progress definition.
+\ ONE OF THE NEAT BITS OF TILS IS THAT CONTROL FLOW CONSTRUCTS ARE THEMSELVES JUST WORDS, AND CAN BE DEFINED AS SUCH.
+\ TO FUNCTION, THEY ARE TAGGED WITH `IMMEDIATE`, WHICH CAUSES THEM TO BE EXECUTED AT DEFINITION TIME WHEN USED, AND AS
+\ SUCH ARE ABLE TO MODIFY THE IN-PROGRESS DEFINITION.
 \
-\ `if` works by appending the `~ branch <target>` sequence to the definition, leaving the address of `<target>` on the
-\ stack to be patched by the corresponding `end-if`. As such, the final, assembled definition will branch past the
-\ wrapped code if the top of the stack is zero, and fall through otherwise.
-fn: if
-	[ assemble-literal ] ~ assemble
-	assemble-branch
-	assembly-ptr
-	0 assemble
-end-fn immediate
+\ `IF` WORKS BY APPENDING THE `~ BRANCH <TARGET>` SEQUENCE TO THE DEFINITION, LEAVING THE ADDRESS OF `<TARGET>` ON THE
+\ STACK TO BE PATCHED BY THE CORRESPONDING `END-IF`. AS SUCH, THE FINAL, ASSEMBLED DEFINITION WILL BRANCH PAST THE
+\ WRAPPED CODE IF THE TOP OF THE STACK IS ZERO, AND FALL THROUGH OTHERWISE.
+FN: IF
+	[ ASSEMBLE-LITERAL ] ~ ASSEMBLE
+	ASSEMBLE-BRANCH
+	ASSEMBLY-PTR
+	0 ASSEMBLE
+END-FN IMMEDIATE
 
-\ patch-addr --
+\ PATCH-ADDR --
 \
-\ `end-if` expects to find the patch address left by the corresponding `if` on the stack, and uses it compute and patch
-\ in the true branch target.
-fn: end-if
-	assembly-ptr over cell-size + - swap store
-end-fn immediate
+\ `END-IF` EXPECTS TO FIND THE PATCH ADDRESS LEFT BY THE CORRESPONDING `IF` ON THE STACK, AND USES IT COMPUTE AND PATCH
+\ IN THE TRUE BRANCH TARGET.
+FN: END-IF
+	ASSEMBLY-PTR OVER CELL-SIZE + - SWAP STORE
+END-FN IMMEDIATE
 
-\ And here we see an example use of `const:` to define boolean constants
-0 const: false
--1 const: true
+\ AND HERE WE SEE AN EXAMPLE USE OF `CONST:` TO DEFINE BOOLEAN CONSTANTS
+0 CONST: FALSE
+-1 CONST: TRUE
 
-\ -- target
+\ -- TARGET
 \
-\ For a `while <condition> do <body> end-while` construct, the underlying code is essentially the condition, followed by
-\ an `if`-block guarding the loop body and an additional unconditional jump back to the condition. As such, the only
-\ purpose of the `while` word is to record the address of the condition, so that the `end-while` word can assemble the
-\ jump back to it.
-fn: while assembly-ptr end-fn immediate
+\ FOR A `WHILE <CONDITION> DO <BODY> END-WHILE` CONSTRUCT, THE UNDERLYING CODE IS ESSENTIALLY THE CONDITION, FOLLOWED BY
+\ AN `IF`-BLOCK GUARDING THE LOOP BODY AND AN ADDITIONAL UNCONDITIONAL JUMP BACK TO THE CONDITION. AS SUCH, THE ONLY
+\ PURPOSE OF THE `WHILE` WORD IS TO RECORD THE ADDRESS OF THE CONDITION, SO THAT THE `END-WHILE` WORD CAN ASSEMBLE THE
+\ JUMP BACK TO IT.
+FN: WHILE ASSEMBLY-PTR END-FN IMMEDIATE
 
-\ -- patch-addr
+\ -- PATCH-ADDR
 \
-\ As discussed with `while`, the responsibility of `do` is to begin the underlying `if`-block guarding the loop body
-fn: do assemble-word: if end-fn immediate
+\ AS DISCUSSED WITH `WHILE`, THE RESPONSIBILITY OF `DO` IS TO BEGIN THE UNDERLYING `IF`-BLOCK GUARDING THE LOOP BODY
+FN: DO ASSEMBLE-WORD: IF END-FN IMMEDIATE
 
-\ target patch-addr --
+\ TARGET PATCH-ADDR --
 \
-\ Finally, `end-while` assembles the jump back to the condition, while also ending the `if`-block guarding the loop
-\ body. A `swap` is needed since at the time it is executed, it expects to see the patch address of the preceding `do`
-\ at the top of the stack, but it needs to assemble the backwards jump first, not perform the patch.
-fn: end-while
-	assemble-jump
+\ FINALLY, `END-WHILE` ASSEMBLES THE JUMP BACK TO THE CONDITION, WHILE ALSO ENDING THE `IF`-BLOCK GUARDING THE LOOP
+\ BODY. A `SWAP` IS NEEDED SINCE AT THE TIME IT IS EXECUTED, IT EXPECTS TO SEE THE PATCH ADDRESS OF THE PRECEDING `DO`
+\ AT THE TOP OF THE STACK, BUT IT NEEDS TO ASSEMBLE THE BACKWARDS JUMP FIRST, NOT PERFORM THE PATCH.
+FN: END-WHILE
+	ASSEMBLE-JUMP
 
-	swap
-	assembly-ptr cell-size +
-	- assemble
+	SWAP
+	ASSEMBLY-PTR CELL-SIZE +
+	- ASSEMBLE
 
-	assemble-word: end-if
-end-fn immediate
+	ASSEMBLE-WORD: END-IF
+END-FN IMMEDIATE
 
 \ --
-fn: recurse
-	current-definition load entry-data-ptr assemble
-end-fn immediate
+FN: RECURSE
+	CURRENT-DEFINITION LOAD ENTRY-DATA-PTR ASSEMBLE
+END-FN IMMEDIATE
 
-\ patch-addr -- new-patch-addr
+\ PATCH-ADDR -- NEW-PATCH-ADDR
 \
-\ This one's a bit tricky: the idea is to put an uncoditional jump at the end of the preceding if-block, end the
-\ if-block, and leaving the address of the jump offset as the new patch address. This way, when `end-if` is executed, it
-\ will patch this uncoditional jump, so that upon executing the if-block, execution will jump to just after the
-\ `end-if`, and not fall through into the else-block.
-fn: else
-	assemble-jump
-	assembly-ptr 0 assemble
-	swap assemble-word: end-if
-end-fn immediate
+\ THIS ONE'S A BIT TRICKY: THE IDEA IS TO PUT AN UNCODITIONAL JUMP AT THE END OF THE PRECEDING IF-BLOCK, END THE
+\ IF-BLOCK, AND LEAVING THE ADDRESS OF THE JUMP OFFSET AS THE NEW PATCH ADDRESS. THIS WAY, WHEN `END-IF` IS EXECUTED, IT
+\ WILL PATCH THIS UNCODITIONAL JUMP, SO THAT UPON EXECUTING THE IF-BLOCK, EXECUTION WILL JUMP TO JUST AFTER THE
+\ `END-IF`, AND NOT FALL THROUGH INTO THE ELSE-BLOCK.
+FN: ELSE
+	ASSEMBLE-JUMP
+	ASSEMBLY-PTR 0 ASSEMBLE
+	SWAP ASSEMBLE-WORD: END-IF
+END-FN IMMEDIATE
 
-\ ptr -- in-bounds?
-fn: in-line-bounds?
-	line-start load
+\ PTR -- IN-BOUNDS?
+FN: IN-LINE-BOUNDS?
+	LINE-START LOAD
 	-
-	line-size load
+	LINE-SIZE LOAD
 	<
-end-fn
+END-FN
 
-\ -- code
+\ -- CODE
 \
-\ Pushes the first character after the first space character, advancing the line pointer to just after it
-fn: char:
-	current-word load-pair +	\ We now have a pointer to the rest of the line after ourselves
-	1 + 						\ Skip the initial space
-	copy in-line-bounds?
-	if
-		copy load-byte stash
+\ PUSHES THE FIRST CHARACTER AFTER THE FIRST SPACE CHARACTER, ADVANCING THE LINE POINTER TO JUST AFTER IT
+FN: CHAR:
+	CURRENT-WORD LOAD-PAIR +	\ WE NOW HAVE A POINTER TO THE REST OF THE LINE AFTER OURSELVES
+	1 + 						\ SKIP THE INITIAL SPACE
+	COPY IN-LINE-BOUNDS?
+	IF
+		COPY LOAD-BYTE STASH
 		1 +
-		current-word load -
-		current-word store-2nd
-		unstash
-	else
-		drop 0 flush-line
-	end-if
-end-fn
+		CURRENT-WORD LOAD -
+		CURRENT-WORD STORE-2ND
+		UNSTASH
+	ELSE
+		DROP 0 FLUSH-LINE
+	END-IF
+END-FN
 
-char: " const: dquote-char
+CHAR: " CONST: DQUOTE-CHAR
 
-\ -- string? length
+\ -- STRING? LENGTH
 \
-\ Fails if there is no terminating `"` before the end of the line. Please note that it ignores the initial space.
-fn: s"
-	current-word load-pair +	\ We now have a pointer to the rest of the line after ourselves
-	1 + copy					\ Skip the initial space
-	while
-		copy in-line-bounds?
-		over load-byte dquote-char ~=
+\ FAILS IF THERE IS NO TERMINATING `"` BEFORE THE END OF THE LINE. PLEASE NOTE THAT IT IGNORES THE INITIAL SPACE.
+FN: S"
+	CURRENT-WORD LOAD-PAIR +	\ WE NOW HAVE A POINTER TO THE REST OF THE LINE AFTER OURSELVES
+	1 + COPY					\ SKIP THE INITIAL SPACE
+	WHILE
+		COPY IN-LINE-BOUNDS?
+		OVER LOAD-BYTE DQUOTE-CHAR ~=
 		&
-	do
+	DO
 		1 +
-	end-while
+	END-WHILE
 
-	\ By this point we only have a pointer on the stack, which either points to the end of the line, or the `"`
-	copy in-line-bounds?
-	if
-		copy current-word load - 1 +	\ Length of the skipped portion
-		current-word store-2nd			\ Store the length; the next accept-word will start at the end of the string
-		over -
-	else
-		\ If we didn't find the closing `"` before the end of the line, we need to discard the string
-		drop
-		drop
-		flush-line
+	\ BY THIS POINT WE ONLY HAVE A POINTER ON THE STACK, WHICH EITHER POINTS TO THE END OF THE LINE, OR THE `"`
+	COPY IN-LINE-BOUNDS?
+	IF
+		COPY CURRENT-WORD LOAD - 1 +	\ LENGTH OF THE SKIPPED PORTION
+		CURRENT-WORD STORE-2ND			\ STORE THE LENGTH; THE NEXT ACCEPT-WORD WILL START AT THE END OF THE STRING
+		OVER -
+	ELSE
+		\ IF WE DIDN'T FIND THE CLOSING `"` BEFORE THE END OF THE LINE, WE NEED TO DISCARD THE STRING
+		DROP
+		DROP
+		FLUSH-LINE
 		0 0
-	end-if
-end-fn
+	END-IF
+END-FN
 
 \ --
-fn: version
-	version-string print-line
-end-fn
+FN: VERSION
+	VERSION-STRING PRINT-LINE
+END-FN
 
-\ string length -- committed-string length
-fn: string
-	copy stash
-	copy assemble-byte
-	assembly-ptr stash
-	assemble-string
-	unstash unstash
-end-fn
+\ STRING LENGTH -- COMMITTED-STRING LENGTH
+FN: STRING
+	COPY STASH
+	COPY ASSEMBLE-BYTE
+	ASSEMBLY-PTR STASH
+	ASSEMBLE-STRING
+	UNSTASH UNSTASH
+END-FN
 
-\ string length --
-fn: string:
-	define:
-	assemble-invoke-string
-	string drop-pair
-end-fn
+\ STRING LENGTH --
+FN: STRING:
+	DEFINE:
+	ASSEMBLE-INVOKE-STRING
+	STRING DROP-PAIR
+END-FN
 
-s"     " string: empty-tag
-s" *   " string: immediate-tag
+S"     " STRING: EMPTY-TAG
+S" *   " STRING: IMMEDIATE-TAG
 
-\ n-cells --
-fn: var:
-	define:
-	assemble-invoke-variable
-	cell-size * arena-allocate
-end-fn
+\ N-CELLS --
+FN: VAR:
+	DEFINE:
+	ASSEMBLE-INVOKE-VARIABLE
+	CELL-SIZE * ARENA-ALLOCATE
+END-FN
 
-char: 0						const:	digit-0
-8 4 *						const:	formatted-decimal-size
-formatted-decimal-size 8 /	var:	formatted-decimal
+CHAR: 0						CONST:	DIGIT-0
+8 4 *						CONST:	FORMATTED-DECIMAL-SIZE
+FORMATTED-DECIMAL-SIZE 8 /	VAR:	FORMATTED-DECIMAL
 
-\ n --
-fn: print-u#
-	copy 0=
-	if
-		drop
-		digit-0 formatted-decimal store-byte
-		formatted-decimal 1 print
-		return
-	end-if
+\ N --
+FN: PRINT-U#
+	COPY 0=
+	IF
+		DROP
+		DIGIT-0 FORMATTED-DECIMAL STORE-BYTE
+		FORMATTED-DECIMAL 1 PRINT
+		RETURN
+	END-IF
 
-	formatted-decimal
-	formatted-decimal-size +
-	copy stash stash
+	FORMATTED-DECIMAL
+	FORMATTED-DECIMAL-SIZE +
+	COPY STASH STASH
 
-	while
-		copy 0~=
-	do
-		copy 10 u%
-		digit-0 + unstash 1 - swap over store-byte stash
-		10 u/
-	end-while
+	WHILE
+		COPY 0~=
+	DO
+		COPY 10 U%
+		DIGIT-0 + UNSTASH 1 - SWAP OVER STORE-BYTE STASH
+		10 U/
+	END-WHILE
 
-	drop
-	unstash
-	unstash
-	over - print
-end-fn
+	DROP
+	UNSTASH
+	UNSTASH
+	OVER - PRINT
+END-FN
 
-s" -" string: negative
+S" -" STRING: NEGATIVE
 
-\ n --
-fn: print-#
-	copy 0>
-	if
-		negative print
-		0- print-u#
-	else
-		print-u#
-	end-if
-end-fn
+\ N --
+FN: PRINT-#
+	COPY 0>
+	IF
+		NEGATIVE PRINT
+		0- PRINT-U#
+	ELSE
+		PRINT-U#
+	END-IF
+END-FN
 
-\ string length --
-fn: print-yellow
-	seq-yellow print
-	print
-	seq-default print
-end-fn
+\ STRING LENGTH --
+FN: PRINT-YELLOW
+	SEQ-YELLOW PRINT
+	PRINT
+	SEQ-DEFAULT PRINT
+END-FN
 
-\ string length --
-fn: print-red
-	seq-red print
-	print
-	seq-default print
-end-fn
+\ STRING LENGTH --
+FN: PRINT-RED
+	SEQ-RED PRINT
+	PRINT
+	SEQ-DEFAULT PRINT
+END-FN
 
-\ dict-ptr --
-fn: vocabulary
-	nl
+\ DICT-PTR --
+FN: VOCABULARY
+	NL
 
-	while
-		copy 0~=
-	do
-		copy entry-metadata
-		if
-			immediate-tag
-		else
-			empty-tag
-		end-if
+	WHILE
+		COPY 0~=
+	DO
+		COPY ENTRY-METADATA
+		IF
+			IMMEDIATE-TAG
+		ELSE
+			EMPTY-TAG
+		END-IF
 
-		print-red print-yellow nl
+		PRINT-RED PRINT-YELLOW NL
 
-		load
-	end-while
+		LOAD
+	END-WHILE
 
-	drop nl
-end-fn
+	DROP NL
+END-FN
 
-s"  bytes of code"		string: bytes-of-code
-s"  bytes of data"		string: bytes-of-data
-s"  bytes of variables"	string: bytes-of-variables
-s" 	"					string: tab
+S"  BYTES OF CODE"		STRING: BYTES-OF-CODE
+S"  BYTES OF DATA"		STRING: BYTES-OF-DATA
+S"  BYTES OF VARIABLES"	STRING: BYTES-OF-VARIABLES
+S" 	"					STRING: TAB
 
 \ --
-fn: information
-	version
-	text-size print-u# tab print bytes-of-code print-line
-	rdata-size print-u# tab print bytes-of-data print-line
-	bss-size print-u# tab print bytes-of-variables print-line
-	dictionary load vocabulary
-end-fn
+FN: INFORMATION
+	VERSION
+	TEXT-SIZE PRINT-U# TAB PRINT BYTES-OF-CODE PRINT-LINE
+	RDATA-SIZE PRINT-U# TAB PRINT BYTES-OF-DATA PRINT-LINE
+	BSS-SIZE PRINT-U# TAB PRINT BYTES-OF-VARIABLES PRINT-LINE
+	DICTIONARY LOAD VOCABULARY
+END-FN
 
-fn: core-dict
-	[ current-definition load assemble-literal assemble ]
-end-fn
+FN: CORE-DICT
+	[ CURRENT-DEFINITION LOAD ASSEMBLE-LITERAL ASSEMBLE ]
+END-FN
 
-version nl
+VERSION NL

@@ -1,48 +1,48 @@
 \ --
-fn: :
-	fn:
-end-fn
+FN: :
+	FN:
+END-FN
 
 \ --
 \
-\ The use of `assemble-word:` here is needed, since `end-fn` was tagged `immediate` and would be immediately executed if
-\ directly referenced, instead of being assembled in, as intended.
-fn: ;
-	assemble-word: end-fn
-end-fn immediate
+\ THE USE OF `ASSEMBLE-WORD:` HERE IS NEEDED, SINCE `END-FN` WAS TAGGED `IMMEDIATE` AND WOULD BE IMMEDIATELY EXECUTED IF
+\ DIRECTLY REFERENCED, INSTEAD OF BEING ASSEMBLED IN, AS INTENDED.
+FN: ;
+	ASSEMBLE-WORD: END-FN
+END-FN IMMEDIATE
 
-\ condition --
-: v?
-	if
-		version
-	end-if
+\ CONDITION --
+: V?
+	IF
+		VERSION
+	END-IF
 ;
 
 \ --
-fn: test
+FN: TEST
 	10
-	while
-		copy 0 >=
-	do
-		copy print-# nl
-		copy 2 % 0= v?
+	WHILE
+		COPY 0 >=
+	DO
+		COPY PRINT-# NL
+		COPY 2 % 0= V?
 		1 -
-	end-while
-	drop
-end-fn
+	END-WHILE
+	DROP
+END-FN
 
-\ depth --
-fn: recursion-test
-	copy 0~=
-	if
-		copy print-# nl
-		1 - recurse
-	else
-		drop
-	end-if
-end-fn
+\ DEPTH --
+FN: RECURSION-TEST
+	COPY 0~=
+	IF
+		COPY PRINT-# NL
+		1 - RECURSE
+	ELSE
+		DROP
+	END-IF
+END-FN
 
-test
-10 recursion-test
+TEST
+10 RECURSION-TEST
 
-s" Hello, world!" print-line
+S" HELLO, WORLD!" PRINT-LINE
