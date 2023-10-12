@@ -147,6 +147,15 @@ extern GetLastError
 %endmacro
 
 section .text
+	begin_text:
+
+section .rdata
+	begin_rdata:
+
+section .bss
+	begin_bss:
+
+section .text
 	; ( -- )
 	start:
 		sub rsp, 8 + 8 * 16 ; enough room for 16 parameters, plus stack alignment
@@ -2071,6 +2080,15 @@ section .rdata
 	declare "10"
 	constant ten, 10
 
+	declare "bss-size"
+	constant bss_size, end_bss - begin_bss
+
+	declare "rdata-size"
+	constant rdata_size, end_rdata - begin_rdata
+
+	declare "text-size"
+	constant text_size, end_text - begin_text
+
 	; Begin interpreter state variables
 
 	declare "dictionary"
@@ -2138,3 +2156,12 @@ section .bss
 		resq stack_depth
 
 commit_dictionary
+
+section .text
+	end_text:
+
+section .rdata
+	end_rdata:
+
+section .bss
+	end_bss:

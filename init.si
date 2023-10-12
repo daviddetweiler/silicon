@@ -308,9 +308,18 @@ fn: vocabulary
 	drop nl
 end-fn
 
+s"  bytes of code"		string: bytes-of-code
+s"  bytes of data"		string: bytes-of-data
+s"  bytes of variables"	string: bytes-of-variables
+s" 	"					string: tab
+
 \ --
 fn: information
-	version dictionary load vocabulary
+	version
+	text-size print-u# tab print bytes-of-code print-line
+	rdata-size print-u# tab print bytes-of-data print-line
+	bss-size print-u# tab print bytes-of-variables print-line
+	dictionary load vocabulary
 end-fn
 
 fn: core-dict
