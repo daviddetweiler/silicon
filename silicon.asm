@@ -797,6 +797,7 @@ section .rdata
 		dq init_current_word
 		dq init_dictionary
 		dq init_arena
+		dq init_term_buffer
 		dq load_init_library
 
 	interpret:
@@ -856,6 +857,13 @@ section .rdata
 		jump_to interpret
 
 	; ( -- )
+	thread init_term_buffer
+		dq zero
+		dq term_buffer
+		dq store_byte
+		dq return
+
+	; ( -- )
 	declare "soft-fault"
 	thread soft_fault
 		dq is_nested_source
@@ -871,9 +879,13 @@ section .rdata
 		jump_to interpret
 
 	; ( -- )
+	;
+	; This makes some rather dubious assumptions about the interpreter state; amounting to assuming that hard faults
+	; have left the interpreter in partial, unspecified, but otherwise valid state that it must simply reset from
 	declare "hard-fault"
 	thread hard_fault
-		dq break
+		dq status_abort
+		dq print_line
 		jump_to program
 
 	; ( -- )
@@ -1925,6 +1937,36 @@ section .rdata
 		dq source_context_stack
 		dq source_context
 		dq store
+		dq clear_source_context
+		dq return
+
+	; ( -- )
+	thread clear_source_context
+		dq zero
+		dq line_size
+		dq store
+
+		dq zero
+		dq preloaded_source
+		dq store
+		
+		dq zero
+		dq zero
+		dq current_word
+		dq store_pair
+
+		dq zero
+		dq line_start
+		dq store
+
+		dq zero
+		dq is_assembling
+		dq store
+
+		dq zero
+		dq current_definition
+		dq store
+
 		dq return
 
 	; ( -- )
@@ -1937,6 +1979,7 @@ section .rdata
 		dq push_add
 		dq swap
 		dq store
+		dq clear_source_context
 		dq return
 
 	; ( -- )
@@ -2048,6 +2091,7 @@ section .rdata
 	string status_source_not_loaded, red(`Source file could not be read into memory\n`) ; soft fault
 	string status_script_not_found, red(`Script not found: `) ; soft fault
 	string status_no_word, red(`Input was cancelled before word was named\n`) ; soft fault
+	string status_abort, yellow(`Aborted and restarted\n`)
 	string newline, `\n`
 	string init_library_name, `init.si`
 	string negative, `-`
