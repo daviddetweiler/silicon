@@ -287,7 +287,7 @@ fn: print-red
 end-fn
 
 \ dict-ptr --
-fn: vocabulary
+fn: print-dict
 	nl
 
 	while
@@ -319,7 +319,24 @@ fn: information
 	text-size print-u# tab print bytes-of-code print-line
 	rdata-size print-u# tab print bytes-of-data print-line
 	bss-size print-u# tab print bytes-of-variables print-line
-	dictionary load vocabulary
+	dictionary load print-dict
+end-fn
+
+1							var: count
+s"  words in dictionary"	string: words-msg
+
+\ dict-ptr --
+fn: count-words
+	0 count store
+	while
+		copy 0~=
+	do
+		count load 1 + count store
+		load
+	end-while
+
+	drop
+	count load print-u# words-msg print-line
 end-fn
 
 fn: core-dict
