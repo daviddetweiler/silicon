@@ -34,4 +34,4 @@ silicon.zip: silicon.exe Makefile
     echo Get-FileHash -Algorithm SHA256 silicon.exe >> README.txt
     echo. >> README.txt
     pwsh -c "(Get-FileHash -Algorithm SHA256 silicon.exe).Hash >> README.txt"
-    pwsh -c "Compress-Archive -Force -Path silicon.exe,README.txt -DestinationPath silicon.zip"
+    pwsh -c "Compress-Archive -Force -Path silicon.exe,README.txt,init.si -DestinationPath silicon.zip"

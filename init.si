@@ -25,7 +25,7 @@ assemble-word: is-assembling
 assemble-word: store
 assemble-return
 
-define: ] immediate
+define: ]
 assemble-invoke-thread
 assemble-literal -1 assemble
 assemble-word: is-assembling
@@ -163,7 +163,7 @@ fn: char:
 	else
 		drop 0 flush-line
 	end-if
-end-fn immediate
+end-fn
 
 char: " const: dquote-char
 
@@ -211,6 +211,58 @@ end-fn
 s"     " string: empty-tag
 s" *   " string: immediate-tag
 
+\ n-cells --
+fn: var:
+	define:
+	assemble-invoke-variable
+	cell-size * arena-allocate
+end-fn
+
+char: 0						const:	digit-0
+8 4 *						const:	formatted-decimal-size
+formatted-decimal-size 8 /	var:	formatted-decimal
+
+\ n --
+fn: print-u#
+	copy 0=
+	if
+		drop
+		digit-0 formatted-decimal store-byte
+		formatted-decimal 1 print
+		return
+	end-if
+
+	formatted-decimal
+	formatted-decimal-size +
+	copy stash stash
+
+	while
+		copy 0~=
+	do
+		copy 10 u%
+		digit-0 + unstash 1 - swap over store-byte stash
+		10 u/
+	end-while
+
+	drop
+	unstash
+	unstash
+	over - print
+end-fn
+
+s" -" string: negative
+
+\ n --
+fn: print-#
+	copy 0>
+	if
+		negative print
+		0- print-u#
+	else
+		print-u#
+	end-if
+end-fn
+
 \ dict-ptr --
 fn: vocabulary
 	nl
@@ -236,13 +288,6 @@ end-fn
 \ --
 fn: information
 	version dictionary load vocabulary
-end-fn
-
-\ n-cells --
-fn: var:
-	define:
-	assemble-invoke-variable
-	cell-size * arena-allocate
 end-fn
 
 version nl

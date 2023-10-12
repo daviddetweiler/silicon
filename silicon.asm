@@ -27,7 +27,6 @@ extern GetLastError
 %define stack_base(stack) (stack + stack_depth * 8)
 
 %define term_buffer_size 8 * 16
-%define formatted_decimal_size 8 * 4
 %define arena_size 1024 * 1024
 %define source_context_stack_depth 64
 %define source_context_cells 6
@@ -163,6 +162,7 @@ section .text
 		jmp [wp]
 
 	; ( -- )
+	declare "return"
 	code return
 		mov tp, [rp]
 		add rp, 8
@@ -1478,60 +1478,6 @@ section .rdata
 		dq store_pair
 		dq return
 
-	; ( n -- )
-	declare "print-u#"
-	thread print_unumber
-		dq formatted_decimal
-		dq literal
-		dq formatted_decimal_size
-		dq push_add
-		dq copy
-		dq stash
-		dq stash
-
-		.again:
-		dq copy
-		dq ten
-		dq push_umodulo
-		dq literal
-		dq '0'
-		dq push_add
-		dq unstash
-		dq one
-		dq push_subtract
-		dq swap
-		dq over
-		dq store_byte
-		dq stash
-		dq ten
-		dq push_udivide
-		dq copy
-		branch_to .again
-
-		dq drop
-		dq unstash
-		dq unstash
-		dq over
-		dq push_subtract
-		dq print
-		dq return
-
-	; ( n -- )
-	declare "print-#"
-	thread print_number
-		dq copy
-		dq push_is_negative
-		branch_to .negative
-		dq print_unumber
-		dq return
-
-		.negative:
-		dq negative
-		dq print
-		dq push_negate
-		dq print_unumber
-		dq return
-
 	; ( -- )
 	thread report_leftovers
 		dq status_stacks_unset
@@ -1995,7 +1941,6 @@ section .rdata
 	variable term_buffer, (term_buffer_size / 8) + 1 ; +1 to ensure null-termination
 	variable string_a, 2
 	variable string_b, 2
-	variable formatted_decimal, formatted_decimal_size / 8
 	variable parsed_number, 2
 	variable arena_base, arena_size / 8
 	variable source_context_stack, source_context_stack_depth * source_context_cells
