@@ -98,10 +98,15 @@ extern GetLastError
 	%%here:
 %endmacro
 
-%macro predicated 2
+%macro predicated 1-2
+%if %0 == 2
 	dq predicate
 	dq %1
 	dq %2
+%else
+	dq predicate_unary
+	dq %1
+%endif
 %endmacro
 
 %macro maybe 1
@@ -174,8 +179,12 @@ section .text
 		call ExitProcess
 
 	; ( -- )
-	code set_stacks
+	code set_data_stack
 		lea dp, stack_base(data_stack)
+		jmp next
+
+	; ( -- )
+	code set_return_stack
 		lea rp, stack_base(return_stack)
 		jmp next
 
@@ -495,6 +504,17 @@ section .text
 		mov wp, rax
 		jmp run
 
+	; ( condition -- )
+	code predicate_unary
+		mov rax, [tp]
+		add tp, 8
+		mov rcx, [dp]
+		add dp, 8
+		test rcx, rcx
+		jz next
+		mov wp, rax
+		jmp run
+
 	; ( address -- value )
 	declare "load-2nd"
 	code load_2nd
@@ -770,7 +790,8 @@ section .text
 section .rdata
 	; ( -- )
 	program:
-		dq set_stacks
+		dq set_return_stack
+		dq set_data_stack
 		dq init_handles
 		dq init_source_context
 		dq init_current_word
@@ -778,7 +799,7 @@ section .rdata
 		dq init_arena
 		dq load_init_library
 
-		.accept:
+	interpret:
 		dq should_exit
 		dq load
 		branch_to .exit
@@ -801,8 +822,7 @@ section .rdata
 		dq get_current_word
 		dq print_line
 		dq new_line
-		dq flush_line
-		jump_to .accept
+		dq soft_fault
 
 		.found:
 		dq swap
@@ -812,14 +832,14 @@ section .rdata
 		dq push_is_nzero
 		dq push_and
 		predicated assemble, invoke
-		jump_to .accept
+		jump_to interpret
 
 		.source_ended:
 		dq is_nested_source
 		dq push_not
 		branch_to .exit
 		dq pop_source_context
-		jump_to .accept
+		jump_to interpret
 
 		.exit:
 		dq test_stacks
@@ -830,10 +850,31 @@ section .rdata
 		dq is_assembling
 		dq load
 		dq push_not
-		branch_to .accept
+		branch_to interpret
 		dq assemble_literal
 		dq assemble
-		jump_to .accept
+		jump_to interpret
+
+	; ( -- )
+	declare "soft-fault"
+	thread soft_fault
+		dq is_nested_source
+		predicated hard_fault
+		dq flush_line
+		dq zero
+		dq copy
+		dq is_assembling
+		dq store
+		dq current_definition
+		dq store
+		dq set_return_stack
+		jump_to interpret
+
+	; ( -- )
+	declare "hard-fault"
+	thread hard_fault
+		dq break
+		jump_to program
 
 	; ( -- )
 	thread load_init_library
@@ -927,8 +968,7 @@ section .rdata
 		.failed:
 		dq status_source_not_loaded
 		dq print_line
-		dq zero
-		dq return
+		dq soft_fault
 
 	; ( handle -- size? )
 	;
@@ -1635,16 +1675,12 @@ section .rdata
 		dq drop
 		dq status_word_too_long
 		dq print_line
-		jump_to .fault
+		dq soft_fault
 
-		; Should be treated as a soft fault
 		.rejected:
 		dq status_no_word
 		dq print_line
-
-		.fault:
-		dq break
-		dq crash
+		dq soft_fault
 
 	; ( -- )
 	declare "cell-align-arena"
@@ -1951,7 +1987,7 @@ section .rdata
 		dq unstash
 		dq print_line
 		dq drop
-		dq return
+		dq soft_fault
 
 		.found:
 		dq unstash
