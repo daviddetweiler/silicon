@@ -272,6 +272,20 @@ fn: print-#
 	end-if
 end-fn
 
+\ string length --
+fn: print-yellow
+	seq-yellow print
+	print
+	seq-default print
+end-fn
+
+\ string length --
+fn: print-red
+	seq-red print
+	print
+	seq-default print
+end-fn
+
 \ dict-ptr --
 fn: vocabulary
 	nl
@@ -286,7 +300,7 @@ fn: vocabulary
 			empty-tag
 		end-if
 
-		print seq-yellow print print seq-default print-line
+		print-red print-yellow nl
 
 		load
 	end-while

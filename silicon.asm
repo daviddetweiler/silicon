@@ -760,6 +760,13 @@ section .text
 		mov [dp], rax
 		jmp next
 
+	; ( -- )
+	declare "crash"
+	code crash
+		mov rcx, 7
+		int 0x29 ; Good ol' __fastfail(FAST_FAIL_FATAL_APP_EXIT)
+		jmp next
+
 section .rdata
 	; ( -- )
 	program:
@@ -1628,13 +1635,16 @@ section .rdata
 		dq drop
 		dq status_word_too_long
 		dq print_line
+		jump_to .fault
 
-		; Rejection here should absolutely be treated as a critical error
-		; Null-check seems impractical, hence the `int3`
+		; Should be treated as a soft fault
 		.rejected:
+		dq status_no_word
+		dq print_line
+
+		.fault:
 		dq break
-		dq zero
-		dq return
+		dq crash
 
 	; ( -- )
 	declare "cell-align-arena"
@@ -1994,13 +2004,14 @@ section .rdata
 	; should probably just exit either way. Also need to have some sort of warning message for when a fault occurs
 	; during the init script, methinks.
 
-	string status_overfull, red(`Line overfull\n`)
-	string status_unknown, red(`Unknown word: `)
+	string status_overfull, yellow(`Line overfull\n`) ; not a fault, dealt with in terminal subsystem
+	string status_unknown, red(`Unknown word: `) ; soft fault
 	string status_stacks_unset, yellow(`Stacks were not cleared, or have underflowed\nPress enter to exit...\n`)
-	string status_word_too_long, red(`Word is too long for dictionary entry\n`)
+	string status_word_too_long, red(`Word is too long for dictionary entry\n`) ; soft fault
 	string status_no_init_library, yellow(`No init library was loaded\n`)
-	string status_source_not_loaded, red(`Source file could not be read into memory\n`)
-	string status_script_not_found, red(`Script not found: `)
+	string status_source_not_loaded, red(`Source file could not be read into memory\n`) ; soft fault
+	string status_script_not_found, red(`Script not found: `) ; soft fault
+	string status_no_word, red(`Input was cancelled before word was named\n`) ; soft fault
 	string newline, `\n`
 	string init_library_name, `init.si`
 	string negative, `-`
@@ -2010,6 +2021,9 @@ section .rdata
 
 	declare "seq-yellow"
 	string seq_yellow, vt_yellow
+
+	declare "seq-red"
+	string seq_red, vt_red
 
 	declare "seq-default"
 	string seq_default, vt_default
