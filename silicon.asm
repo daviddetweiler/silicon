@@ -29,7 +29,7 @@ extern GetLastError
 %define term_buffer_size 8 * 16
 %define arena_size 1024 * 1024
 %define source_context_stack_depth 64
-%define source_context_cells 6
+%define source_context_cells 7
 
 %define immediate (1 << 7)
 %define entry_0 0
@@ -1865,6 +1865,15 @@ section .rdata
 		dq push_add
 		dq return
 
+	declare "current-definition"
+	thread current_definition
+		dq source_context
+		dq load
+		dq literal
+		dq 8 * 6
+		dq push_add
+		dq return
+
 	; ( -- )
 	thread init_source_context
 		dq source_context_stack
@@ -1957,9 +1966,6 @@ section .rdata
 	constant ten, 10
 
 	; Begin interpreter state variables
-
-	declare "partial-definition"
-	variable partial_definition, 1
 
 	declare "dictionary"
 	variable dictionary, 1

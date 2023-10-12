@@ -36,12 +36,12 @@ assemble-return
 
 define: end-fn immediate
 assemble-invoke-thread
-assemble-word: partial-definition
+assemble-word: current-definition
 assemble-word: load
 assemble-word: dictionary
 assemble-word: store
 assemble-word: 0
-assemble-word: partial-definition
+assemble-word: current-definition
 assemble-word: store
 assemble-word: assemble-return
 assemble-word: [
@@ -52,7 +52,7 @@ define: fn:
 assemble-invoke-thread
 assemble-word: ]
 assemble-word: create:
-assemble-word: partial-definition
+assemble-word: current-definition
 assemble-word: store
 assemble-word: assemble-invoke-thread
 assemble-return
@@ -124,7 +124,7 @@ end-fn immediate
 
 \ --
 fn: recurse
-	partial-definition load entry-data-ptr assemble
+	current-definition load entry-data-ptr assemble
 end-fn immediate
 
 \ patch-addr -- new-patch-addr
@@ -300,7 +300,7 @@ fn: information
 end-fn
 
 fn: core-dict
-	[ partial-definition load assemble-literal assemble ]
+	[ current-definition load assemble-literal assemble ]
 end-fn
 
 version nl
