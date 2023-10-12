@@ -206,7 +206,6 @@ fn: string:
 	assemble-invoke-string
 	copy assemble-byte
 	assemble-string
-	cell-align-arena \ TODO: why does the absence of this line break things, but only when we are above `vocabulary`?
 end-fn
 
 s"     " string: empty-tag

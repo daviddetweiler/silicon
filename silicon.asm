@@ -1641,10 +1641,10 @@ section .rdata
 		dq 128
 		dq push_is_ge
 		branch_to .too_long
+		dq cell_align_arena
 		dq arena_top
 		dq load
 		dq stash
-		dq cell_align_arena
 		dq dictionary
 		dq load
 		dq assemble
