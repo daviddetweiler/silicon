@@ -882,6 +882,17 @@ section .rdata
 		dq is_nested_source
 		predicated hard_fault
 		dq flush_line
+
+		dq is_assembling
+		dq load
+		dq push_not
+		branch_to .exit
+		dq current_definition
+		dq load
+		dq arena_top
+		dq store
+
+		.exit:
 		dq zero
 		dq copy
 		dq is_assembling
