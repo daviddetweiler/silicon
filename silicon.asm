@@ -173,9 +173,9 @@ section .text
 		add rp, 8
 		jmp next
 
-	; ( -- )
+	; ( code -- )
 	code exit_process
-		xor rcx, rcx
+		mov rcx, [dp]
 		call ExitProcess
 
 	; ( -- )
@@ -798,6 +798,10 @@ section .rdata
 		dq init_dictionary
 		dq init_arena
 		dq init_term_buffer
+		
+		dq all_ones
+		dq am_initing
+		dq store
 		dq load_init_library
 
 	interpret:
@@ -836,6 +840,9 @@ section .rdata
 		jump_to interpret
 
 		.source_ended:
+		dq zero
+		dq am_initing
+		dq store
 		dq is_nested_source
 		dq push_not
 		branch_to .exit
@@ -845,6 +852,7 @@ section .rdata
 		.exit:
 		dq test_stacks
 		maybe report_leftovers
+		dq zero
 		dq exit_process
 
 		.accept_number:
@@ -884,9 +892,19 @@ section .rdata
 	; have left the interpreter in partial, unspecified, but otherwise valid state that it must simply reset from
 	declare "hard-fault"
 	thread hard_fault
+		dq am_initing
+		dq load
+		branch_to .die
 		dq status_abort
 		dq print_line
 		jump_to program
+
+		.die:
+		dq status_bad_init
+		dq print_line
+		dq term_read_line
+		dq all_ones
+		dq exit_process
 
 	; ( -- )
 	thread load_init_library
@@ -2062,6 +2080,7 @@ section .rdata
 	variable arena_top, 1
 	variable should_exit, 1
 	variable source_context, 1
+	variable am_initing, 1
 
 	; End interpreter state variables
 
@@ -2092,6 +2111,7 @@ section .rdata
 	string status_script_not_found, red(`Script not found: `) ; soft fault
 	string status_no_word, red(`Input was cancelled before word was named\n`) ; soft fault
 	string status_abort, yellow(`Aborted and restarted\n`)
+	string status_bad_init, yellow(`Fault during init script\nPress enter to exit...\n`)
 	string newline, `\n`
 	string init_library_name, `init.si`
 	string negative, `-`
