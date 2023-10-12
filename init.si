@@ -1,32 +1,32 @@
 create: assemble-word: dictionary store immediate
-assemble-thread
+assemble-invoke-thread
 get-word: get-word: assemble
 get-word: assemble assemble
 assemble-return
 
 create: \ dictionary store immediate
-assemble-thread
+assemble-invoke-thread
 assemble-word: flush-line
 assemble-return
 
 \ `define:` acts to create a new word at the tip of the dictionary, with subsequent `assemble` instructions
 \ appending to its definition
 create: define: dictionary store
-assemble-thread
+assemble-invoke-thread
 assemble-word: create:
 assemble-word: dictionary
 assemble-word: store
 assemble-return
 
 define: [ immediate
-assemble-thread
+assemble-invoke-thread
 assemble-word: 0						\ `assemble-word: 0` only works because `0` is in the dictionary
 assemble-word: is-assembling
 assemble-word: store
 assemble-return
 
 define: ] immediate
-assemble-thread
+assemble-invoke-thread
 assemble-literal -1 assemble
 assemble-word: is-assembling
 assemble-word: store
@@ -35,7 +35,7 @@ assemble-return
 \ `end-fn` terminates the current definition with a `return`, and disables assembly mode in the interpreter
 
 define: end-fn immediate
-assemble-thread
+assemble-invoke-thread
 assemble-word: partial-definition
 assemble-word: load
 assemble-word: dictionary
@@ -49,12 +49,12 @@ assemble-return
 
 \ `fn:` defines a new word, specifies it as a thread, and enables assembly mode in the interpreter
 define: fn:
-assemble-thread
+assemble-invoke-thread
 assemble-word: ]
 assemble-word: create:
 assemble-word: partial-definition
 assemble-word: store
-assemble-word: assemble-thread
+assemble-word: assemble-invoke-thread
 assemble-return
 
 \ value --
@@ -63,7 +63,7 @@ assemble-return
 \ value from the data stack
 fn: const:
 	define:
-	assemble-constant assemble
+	assemble-invoke-constant assemble
 end-fn
 
 \ -- patch-addr
@@ -236,6 +236,13 @@ end-fn
 \ --
 fn: information
 	version dictionary load vocabulary
+end-fn
+
+\ n-cells --
+fn: var:
+	define:
+	assemble-invoke-variable
+	cell-size * arena-allocate
 end-fn
 
 version nl

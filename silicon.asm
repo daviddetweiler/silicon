@@ -42,7 +42,7 @@ extern GetLastError
 %define vt_default `\x1b[0m`
 %define vt_cyan `\x1b[36m`
 %define vt_yellow `\x1b[33m`
-%define vt_clear `\x1b[2J\x1b[3J\x1b[H`
+%define vt_clear `\x1b[2J\x1b[H`
 %define red(string) %strcat(vt_red, string, vt_default)
 %define cyan(string) %strcat(vt_cyan, string, vt_default)
 %define yellow(string) %strcat(vt_yellow, string, vt_default)
@@ -753,6 +753,13 @@ section .text
 		mov [dp], rax
 		jmp next
 
+	; ( -- address )
+	invoke_variable:
+		lea rax, [wp + 8]
+		sub dp, 8
+		mov [dp], rax
+		jmp next
+
 section .rdata
 	; ( -- )
 	program:
@@ -1251,8 +1258,8 @@ section .rdata
 		dq return
 
 	; ( -- )
-	declare "assemble-thread"
-	thread assemble_thread
+	declare "assemble-invoke-thread"
+	thread assemble_invoke_thread
 		dq literal
 		dq invoke_thread
 		dq assemble
@@ -1267,8 +1274,8 @@ section .rdata
 		dq return
 
 	; ( -- )
-	declare "assemble-constant"
-	thread assemble_constant
+	declare "assemble-invoke-constant"
+	thread assemble_invoke_constant
 		dq literal
 		dq invoke_constant
 		dq assemble
@@ -1295,6 +1302,14 @@ section .rdata
 	thread assemble_invoke_string
 		dq literal
 		dq invoke_string
+		dq assemble
+		dq return
+
+	; ( -- )
+	declare "assemble-invoke-variable"
+	thread assemble_invoke_variable
+		dq literal
+		dq invoke_variable
 		dq assemble
 		dq return
 
@@ -1790,9 +1805,6 @@ section .rdata
 		dq zero
 		dq return
 
-	; I believe that it's possible to implement file interpretation just by replacing `accept-line`
-	; Maybe rename accept_line_interactive to accept_line_interactive, etc.
-
 	; ( -- exit? )
 	thread accept_line_preloaded
 		dq get_current_word
@@ -1927,6 +1939,16 @@ section .rdata
 		dq load
 		dq source_context_stack
 		dq push_is_neq
+		dq return
+
+	; ( bytes -- )
+	declare "arena-allocate"
+	thread arena_allocate
+		dq arena_top
+		dq load
+		dq push_add
+		dq arena_top
+		dq store
 		dq return
 
 	declare "0"
