@@ -798,10 +798,6 @@ section .rdata
 		dq init_dictionary
 		dq init_arena
 		dq init_term_buffer
-		
-		dq all_ones
-		dq am_initing
-		dq store
 		dq load_init_library
 
 	interpret:
@@ -921,6 +917,9 @@ section .rdata
 
 		.found:
 		dq set_up_preloaded_source
+		dq all_ones
+		dq am_initing
+		dq store
 		dq return
 
 	; ( handle -- )
