@@ -201,11 +201,20 @@ fn: version
 	version-string print-line
 end-fn
 
+\ string length -- committed-string length
+fn: string
+	copy stash
+	copy assemble-byte
+	assembly-ptr stash
+	assemble-string
+	unstash unstash
+end-fn
+
+\ string length --
 fn: string:
 	define:
 	assemble-invoke-string
-	copy assemble-byte
-	assemble-string
+	string drop-pair
 end-fn
 
 s"     " string: empty-tag
@@ -288,6 +297,10 @@ end-fn
 \ --
 fn: information
 	version dictionary load vocabulary
+end-fn
+
+fn: core-dict
+	[ partial-definition load assemble-literal assemble ]
 end-fn
 
 version nl

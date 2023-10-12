@@ -830,7 +830,7 @@ section .rdata
 
 	; ( -- )
 	thread load_init_library
-		; Error checking??? See also our unchecked usage of ReadFile/WriteFile
+		; TODO: Error checking??? See also our unchecked usage of ReadFile/WriteFile
 		dq init_library_name
 		dq drop
 		dq open_file
@@ -842,6 +842,11 @@ section .rdata
 		dq return
 
 		.found:
+		dq set_up_preloaded_source
+		dq return
+
+	; ( handle -- )
+	thread set_up_preloaded_source
 		dq copy
 		dq load_source_file
 		dq swap
@@ -863,7 +868,6 @@ section .rdata
 		dq store
 
 		dq set_line_size
-
 		dq return
 
 	; ( handle -- source? )
@@ -1625,7 +1629,10 @@ section .rdata
 		dq status_word_too_long
 		dq print_line
 
+		; Rejection here should absolutely be treated as a critical error
+		; Null-check seems impractical, hence the `int3`
 		.rejected:
+		dq break
 		dq zero
 		dq return
 
@@ -1907,6 +1914,33 @@ section .rdata
 		dq store
 		dq return
 
+	; ( string length -- )
+	;
+	; A good candidate to be moved to init.si
+	declare "include"
+	thread include
+		dq copy_pair
+		dq stash
+		dq stash
+		dq drop
+		dq open_file
+		dq copy
+		branch_to .found
+		dq status_script_not_found
+		dq print
+		dq unstash
+		dq unstash
+		dq print_line
+		dq drop
+		dq return
+
+		.found:
+		dq unstash
+		dq unstash
+		dq drop_pair
+		dq set_up_preloaded_source
+		dq return
+
 	declare "0"
 	constant zero, 0
 
@@ -1945,12 +1979,22 @@ section .rdata
 	variable arena_base, arena_size / 8
 	variable source_context_stack, source_context_stack_depth * source_context_cells
 
+	; A short discussion on dealing with errors (the red ones): if they occur in the uppermost context, we can
+	; differentiate between a soft fault and a hard fault. A soft fault can be a non-existent word used in assembly
+	; mode, which we could recover from by abandoning the current definition and flushing the line. A hard fault would
+	; necessitate a full interpreter state reset, such as a stack underflow, since unknown but faulty code has been
+	; executed. In a nested context, however, there is no meaningful way to recover from a soft fault, other than to
+	; abandon all nested contexts (think of it as an uber-line-flush). If the topmost context is a piped input, we
+	; should probably just exit either way. Also need to have some sort of warning message for when a fault occurs
+	; during the init script, methinks.
+
 	string status_overfull, red(`Line overfull\n`)
 	string status_unknown, red(`Unknown word: `)
 	string status_stacks_unset, yellow(`Stacks were not cleared, or have underflowed\nPress enter to exit...\n`)
 	string status_word_too_long, red(`Word is too long for dictionary entry\n`)
 	string status_no_init_library, yellow(`No init library was loaded\n`)
 	string status_source_not_loaded, red(`Source file could not be read into memory\n`)
+	string status_script_not_found, red(`Script not found: `)
 	string newline, `\n`
 	string init_library_name, `init.si`
 	string negative, `-`
