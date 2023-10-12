@@ -1,13 +1,13 @@
 \ --
-fn :
-	fn
+fn: :
+	fn:
 end-fn
 
 \ --
 \
 \ The use of `assemble-word:` here is needed, since `end-fn` was tagged `immediate` and would be immediately executed if
 \ directly referenced, instead of being assembled in, as intended.
-fn ;
+fn: ;
 	assemble-word: end-fn
 end-fn immediate
 
@@ -19,7 +19,7 @@ end-fn immediate
 ;
 
 \ --
-fn test
+fn: test
 	10
 	while
 		copy 0 >=
@@ -32,7 +32,7 @@ fn test
 end-fn
 
 \ depth --
-fn recursion-test
+fn: recursion-test
 	copy 0~=
 	if
 		copy print-# nl
