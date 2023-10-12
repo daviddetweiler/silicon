@@ -225,7 +225,7 @@ fn: vocabulary
 			empty-tag
 		end-if
 
-		print print-line
+		print seq-yellow print print seq-default print-line
 
 		load
 	end-while

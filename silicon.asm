@@ -38,6 +38,14 @@ extern GetLastError
 %assign dictionary_written 0
 %assign dictionary_head 0
 
+%define vt_red `\x1b[31m`
+%define vt_default `\x1b[0m`
+%define vt_cyan `\x1b[36m`
+%define vt_yellow `\x1b[33m`
+%define vt_clear `\x1b[2J\x1b[H`
+%define red(string) %strcat(vt_red, string, vt_default)
+%define cyan(string) %strcat(vt_cyan, string, vt_default)
+%define yellow(string) %strcat(vt_yellow, string, vt_default)
 %define version_string %strcat(`Silicon (`, git_version, `) (c) 2023 @daviddetweiler`)
 
 %macro code_field 2
@@ -1754,6 +1762,13 @@ section .rdata
 		dq return
 
 	; ( -- )
+	declare "clear"
+	thread clear
+		dq seq_clear
+		dq print
+		dq return
+
+	; ( -- )
 	declare "immediate"
 	thread make_immediate
 		dq dictionary
@@ -1985,18 +2000,27 @@ section .rdata
 	variable arena_base, arena_size / 8
 	variable source_context_stack, source_context_stack_depth * source_context_cells
 
-	string status_overfull, `Line overfull\n`
-	string status_unknown, `Unknown word: `
-	string status_stacks_unset, `Stacks were not cleared, or have underflowed\nPress enter to exit...\n`
-	string status_word_too_long, `Word is too long for dictionary entry\n`
-	string status_no_init_library, `No init library was loaded\n`
-	string status_source_not_loaded, `Source file could not be read into memory\n`
+	string status_overfull, red(`Line overfull\n`)
+	string status_unknown, red(`Unknown word: `)
+	string status_stacks_unset, yellow(`Stacks were not cleared, or have underflowed\nPress enter to exit...\n`)
+	string status_word_too_long, red(`Word is too long for dictionary entry\n`)
+	string status_no_init_library, yellow(`No init library was loaded\n`)
+	string status_source_not_loaded, red(`Source file could not be read into memory\n`)
 	string newline, `\n`
 	string init_library_name, `init.si`
 	string negative, `-`
 
+	declare "seq-clear"
+	string seq_clear, vt_clear
+
+	declare "seq-yellow"
+	string seq_yellow, vt_yellow
+
+	declare "seq-default"
+	string seq_default, vt_default
+
 	declare "version-string"
-	string version_banner, version_string
+	string version_banner, cyan(version_string)
 
 section .bss
 	data_stack:
