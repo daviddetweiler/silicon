@@ -7,6 +7,6 @@ build the binary.
 ## A note on antivirus software
 
 I can't presume to know why, but a recurring issue has been that Windows Defender (and many other AV vendors on
-[VirusTotal](virustotal.com), currently **7**) views the built binary as malicious. Perhaps it has to do with the
+[VirusTotal](https://www.virustotal.com), currently **7**) views the built binary as malicious. Perhaps it has to do with the
 inherently obfuscated nature of a threaded interpreter. If you're here to try it out, feel free to read through the
 source code to convince yourself it isn't malware.
