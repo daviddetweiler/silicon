@@ -78,14 +78,16 @@ def to_byte(bits):
     return byte.to_bytes(1, "little")
 
 
-def tape_out(encoding, bit_string):
+def tape_out(uncompressed_size, encoding, bit_string):
     with open("compressed.bin", "wb") as file:
+        file.write(uncompressed_size.to_bytes(4, "little"))
         file.write(len(encoding).to_bytes(2, "little"))
         file.write(b"".join(node.to_bytes(3, "little") for node in encoding))
 
+        valid_size = len(bit_string)
         align = (8 - (len(bit_string) % 8)) % 8
         bit_string += [0] * align
-        file.write(len(bit_string).to_bytes(4, "little"))
+        file.write(valid_size.to_bytes(4, "little"))
         byte_string = b"".join(
             to_byte(bit_string[i : i + 8]) for i in range(0, len(bit_string), 8)
         )
@@ -134,6 +136,12 @@ def decode_with_encoded_tree(encoding, bits):
 
     return bytes(data)
 
+def get_size(data):
+    bss_size = int.from_bytes(data[8:16], 'little')
+    print('BSS size:', bss_size)
+
+    return len(data) + bss_size
+
 if __name__ == "__main__":
     if len(sys.argv) != 2:
         print("Usage: python huffman.py <filename>")
@@ -173,4 +181,4 @@ if __name__ == "__main__":
     if not good_round_trip:
         sys.exit(1)
 
-    tape_out(encoded_tree, bit_string)
+    tape_out(get_size(data), encoded_tree, bit_string)

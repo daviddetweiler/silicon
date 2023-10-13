@@ -29,6 +29,21 @@ silicon.bin: silicon-flat.asm Makefile
 compressed.bin: silicon.bin huffman.py Makefile
     python .\huffman.py silicon.bin
 
+blob.inc: compressed.bin textify.py Makefile
+    python .\textify.py compressed.bin
+
+stub.obj: stub.asm blob.inc Makefile
+    nasm -fwin64 stub.asm
+
+stub.exe: stub.obj Makefile
+    link stub.obj kernel32.lib \
+        /subsystem:console \
+        /entry:start \
+        /nologo \
+        /fixed \
+        /Brepro \
+        $(debug_link_flags)
+
 silicon.obj: silicon.asm Makefile
     pwsh -c "nasm -fwin64 silicon.asm -Dgit_version=""$$(git describe --dirty --tags)"" $(debug_nasm_flags)"
 
