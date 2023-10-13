@@ -1,2 +1,2 @@
-s" example.si" string include
-s" example.si" string include
+s" example.si" copy-string include
+s" example.si" copy-string include

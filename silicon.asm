@@ -1986,7 +1986,7 @@ section .rdata
 		dq zero
 		dq preloaded_source
 		dq store
-		
+
 		dq zero
 		dq zero
 		dq current_word
@@ -2112,13 +2112,15 @@ section .rdata
 
 	; End interpreter state variables
 
+	declare "arena-base"
+	variable arena_base, arena_size / 8
+
 	variable stdin_handle, 1
 	variable stdout_handle, 1
 	variable term_buffer, (term_buffer_size / 8) + 1 ; +1 to ensure null-termination
 	variable string_a, 2
 	variable string_b, 2
 	variable parsed_number, 2
-	variable arena_base, arena_size / 8
 	variable source_context_stack, source_context_stack_depth * source_context_cells
 
 	; A short discussion on dealing with errors (the red ones): if they occur in the uppermost context, we can

@@ -202,19 +202,33 @@ fn: version
 end-fn
 
 \ string length -- committed-string length
-fn: string
-	copy stash
-	copy assemble-byte
-	assembly-ptr stash
-	assemble-string
-	unstash unstash
+fn: copy-string
+	copy 0~=
+	if
+		copy stash
+		copy assemble-byte
+		assembly-ptr stash
+		assemble-string
+		unstash unstash
+	else
+		drop-pair
+		\ Deep magic; I encourage you to think about it
+		[
+			assemble-literal
+			0 assemble
+
+			assembly-ptr cell-size -
+			assemble-literal
+			assemble
+		] swap
+	end-if
 end-fn
 
 \ string length --
 fn: string:
 	define:
 	assemble-invoke-string
-	string drop-pair
+	copy-string drop-pair
 end-fn
 
 \ Both of these contain tab characters
@@ -309,20 +323,27 @@ fn: print-dict
 	drop nl
 end-fn
 
-s"  bytes of code"		string: code-size-msg
-s"  bytes of data"		string: data-size-msg
-s"  bytes of variables"	string: vars-size-msg
-s" 	"					string: tab					\ I know it looks weird, but there is a tab character here
+s"  bytes of code"					string: code-size-msg
+s"  bytes of data"					string: data-size-msg
+s"  bytes of reserved space"		string: reserved-size-msg
+s"  bytes of arena in use"			string: arena-usage-msg
+s" 	"								string: tab				\ I know it looks weird, but there *is* a tab character here
 
 \ --
 fn: tabstop tab print end-fn
 
+\ -- n
+fn: arena-usage
+	assembly-ptr arena-base -
+end-fn
+
 \ --
 fn: info
 	version nl
-	tabstop text-size print-u#	tabstop code-size-msg print-line
-	tabstop rdata-size print-u# tabstop data-size-msg print-line
-	tabstop bss-size print-u#	tabstop vars-size-msg print-line
+	tabstop text-size print-u#		tabstop code-size-msg print-line
+	tabstop rdata-size print-u#		tabstop data-size-msg print-line
+	tabstop bss-size print-u#		tabstop reserved-size-msg print-line
+	tabstop arena-usage print-u#	tabstop arena-usage-msg print-line
 	nl
 end-fn
 
