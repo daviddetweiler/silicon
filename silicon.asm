@@ -29,7 +29,7 @@ extern GetLastError
 %define term_buffer_size 8 * 16
 %define arena_size 1024 * 1024
 %define source_context_stack_depth 64
-%define source_context_cells 7
+%define source_context_cells 5
 
 %define immediate (1 << 7)
 %define entry_0 0
@@ -893,6 +893,7 @@ section .rdata
 		dq set_return_stack
 		dq set_data_stack
 		dq init_handles
+		dq init_assembler
 		dq init_source_context
 		dq init_current_word
 		dq init_dictionary
@@ -984,14 +985,19 @@ section .rdata
 		dq store
 
 		.exit:
+		dq init_assembler
+		dq set_return_stack
+		jump_to interpret
+
+	; ( -- )
+	thread init_assembler
 		dq zero
 		dq copy
 		dq is_assembling
 		dq store
 		dq current_definition
 		dq store
-		dq set_return_stack
-		jump_to interpret
+		dq return
 
 	; ( -- )
 	;
@@ -1695,6 +1701,15 @@ section .rdata
 	; ( -- word? )
 	declare "create:"
 	thread create
+		dq current_definition
+		dq load
+		dq push_is_zero
+		branch_to .ok
+		dq status_nested_def
+		dq print_line
+		dq soft_fault
+
+		.ok:
 		dq accept_word
 		branch_to .rejected
 		dq get_current_word
@@ -1932,25 +1947,6 @@ section .rdata
 		dq push_add
 		dq return
 
-	; ( -- ptr-is-assembling )
-	declare "is-assembling"
-	thread is_assembling
-		dq source_context
-		dq load
-		dq literal
-		dq 8 * 5
-		dq push_add
-		dq return
-
-	declare "current-definition"
-	thread current_definition
-		dq source_context
-		dq load
-		dq literal
-		dq 8 * 6
-		dq push_add
-		dq return
-
 	; ( -- )
 	thread init_source_context
 		dq source_context_stack
@@ -1976,14 +1972,6 @@ section .rdata
 
 		dq zero
 		dq line_start
-		dq store
-
-		dq zero
-		dq is_assembling
-		dq store
-
-		dq zero
-		dq current_definition
 		dq store
 
 		dq return
@@ -2102,6 +2090,12 @@ section .rdata
 	declare "arena-base"
 	variable arena_base, arena_size / 8
 
+	declare "is-assembling"
+	variable is_assembling, 1
+
+	declare "current-definition"
+	variable current_definition, 1
+
 	variable stdin_handle, 1
 	variable stdout_handle, 1
 	variable term_buffer, (term_buffer_size / 8) + 1 ; +1 to ensure null-termination
@@ -2129,6 +2123,7 @@ section .rdata
 	string status_no_word, red(`Input was cancelled before word was named\n`) ; soft fault
 	string status_abort, yellow(`Aborted and restarted\n`)
 	string status_bad_init, yellow(`Fault during init script\nPress enter to exit...\n`)
+	string status_nested_def, red(`Cannot define new words while another is still being defined\n`) ; soft fault
 	string newline, `\n`
 	string init_library_name, `init.si`
 	string negative, `-`
