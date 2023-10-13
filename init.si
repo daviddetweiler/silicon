@@ -310,7 +310,8 @@ fn: print-dict
 	while
 		copy 0~=
 	do
-		copy entry-name entry-immediate?
+		copy
+		copy stash entry-name unstash entry-immediate?
 		if
 			immediate-tag
 		else
