@@ -1711,7 +1711,7 @@ section .rdata
 		dq assemble
 		dq copy
 		dq assemble_byte
-		dq assemble_string
+		dq assemble_blob
 		dq zero
 		dq assemble_byte
 		dq cell_align_arena
@@ -1769,9 +1769,9 @@ section .rdata
 		dq store
 		dq return
 
-	; ( string length -- )
-	declare "assemble-string"
-	thread assemble_string
+	; ( byte-ptr length -- )
+	declare "assemble-blob"
+	thread assemble_blob
 		dq string_a
 		dq store_pair
 

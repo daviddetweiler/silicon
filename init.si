@@ -165,6 +165,30 @@ fn: char:
 	end-if
 end-fn
 
+\ string length -- committed-string length
+fn: copy-string
+	copy 0~=
+	if
+		copy stash
+		copy assemble-byte
+		assembly-ptr stash
+		assemble-blob
+		0 assemble-byte
+		unstash unstash
+	else
+		drop-pair
+		\ Deep magic; I encourage you to think about it
+		[
+			assemble-literal
+			0 assemble
+
+			assembly-ptr cell-size -
+			assemble-literal
+			assemble
+		] swap
+	end-if
+end-fn
+
 char: " const: dquote-char
 
 \ -- string? length
@@ -187,6 +211,7 @@ fn: s"
 		copy current-word load - 1 +	\ Length of the skipped portion
 		current-word store-2nd			\ Store the length; the next accept-word will start at the end of the string
 		over -
+		copy-string
 	else
 		\ If we didn't find the closing `"` before the end of the line, we need to discard the string
 		drop
@@ -199,29 +224,6 @@ end-fn
 \ --
 fn: version
 	version-string print-line
-end-fn
-
-\ string length -- committed-string length
-fn: copy-string
-	copy 0~=
-	if
-		copy stash
-		copy assemble-byte
-		assembly-ptr stash
-		assemble-string
-		unstash unstash
-	else
-		drop-pair
-		\ Deep magic; I encourage you to think about it
-		[
-			assemble-literal
-			0 assemble
-
-			assembly-ptr cell-size -
-			assemble-literal
-			assemble
-		] swap
-	end-if
 end-fn
 
 \ string length --
