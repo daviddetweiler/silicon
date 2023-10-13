@@ -8,7 +8,7 @@ global start
 %define dp r13
 %define rp r12
 
-; While a per-word stack usage may be quite small (perhaps 8 cells at most?) call program ; dummy call instr can be much, much deeper, so
+; While a per-word stack usage may be quite small (perhaps 8 cells at most?) the call stack can be much, much deeper, so
 ; the data stack must be of a similar size to the return stack. It may be easiest to only ever check for underflow,
 ; since overflows are unlikely to be recoverable anyways (though I did have a thought about a "circular stack" being
 ; used to mitigate it without as onerous a runtime cost).
@@ -21,7 +21,7 @@ global start
 %define source_context_cells 5
 
 %define immediate (1 << 7)
-%define entry_0 0
+%define entry_0 -image_base
 
 %assign dictionary_written 0
 %assign dictionary_head 0
@@ -36,10 +36,16 @@ global start
 %define yellow(string) %strcat(vt_yellow, string, vt_default)
 %define version_string %strcat(`Silicon (`, git_version, `) (c) 2023 @daviddetweiler`)
 
+%define image_base 0x2000000000
+
+%macro da 1
+	dq %1 + image_base
+%endmacro
+
 %macro code_field 2
 	align 8
 	%1:
-		dq %2
+		da %2
 %endmacro
 
 %macro code 1
@@ -65,7 +71,7 @@ global start
 %endmacro
 
 %macro variable 2
-	constant %1, %%storage
+	constant %1, %%storage + image_base
 	[section .bss]
 		%%storage:
 			resq %2
@@ -74,33 +80,28 @@ global start
 %endmacro
 
 %macro branch_to 1
-	dq branch
+	da branch
 	dq %1 - %%here
 
 	%%here:
 %endmacro
 
 %macro jump_to 1
-	dq jump
+	da jump
 	dq %1 - %%here
 
 	%%here:
 %endmacro
 
-%macro predicated 1-2
-%if %0 == 2
-	dq predicate
-	dq %1
-	dq %2
-%else
-	dq predicate_unary
-	dq %1
-%endif
+%macro predicated 2
+	da predicate
+	da %1
+	da %2
 %endmacro
 
 %macro maybe 1
-	dq maybe_execute
-	dq %1
+	da maybe_execute
+	da %1
 %endmacro
 
 %define dictionary_entry(id) entry_ %+ id
@@ -118,7 +119,7 @@ global start
 
 	[section .rdata]
 		dictionary_entry(n):
-			dq dictionary_entry(dictionary_head)
+			da dictionary_entry(dictionary_head)
 			db %strlen(%1) | %2, %1, 0
 
 	__?SECT?__
@@ -131,7 +132,7 @@ global start
 %macro commit_dictionary 0
 	section .rdata
 		declare "kernel-dict"
-		constant core_vocabulary, entry_ %+ dictionary_head
+		constant core_vocabulary, entry_ %+ dictionary_head + image_base
 		%assign dictionary_written 1
 %endmacro
 
@@ -145,6 +146,20 @@ global start
 	run
 %endmacro
 
+%define ExitProcess 0
+%define GetStdHandle 1
+%define WriteFile 2
+%define ReadFile 3
+%define CreateFileA 4
+%define SetFilePointer 5
+%define CloseHandle 6
+%define VirtualAlloc 7
+%define VirtualFree 8
+
+%macro call_import 1
+	call [rbp + 8 * %1]
+%endmacro
+
 section .text
 	begin_text:
 
@@ -156,13 +171,15 @@ section .bss
 
 section .text
 	dq `silicon\0`
-	dq text_size
-	dq rdata_size
-	dq bss_size
+
+	table:
+		dq bss_size
 
 	; ( -- )
 	start:
 		sub rsp, 8 + 8 * 16 ; enough room for 16 parameters, plus stack alignment
+		lea rbp, table
+		mov rbp, [rbp]
 		lea tp, program
 		next
 
@@ -183,7 +200,7 @@ section .text
 	; ( code -- )
 	code exit_process
 		mov rcx, [dp]
-		call program ; dummy call instr
+		call_import ExitProcess
 
 	; ( -- )
 	code set_data_stack
@@ -244,7 +261,7 @@ section .text
 		mov r8, [dp + 8]
 		lea r9, [rsp + 8 * 5]
 		mov qword [rsp + 8 * 4], 0
-		call program ; dummy call instr
+		call_import WriteFile
 		add dp, 8 * 2
 		mov [dp], rax
 		next
@@ -276,7 +293,7 @@ section .text
 	; ( id -- handle )
 	code get_handle
 		mov rcx, [dp]
-		call program ; dummy call instr
+		call_import GetStdHandle
 		mov [dp], rax
 		next
 
@@ -290,7 +307,7 @@ section .text
 		xor rax, rax
 		mov [r9], rax
 		mov qword [rsp + 8 * 4], rax
-		call program ; dummy call instr
+		call_import ReadFile
 		add dp, 8
 		test rax, rax
 		jz .failed
@@ -715,12 +732,12 @@ section .text
 		mov rdx, [dp + 8]
 		lea r8, [dp + 8 + 4]
 		mov r9, [dp]
-		call program ; dummy call instr
+		call_import SetFilePointer
 
 		mov rcx, 4294967295 ; INVALID_SET_FILE_POINTER
 		cmp rax, rcx
 		jne .success
-		call program ; dummy call instr
+		call_import SetFilePointer
 		test rax, rax
 		jnz .success
 
@@ -739,7 +756,7 @@ section .text
 	declare "close-handle"
 	code close_handle
 		mov rcx, [dp]
-		call program ; dummy call instr
+		call_import CloseHandle
 		add dp, 8
 		next
 
@@ -753,7 +770,7 @@ section .text
 		mov qword [rsp + 8 * 4], 3
 		mov qword [rsp + 8 * 5], 0x80
 		mov qword [rsp + 8 * 6], r9
-		call program ; dummy call instr
+		call_import CreateFileA
 		cmp rax, -1
 		jne .success
 		mov rax, 0
@@ -769,7 +786,7 @@ section .text
 		mov rdx, [dp]
 		mov r8, 0x1000 ; MEM_COMMIT
 		mov r9, 0x04 ; PAGE_READWRITE
-		call program ; dummy call instr
+		call_import VirtualAlloc
 		mov [dp], rax
 		next
 
@@ -779,7 +796,7 @@ section .text
 		mov rcx, [dp]
 		xor rdx, rdx
 		mov r8, 0x8000 ; MEM_RELEASE
-		call program ; dummy call instr
+		call_import VirtualFree
 		mov [dp], rax
 		next
 
@@ -884,114 +901,114 @@ section .text
 section .rdata
 	; ( -- )
 	program:
-		dq set_return_stack
-		dq set_data_stack
-		dq init_handles
-		dq init_assembler
-		dq init_source_context
-		dq init_current_word
-		dq init_dictionary
-		dq init_arena
-		dq init_term_buffer
-		dq load_init_library
+		da set_return_stack
+		da set_data_stack
+		da init_handles
+		da init_assembler
+		da init_source_context
+		da init_current_word
+		da init_dictionary
+		da init_arena
+		da init_term_buffer
+		da load_init_library
 
 	interpret:
-		dq should_exit
-		dq load
+		da should_exit
+		da load
 		branch_to .exit
 
-		dq accept_word
+		da accept_word
 		branch_to .source_ended
-		dq get_current_word
-		dq find
-		dq copy
+		da get_current_word
+		da find
+		da copy
 		branch_to .found
-		dq drop_pair
+		da drop_pair
 
-		dq get_current_word
-		dq parse_number
+		da get_current_word
+		da parse_number
 		branch_to .accept_number
-		dq drop
+		da drop
 
-		dq status_unknown
-		dq print
-		dq get_current_word
-		dq print_line
-		dq new_line
-		dq soft_fault
+		da status_unknown
+		da print
+		da get_current_word
+		da print_line
+		da new_line
+		da soft_fault
 
 		.found:
-		dq swap
-		dq push_not
-		dq is_assembling
-		dq load
-		dq push_is_nzero
-		dq push_and
+		da swap
+		da push_not
+		da is_assembling
+		da load
+		da push_is_nzero
+		da push_and
 		predicated assemble, invoke
 		jump_to interpret
 
 		.source_ended:
-		dq zero
-		dq am_initing
-		dq store
-		dq is_nested_source
-		dq push_not
+		da zero
+		da am_initing
+		da store
+		da is_nested_source
+		da push_not
 		branch_to .exit
-		dq pop_source_context
+		da pop_source_context
 		jump_to interpret
 
 		.exit:
-		dq test_stacks
+		da test_stacks
 		maybe report_leftovers
-		dq zero
-		dq exit_process
+		da zero
+		da exit_process
 
 		.accept_number:
-		dq is_assembling
-		dq load
-		dq push_not
+		da is_assembling
+		da load
+		da push_not
 		branch_to interpret
-		dq assemble_literal
-		dq assemble
+		da assemble_literal
+		da assemble
 		jump_to interpret
 
 	; ( -- )
 	thread init_term_buffer
-		dq zero
-		dq term_buffer
-		dq store_byte
-		dq return
+		da zero
+		da term_buffer
+		da store_byte
+		da return
 
 	; ( -- )
 	declare "soft-fault"
 	thread soft_fault
-		dq is_nested_source
-		predicated hard_fault
-		dq flush_line
+		da is_nested_source
+		maybe hard_fault
+		da flush_line
 
-		dq is_assembling
-		dq load
-		dq push_not
+		da is_assembling
+		da load
+		da push_not
 		branch_to .exit
-		dq current_definition
-		dq load
-		dq arena_top
-		dq store
+		da current_definition
+		da load
+		da arena_top
+		da store
 
 		.exit:
-		dq init_assembler
-		dq set_return_stack
+		da init_assembler
+		da set_return_stack
 		jump_to interpret
 
 	; ( -- )
 	thread init_assembler
-		dq zero
-		dq copy
-		dq is_assembling
-		dq store
-		dq current_definition
-		dq store
-		dq return
+		da zero
+		da copy
+		da is_assembling
+		da store
+		da current_definition
+		da store
+		da return
 
 	; ( -- )
 	;
@@ -999,390 +1016,390 @@ section .rdata
 	; have left the interpreter in partial, unspecified, but otherwise valid state that it must simply reset from
 	declare "hard-fault"
 	thread hard_fault
-		dq am_initing
-		dq load
+		da am_initing
+		da load
 		branch_to .die
-		dq status_abort
-		dq print_line
+		da status_abort
+		da print_line
 		jump_to program
 
 		.die:
-		dq status_bad_init
-		dq print_line
-		dq term_read_line
-		dq all_ones
-		dq exit_process
+		da status_bad_init
+		da print_line
+		da term_read_line
+		da all_ones
+		da exit_process
 
 	; ( -- )
 	thread load_init_library
 		; TODO: Error checking??? See also our unchecked usage of ReadFile/WriteFile
-		dq init_library_name
-		dq drop
-		dq open_file
-		dq copy
+		da init_library_name
+		da drop
+		da open_file
+		da copy
 		branch_to .found
-		dq status_no_init_library
-		dq print_line
-		dq drop
-		dq return
+		da status_no_init_library
+		da print_line
+		da drop
+		da return
 
 		.found:
-		dq set_up_preloaded_source
-		dq all_ones
-		dq am_initing
-		dq store
-		dq return
+		da set_up_preloaded_source
+		da all_ones
+		da am_initing
+		da store
+		da return
 
 	; ( handle -- )
 	thread set_up_preloaded_source
-		dq copy
-		dq load_source_file
-		dq swap
-		dq close_handle
+		da copy
+		da load_source_file
+		da swap
+		da close_handle
 
-		dq push_source_context
+		da push_source_context
 
-		dq copy
-		dq preloaded_source
-		dq store
+		da copy
+		da preloaded_source
+		da store
 
-		dq copy
-		dq zero
-		dq current_word
-		dq store_pair
+		da copy
+		da zero
+		da current_word
+		da store_pair
 
-		dq copy
-		dq line_start
-		dq store
+		da copy
+		da line_start
+		da store
 
-		dq set_line_size
-		dq return
+		da set_line_size
+		da return
 
 	; ( handle -- source? )
 	thread load_source_file
-		dq copy
-		dq stash
-		dq file_size
-		dq copy
-		dq all_ones
-		dq push_is_neq
+		da copy
+		da stash
+		da file_size
+		da copy
+		da all_ones
+		da push_is_neq
 		branch_to .allocate
-		dq drop
-		dq unstash
-		dq drop
+		da drop
+		da unstash
+		da drop
 		jump_to .failed
 
 		.allocate:
-		dq copy
-		dq one
-		dq push_add
-		dq allocate_pages
-		dq copy
-		dq push_is_nzero
+		da copy
+		da one
+		da push_add
+		da allocate_pages
+		da copy
+		da push_is_nzero
 		branch_to .read
-		dq drop_pair
-		dq unstash
-		dq drop
+		da drop_pair
+		da unstash
+		da drop
 		jump_to .failed
 
 		.read:
-		dq copy
-		dq unstash
-		dq swap
-		dq stash
-		dq stash
-		dq swap
-		dq unstash
-		dq read_file
-		dq nip
+		da copy
+		da unstash
+		da swap
+		da stash
+		da stash
+		da swap
+		da unstash
+		da read_file
+		da nip
 		branch_to .succeeded
-		dq unstash
-		dq free_pages
-		dq drop
+		da unstash
+		da free_pages
+		da drop
 		jump_to .failed
 
 		.succeeded:
-		dq unstash
-		dq return
+		da unstash
+		da return
 
 		.failed:
-		dq status_source_not_loaded
-		dq print_line
-		dq soft_fault
+		da status_source_not_loaded
+		da print_line
+		da soft_fault
 
 	; ( handle -- size? )
 	;
 	; We treat -1 as an error sentinel
 	declare "file-size"
 	thread file_size
-		dq copy
-		dq zero
-		dq literal
+		da copy
+		da zero
+		da literal
 		dq 2
-		dq set_file_ptr
-		dq copy
-		dq all_ones
-		dq push_is_eq
+		da set_file_ptr
+		da copy
+		da all_ones
+		da push_is_eq
 		branch_to .exit
 
-		dq swap
-		dq zero
-		dq zero
-		dq set_file_ptr
-		dq swap
-		dq over
-		dq all_ones
-		dq push_is_neq
+		da swap
+		da zero
+		da zero
+		da set_file_ptr
+		da swap
+		da over
+		da all_ones
+		da push_is_neq
 		branch_to .exit
-		dq swap
+		da swap
 
 		.exit:
-		dq nip
-		dq return
+		da nip
+		da return
 
 	; ( string length -- )
 	declare "print"
 	thread print
-		dq stdout_handle
-		dq load
-		dq write_file
-		dq drop
-		dq return
+		da stdout_handle
+		da load
+		da write_file
+		da drop
+		da return
 
 	; ( -- )
 	thread init_handles
-		dq literal
+		da literal
 		dq -10
-		dq get_handle
-		dq stdin_handle
-		dq store
+		da get_handle
+		da stdin_handle
+		da store
 
-		dq literal
+		da literal
 		dq -11
-		dq get_handle
-		dq stdout_handle
-		dq store
+		da get_handle
+		da stdout_handle
+		da store
 
-		dq return
+		da return
 
 	; ( -- )
 	declare "nl"
 	thread new_line
-		dq newline
-		dq print
-		dq return
+		da newline
+		da print
+		da return
 
 	; ( -- count )
 	thread term_read_line
-		dq term_buffer
-		dq literal
+		da term_buffer
+		da literal
 		dq term_buffer_size
-		dq stdin_handle
-		dq load
-		dq read_file
-		dq drop
-		dq zero
-		dq over
-		dq term_buffer
-		dq push_add
-		dq store_byte
-		dq literal
+		da stdin_handle
+		da load
+		da read_file
+		da drop
+		da zero
+		da over
+		da term_buffer
+		da push_add
+		da store_byte
+		da literal
 		dq 2
-		dq push_subtract
-		dq line_size
-		dq store
-		dq return
+		da push_subtract
+		da line_size
+		da store
+		da return
 
 	; ( -- exit? )
 	thread accept_line_interactive
-		dq init_current_word
-		dq term_buffer
-		dq line_start
-		dq store
+		da init_current_word
+		da term_buffer
+		da line_start
+		da store
 
 		.again:
-		dq term_read_line
+		da term_read_line
 
-		dq line_size
-		dq load
+		da line_size
+		da load
 
-		dq copy
-		dq push_is_negative
+		da copy
+		da push_is_negative
 		branch_to .eof
 
-		dq push_is_zero
+		da push_is_zero
 		branch_to .again
 
-		dq term_is_overfull
+		da term_is_overfull
 		branch_to .line_overfull
 
-		dq zero
-		dq return
+		da zero
+		da return
 
 		.line_overfull:
-		dq status_overfull
-		dq print_line
+		da status_overfull
+		da print_line
 
 		.flush:
-		dq term_read_line
-		dq term_is_overfull
+		da term_read_line
+		da term_is_overfull
 		branch_to .flush
 		jump_to .again
 
 		.eof:
-		dq drop
-		dq all_ones
-		dq return
+		da drop
+		da all_ones
+		da return
 
 	; ( string length -- )
 	declare "print-line"
 	thread print_line
-		dq print
-		dq new_line
-		dq return
+		da print
+		da new_line
+		da return
 
 	; ( -- overfull? )
 	thread term_is_overfull
-		dq term_buffer
-		dq line_size
-		dq load
-		dq one
-		dq push_add
-		dq push_add
-		dq load_byte
-		dq literal
+		da term_buffer
+		da line_size
+		da load
+		da one
+		da push_add
+		da push_add
+		da load_byte
+		da literal
 		dq `\n`
-		dq push_is_neq
-		dq return
+		da push_is_neq
+		da return
 
 	; ( -- line length )
 	thread current_line
-		dq term_buffer
-		dq line_size
-		dq load
-		dq return
+		da term_buffer
+		da line_size
+		da load
+		da return
 
 	; ( -- exit? )
 	thread accept_word
 		.again:
-		dq get_current_word
-		dq push_add
-		dq copy
+		da get_current_word
+		da push_add
+		da copy
 
-		dq line_start
-		dq load
-		dq push_subtract
-		dq line_size
-		dq load
-		dq push_is_eq
+		da line_start
+		da load
+		da push_subtract
+		da line_size
+		da load
+		da push_is_eq
 		branch_to .refill
 
-		dq consume_space
-		dq copy
-		dq load_byte
-		dq push_is_zero
+		da consume_space
+		da copy
+		da load_byte
+		da push_is_zero
 		branch_to .refill
-		dq copy
-		dq consume_word
-		dq copy_pair
-		dq swap
-		dq push_subtract
-		dq nip
+		da copy
+		da consume_word
+		da copy_pair
+		da swap
+		da push_subtract
+		da nip
 
-		dq current_word
-		dq store_pair
-		dq zero
-		dq return
+		da current_word
+		da store_pair
+		da zero
+		da return
 
 		.refill:
-		dq drop
-		dq accept_line
+		da drop
+		da accept_line
 		branch_to .exit
 		jump_to .again
 
 		.exit:
-		dq all_ones
-		dq return
+		da all_ones
+		da return
 
 	; ( -- exit? )
 	declare "accept-line"
 	thread accept_line
-		dq preloaded_source
-		dq load
+		da preloaded_source
+		da load
 		predicated accept_line_preloaded, accept_line_interactive
-		dq return
+		da return
 
 	; ( a b address -- )
 	declare "store-pair"
 	thread store_pair
-		dq copy
-		dq stash
-		dq cell_size
-		dq push_add
-		dq store
-		dq unstash
-		dq store
-		dq return
+		da copy
+		da stash
+		da cell_size
+		da push_add
+		da store
+		da unstash
+		da store
+		da return
 
 	; ( address -- a b )
 	declare "load-pair"
 	thread load_pair
-		dq copy
-		dq cell_size
-		dq push_add
-		dq stash
-		dq load
-		dq unstash
-		dq load
-		dq return
+		da copy
+		da cell_size
+		da push_add
+		da stash
+		da load
+		da unstash
+		da load
+		da return
 
 	; ( -- word length )
 	thread get_current_word
-		dq current_word
-		dq load_pair
-		dq return
+		da current_word
+		da load_pair
+		da return
 
 	; ( -- )
 	thread init_current_word
-		dq term_buffer
-		dq zero
-		dq current_word
-		dq store_pair
-		dq return
+		da term_buffer
+		da zero
+		da current_word
+		da store_pair
+		da return
 
 	; ( ptr -- new-ptr )
 	thread consume_space
 		.again:
-		dq copy
-		dq load_byte
-		dq is_space
+		da copy
+		da load_byte
+		da is_space
 		branch_to .advance
-		dq return
+		da return
 
 		.advance:
-		dq one
-		dq push_add
+		da one
+		da push_add
 		jump_to .again
 
 	; ( ptr -- new-ptr )
 	thread consume_word
 		.again:
-		dq copy
-		dq load_byte
-		dq copy
-		dq push_is_zero
+		da copy
+		da load_byte
+		da copy
+		da push_is_zero
 		branch_to .return
-		dq copy
-		dq is_space
+		da copy
+		da is_space
 		branch_to .return
-		dq drop
-		dq one
-		dq push_add
+		da drop
+		da one
+		da push_add
 		jump_to .again
 
 		.return:
-		dq drop
-		dq return
+		da drop
+		da return
 
 	; ( char -- space? )
 	;
@@ -1390,660 +1407,660 @@ section .rdata
 	; Because of that, a whitespace-only line will just run away into eternity. As such, it needs to
 	; be contractual that accept_line will strip out empty lines.
 	thread is_space
-		dq copy
-		dq literal
+		da copy
+		da literal
 		dq ` `
-		dq push_is_eq
+		da push_is_eq
 		branch_to .all_ones
 
-		dq copy
-		dq literal
+		da copy
+		da literal
 		dq `\t`
-		dq push_is_eq
+		da push_is_eq
 		branch_to .all_ones
 
-		dq copy
-		dq literal
+		da copy
+		da literal
 		dq `\r`
-		dq push_is_eq
+		da push_is_eq
 		branch_to .all_ones
 
-		dq copy
-		dq literal
+		da copy
+		da literal
 		dq `\n`
-		dq push_is_eq
+		da push_is_eq
 		branch_to .all_ones
 
-		dq drop
-		dq zero
-		dq return
+		da drop
+		da zero
+		da return
 
 		.all_ones:
-		dq drop
-		dq all_ones
-		dq return
+		da drop
+		da all_ones
+		da return
 
 	; ( -- )
 	thread init_dictionary
-		dq core_vocabulary
-		dq dictionary
-		dq store
-		dq return
+		da core_vocabulary
+		da dictionary
+		da store
+		da return
 
 	; ( -- )
 	declare "assemble-literal"
 	thread assemble_literal
-		dq literal
-		dq literal
-		dq assemble
-		dq return
+		da literal
+		da literal
+		da assemble
+		da return
 
 	; ( -- )
 	declare "assemble-invoke-thread"
 	thread assemble_invoke_thread
-		dq literal
-		dq invoke_thread
-		dq assemble
-		dq return
+		da literal
+		da invoke_thread
+		da assemble
+		da return
 
 	; ( -- )
 	declare "assemble-return"
 	thread assemble_return
-		dq literal
-		dq return
-		dq assemble
-		dq return
+		da literal
+		da return
+		da assemble
+		da return
 
 	; ( -- )
 	declare "assemble-invoke-constant"
 	thread assemble_invoke_constant
-		dq literal
-		dq invoke_constant
-		dq assemble
-		dq return
+		da literal
+		da invoke_constant
+		da assemble
+		da return
 
 	; ( -- )
 	declare "assemble-branch"
 	thread assemble_branch
-		dq literal
-		dq branch
-		dq assemble
-		dq return
+		da literal
+		da branch
+		da assemble
+		da return
 
 	; ( -- )
 	declare "assemble-jump"
 	thread assemble_jump
-		dq literal
-		dq jump
-		dq assemble
-		dq return
+		da literal
+		da jump
+		da assemble
+		da return
 
 	; ( -- )
 	declare "assemble-invoke-string"
 	thread assemble_invoke_string
-		dq literal
-		dq invoke_string
-		dq assemble
-		dq return
+		da literal
+		da invoke_string
+		da assemble
+		da return
 
 	; ( -- )
 	declare "assemble-invoke-variable"
 	thread assemble_invoke_variable
-		dq literal
-		dq invoke_variable
-		dq assemble
-		dq return
+		da literal
+		da invoke_variable
+		da assemble
+		da return
 
 	; ( string length -- immediate? word? )
 	declare "find"
 	thread find
-		dq dictionary
-		dq load
+		da dictionary
+		da load
 
 		.again:
-		dq pair_over
-		dq over_pair
-		dq entry_name
-		dq string_eq
+		da pair_over
+		da over_pair
+		da entry_name
+		da string_eq
 		branch_to .found
-		dq load
-		dq copy
+		da load
+		da copy
 		branch_to .again
 
-		dq drop_pair
-		dq zero
-		dq return
+		da drop_pair
+		da zero
+		da return
 
 		.found:
-		dq stash
-		dq drop_pair
-		dq unstash
-		dq copy
-		dq entry_immediate
-		dq swap
-		dq entry_data_ptr
-		dq return
+		da stash
+		da drop_pair
+		da unstash
+		da copy
+		da entry_immediate
+		da swap
+		da entry_data_ptr
+		da return
 
 	; ( entry -- data )
 	declare "entry-data-ptr"
 	thread entry_data_ptr
-		dq entry_name
-		dq push_add
-		dq one
-		dq push_add
-		dq cell_align
-		dq return
+		da entry_name
+		da push_add
+		da one
+		da push_add
+		da cell_align
+		da return
 
 	; ( entry -- immediate? )
 	declare "entry-immediate?"
 	thread entry_immediate
-		dq cell_size
-		dq push_add
-		dq load_byte
-		dq literal
+		da cell_size
+		da push_add
+		da load_byte
+		da literal
 		dq immediate
-		dq push_and
-		dq push_is_nzero
-		dq return
+		da push_and
+		da push_is_nzero
+		da return
 
 	; ( address -- aligned-address )
 	declare "cell-align"
 	thread cell_align
-		dq copy
-		dq literal
+		da copy
+		da literal
 		dq 7
-		dq push_and
-		dq cell_size
-		dq swap
-		dq push_subtract
-		dq literal
+		da push_and
+		da cell_size
+		da swap
+		da push_subtract
+		da literal
 		dq 7
-		dq push_and
-		dq push_add
-		dq return
+		da push_and
+		da push_add
+		da return
 
 	; ( -- )
 	declare "flush-line"
 	thread flush_line
-		dq get_current_word
-		dq drop
-		dq copy
-		dq line_start
-		dq load
-		dq push_subtract
-		dq line_size
-		dq load
-		dq swap
-		dq push_subtract
-		dq current_word
-		dq store_pair
-		dq return
+		da get_current_word
+		da drop
+		da copy
+		da line_start
+		da load
+		da push_subtract
+		da line_size
+		da load
+		da swap
+		da push_subtract
+		da current_word
+		da store_pair
+		da return
 
 	; ( -- )
 	thread report_leftovers
-		dq status_stacks_unset
-		dq print_line
-		dq term_read_line
-		dq return
+		da status_stacks_unset
+		da print_line
+		da term_read_line
+		da return
 
 	; ( char -- digit? )
 	thread is_digit
-		dq copy
-		dq literal
+		da copy
+		da literal
 		dq '0'
-		dq push_is_ge
-		dq stash
-		dq literal
+		da push_is_ge
+		da stash
+		da literal
 		dq `9`
-		dq push_is_le
-		dq unstash
-		dq push_and
-		dq return
+		da push_is_le
+		da unstash
+		da push_and
+		da return
 
 	; ( string length -- n number? )
 	declare "parse-u#"
 	thread parse_unumber
-		dq parsed_number
-		dq store_pair
-		dq zero
-		dq stash
+		da parsed_number
+		da store_pair
+		da zero
+		da stash
 
 		.again:
-		dq parsed_number
-		dq load
-		dq load_byte
-		dq copy
-		dq is_digit
-		dq push_not
+		da parsed_number
+		da load
+		da load_byte
+		da copy
+		da is_digit
+		da push_not
 		branch_to .nan
-		dq literal
+		da literal
 		dq '0'
-		dq push_subtract
-		dq unstash
-		dq ten
-		dq push_umultiply
-		dq push_add
-		dq stash
+		da push_subtract
+		da unstash
+		da ten
+		da push_umultiply
+		da push_add
+		da stash
 
-		dq parsed_number
-		dq load
-		dq one
-		dq push_add
-		dq parsed_number
-		dq load_2nd
-		dq one
-		dq push_subtract
-		dq copy
-		dq stash
-		dq parsed_number
-		dq store_pair
-		dq unstash
+		da parsed_number
+		da load
+		da one
+		da push_add
+		da parsed_number
+		da load_2nd
+		da one
+		da push_subtract
+		da copy
+		da stash
+		da parsed_number
+		da store_pair
+		da unstash
 		branch_to .again
 
-		dq unstash
-		dq all_ones
-		dq return
+		da unstash
+		da all_ones
+		da return
 
 		.nan:
-		dq unstash
-		dq drop
-		dq zero
-		dq return
+		da unstash
+		da drop
+		da zero
+		da return
 
 	; ( string length -- n number? )
 	declare "parse-#"
 	thread parse_number
-		dq over
-		dq load_byte
-		dq literal
+		da over
+		da load_byte
+		da literal
 		dq `-`
-		dq push_is_eq
+		da push_is_eq
 		branch_to .negative
-		dq parse_unumber
-		dq return
+		da parse_unumber
+		da return
 
 		.negative:
-		dq copy
-		dq one
-		dq push_is_eq
+		da copy
+		da one
+		da push_is_eq
 		branch_to .nan
-		dq one
-		dq push_subtract
-		dq swap
-		dq one
-		dq push_add
-		dq swap
-		dq parse_unumber
-		dq swap
-		dq push_negate
-		dq swap
-		dq return
+		da one
+		da push_subtract
+		da swap
+		da one
+		da push_add
+		da swap
+		da parse_unumber
+		da swap
+		da push_negate
+		da swap
+		da return
 
 		.nan:
-		dq drop_pair
-		dq zero
-		dq zero
-		dq return
+		da drop_pair
+		da zero
+		da zero
+		da return
 
 	declare "exit"
 	thread exit
-		dq all_ones
-		dq should_exit
-		dq store
-		dq return
+		da all_ones
+		da should_exit
+		da store
+		da return
 
 	; ( -- word? )
 	declare "create:"
 	thread create
-		dq current_definition
-		dq load
-		dq push_is_zero
+		da current_definition
+		da load
+		da push_is_zero
 		branch_to .ok
-		dq status_nested_def
-		dq print_line
-		dq soft_fault
+		da status_nested_def
+		da print_line
+		da soft_fault
 
 		.ok:
-		dq accept_word
+		da accept_word
 		branch_to .rejected
-		dq get_current_word
-		dq copy
-		dq literal
+		da get_current_word
+		da copy
+		da literal
 		dq 128
-		dq push_is_ge
+		da push_is_ge
 		branch_to .too_long
-		dq cell_align_arena
-		dq arena_top
-		dq load
-		dq stash
-		dq dictionary
-		dq load
-		dq assemble
-		dq copy
-		dq assemble_byte
-		dq assemble_blob
-		dq zero
-		dq assemble_byte
-		dq cell_align_arena
-		dq unstash
-		dq return
+		da cell_align_arena
+		da arena_top
+		da load
+		da stash
+		da dictionary
+		da load
+		da assemble
+		da copy
+		da assemble_byte
+		da assemble_blob
+		da zero
+		da assemble_byte
+		da cell_align_arena
+		da unstash
+		da return
 
 		.too_long:
-		dq drop_pair
-		dq unstash
-		dq drop
-		dq status_word_too_long
-		dq print_line
-		dq soft_fault
+		da drop_pair
+		da unstash
+		da drop
+		da status_word_too_long
+		da print_line
+		da soft_fault
 
 		.rejected:
-		dq status_no_word
-		dq print_line
-		dq soft_fault
+		da status_no_word
+		da print_line
+		da soft_fault
 
 	; ( -- )
 	declare "cell-align-arena"
 	thread cell_align_arena
-		dq arena_top
-		dq load
-		dq cell_align
-		dq arena_top
-		dq store
-		dq return
+		da arena_top
+		da load
+		da cell_align
+		da arena_top
+		da store
+		da return
 
 	; ( cell -- )
 	declare "assemble"
 	thread assemble
-		dq arena_top
-		dq load
-		dq store
-		dq arena_top
-		dq load
-		dq cell_size
-		dq push_add
-		dq arena_top
-		dq store
-		dq return
+		da arena_top
+		da load
+		da store
+		da arena_top
+		da load
+		da cell_size
+		da push_add
+		da arena_top
+		da store
+		da return
 
 	; ( byte -- )
 	declare "assemble-byte"
 	thread assemble_byte
-		dq arena_top
-		dq load
-		dq store_byte
-		dq arena_top
-		dq load
-		dq one
-		dq push_add
-		dq arena_top
-		dq store
-		dq return
+		da arena_top
+		da load
+		da store_byte
+		da arena_top
+		da load
+		da one
+		da push_add
+		da arena_top
+		da store
+		da return
 
 	; ( byte-ptr length -- )
 	declare "assemble-blob"
 	thread assemble_blob
-		dq copy
-		dq stash
-		dq assembly_ptr
-		dq copy_blob
-		dq assembly_ptr
-		dq unstash
-		dq push_add
-		dq arena_top
-		dq store
-		dq return
+		da copy
+		da stash
+		da assembly_ptr
+		da copy_blob
+		da assembly_ptr
+		da unstash
+		da push_add
+		da arena_top
+		da store
+		da return
 
 	; ( -- )
 	thread init_arena
-		dq arena_base
-		dq arena_top
-		dq store
-		dq return
+		da arena_base
+		da arena_top
+		da store
+		da return
 
 	; ( -- )
 	declare "clear"
 	thread clear
-		dq seq_clear
-		dq print
-		dq return
+		da seq_clear
+		da print
+		da return
 
 	; ( -- )
 	declare "immediate"
 	thread make_immediate
-		dq dictionary
-		dq load
-		dq cell_size
-		dq push_add
-		dq copy
-		dq load_byte
-		dq literal
+		da dictionary
+		da load
+		da cell_size
+		da push_add
+		da copy
+		da load_byte
+		da literal
 		dq immediate
-		dq push_or
-		dq swap
-		dq store_byte
-		dq return
+		da push_or
+		da swap
+		da store_byte
+		da return
 
 	; ( -- ptr )
 	declare "assembly-ptr"
 	thread assembly_ptr
-		dq arena_top
-		dq load
-		dq return
+		da arena_top
+		da load
+		da return
 
 	; ( -- word? )
 	declare "get-word:"
 	thread get_word
-		dq accept_word
+		da accept_word
 		branch_to .cancelled
-		dq get_current_word
-		dq find
-		dq nip
-		dq return
+		da get_current_word
+		da find
+		da nip
+		da return
 
 		.cancelled:
-		dq zero
-		dq return
+		da zero
+		da return
 
 	; ( -- exit? )
 	thread accept_line_preloaded
-		dq get_current_word
-		dq push_add
+		da get_current_word
+		da push_add
 
-		dq copy
-		dq load_byte
+		da copy
+		da load_byte
 		branch_to .next_line
-		dq drop
-		dq all_ones
-		dq return
+		da drop
+		da all_ones
+		da return
 
 		.again:
-		dq one
-		dq push_add
+		da one
+		da push_add
 
 		.next_line:
-		dq copy
-		dq load_byte
-		dq is_space
+		da copy
+		da load_byte
+		da is_space
 		branch_to .again
 
-		dq copy
-		dq zero
-		dq current_word
-		dq store_pair
+		da copy
+		da zero
+		da current_word
+		da store_pair
 
-		dq copy
-		dq line_start
-		dq store
-		dq set_line_size
-		dq zero
-		dq return
+		da copy
+		da line_start
+		da store
+		da set_line_size
+		da zero
+		da return
 
 	; ( line-ptr -- )
 	thread set_line_size
-		dq copy
+		da copy
 
 		.again:
-		dq copy
-		dq load_byte
-		dq literal ; Assumes CRLF line endings :(
+		da copy
+		da load_byte
+		da literal ; Assumes CRLF line endings :(
 		dq `\r`
-		dq push_is_eq
+		da push_is_eq
 		branch_to .found_line_end
-		dq copy
-		dq load_byte
-		dq push_is_zero
+		da copy
+		da load_byte
+		da push_is_zero
 		branch_to .found_line_end
-		dq one
-		dq push_add
+		da one
+		da push_add
 		jump_to .again
 
 		.found_line_end:
-		dq swap
-		dq push_subtract
-		dq line_size
-		dq store
-		dq return
+		da swap
+		da push_subtract
+		da line_size
+		da store
+		da return
 
 	; The context stack should be bounds-checked; `include` should report if recursion depth has been exceeded
 
 	; ( -- ptr-line-size )
 	declare "line-size"
 	thread line_size
-		dq source_context
-		dq load
-		dq return
+		da source_context
+		da load
+		da return
 
 	; ( -- ptr-preloaded-source )
 	thread preloaded_source
-		dq source_context
-		dq load
-		dq cell_size
-		dq push_add
-		dq return
+		da source_context
+		da load
+		da cell_size
+		da push_add
+		da return
 
 	; ( -- ptr-word-pair )
 	declare "current-word"
 	thread current_word
-		dq source_context
-		dq load
-		dq literal
+		da source_context
+		da load
+		da literal
 		dq 8 * 2
-		dq push_add
-		dq return
+		da push_add
+		da return
 
 	; ( -- ptr-line-start )
 	declare "line-start"
 	thread line_start
-		dq source_context
-		dq load
-		dq literal
+		da source_context
+		da load
+		da literal
 		dq 8 * 4
-		dq push_add
-		dq return
+		da push_add
+		da return
 
 	; ( -- )
 	thread init_source_context
-		dq source_context_stack
-		dq source_context
-		dq store
-		dq clear_source_context
-		dq return
+		da source_context_stack
+		da source_context
+		da store
+		da clear_source_context
+		da return
 
 	; ( -- )
 	thread clear_source_context
-		dq zero
-		dq line_size
-		dq store
+		da zero
+		da line_size
+		da store
 
-		dq zero
-		dq preloaded_source
-		dq store
+		da zero
+		da preloaded_source
+		da store
 
-		dq zero
-		dq zero
-		dq current_word
-		dq store_pair
+		da zero
+		da zero
+		da current_word
+		da store_pair
 
-		dq zero
-		dq line_start
-		dq store
+		da zero
+		da line_start
+		da store
 
-		dq return
+		da return
 
 	; ( -- )
 	thread push_source_context
-		dq source_context
-		dq copy
-		dq load
-		dq literal
+		da source_context
+		da copy
+		da load
+		da literal
 		dq source_context_cells * 8
-		dq push_add
-		dq swap
-		dq store
-		dq clear_source_context
-		dq return
+		da push_add
+		da swap
+		da store
+		da clear_source_context
+		da return
 
 	; ( -- )
 	thread pop_source_context
-		dq preloaded_source
-		dq load
-		dq free_pages
-		dq push_is_zero
-		predicated break
-		dq source_context
-		dq copy
-		dq load
-		dq literal
+		da preloaded_source
+		da load
+		da free_pages
+		da push_is_zero
+		maybe break
+		da source_context
+		da copy
+		da load
+		da literal
 		dq source_context_cells * 8
-		dq push_subtract
-		dq swap
-		dq store
-		dq return
+		da push_subtract
+		da swap
+		da store
+		da return
 
 	; ( -- nested? )
 	thread is_nested_source
-		dq source_context
-		dq load
-		dq source_context_stack
-		dq push_is_neq
-		dq return
+		da source_context
+		da load
+		da source_context_stack
+		da push_is_neq
+		da return
 
 	; ( bytes -- )
 	declare "arena-allocate"
 	thread arena_allocate
-		dq arena_top
-		dq load
-		dq push_add
-		dq arena_top
-		dq store
-		dq return
+		da arena_top
+		da load
+		da push_add
+		da arena_top
+		da store
+		da return
 
 	; ( string length -- )
 	;
 	; A good candidate to be moved to init.si
 	declare "include"
 	thread include
-		dq copy_pair
-		dq stash
-		dq stash
-		dq drop
-		dq open_file
-		dq copy
+		da copy_pair
+		da stash
+		da stash
+		da drop
+		da open_file
+		da copy
 		branch_to .found
-		dq status_script_not_found
-		dq print
-		dq unstash
-		dq unstash
-		dq print_line
-		dq drop
-		dq soft_fault
+		da status_script_not_found
+		da print
+		da unstash
+		da unstash
+		da print_line
+		da drop
+		da soft_fault
 
 		.found:
-		dq unstash
-		dq unstash
-		dq drop_pair
-		dq set_up_preloaded_source
-		dq return
+		da unstash
+		da unstash
+		da drop_pair
+		da set_up_preloaded_source
+		da return
 
 	declare "0"
 	constant zero, 0
