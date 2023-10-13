@@ -132,7 +132,7 @@ global start
 %macro commit_dictionary 0
 	section .rdata
 		declare "kernel-dict"
-		constant core_vocabulary, entry_ %+ dictionary_head + image_base
+		constant core_vocabulary, dictionary_entry(dictionary_head) + image_base
 		%assign dictionary_written 1
 %endmacro
 
@@ -173,7 +173,7 @@ section .text
 	dq `silicon\0`
 
 	table:
-		dq bss_size
+		dq end_bss - begin_bss
 
 	; ( -- )
 	start:
