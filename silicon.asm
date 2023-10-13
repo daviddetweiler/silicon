@@ -160,13 +160,6 @@ section .text
 	start:
 		sub rsp, 8 + 8 * 16 ; enough room for 16 parameters, plus stack alignment
 		lea tp, program
-		jmp next
-
-	; ( -- )
-	invoke_thread:
-		sub rp, 8
-		mov [rp], tp
-		lea tp, [wp + 8]
 
 	next:
 		mov wp, [tp]
@@ -174,6 +167,13 @@ section .text
 
 	run:
 		jmp [wp]
+
+	; ( -- )
+	invoke_thread:
+		sub rp, 8
+		mov [rp], tp
+		lea tp, [wp + 8]
+		jmp next
 
 	; ( -- )
 	declare "return"

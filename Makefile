@@ -15,9 +15,11 @@ silicon.exe: silicon.obj Makefile
         /nologo \
         /fixed \
         /ignore:4254 \
-        /section:silicon,RE \
-        /merge:.rdata=silicon \
-        /merge:.text=silicon \
+        /section:kernel,RE \
+        /section:data,RWE \
+        /merge:.rdata=kernel \
+        /merge:.text=kernel \
+        /merge:.bss=data \
         /Brepro \
         $(debug_link_flags)
 

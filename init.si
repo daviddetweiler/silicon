@@ -217,8 +217,9 @@ fn: string:
 	string drop-pair
 end-fn
 
-s"     " string: empty-tag
-s" *   " string: immediate-tag
+\ Both of these contain tab characters
+s" 	" string: empty-tag
+s" *	" string: immediate-tag
 
 \ n-cells --
 fn: var:
@@ -308,18 +309,21 @@ fn: print-dict
 	drop nl
 end-fn
 
-s"  bytes of code"		string: bytes-of-code
-s"  bytes of data"		string: bytes-of-data
-s"  bytes of variables"	string: bytes-of-variables
-s" 	"					string: tab
+s"  bytes of code"		string: code-size-msg
+s"  bytes of data"		string: data-size-msg
+s"  bytes of variables"	string: vars-size-msg
+s" 	"					string: tab					\ I know it looks weird, but there is a tab character here
 
 \ --
-fn: information
-	version
-	text-size print-u# tab print bytes-of-code print-line
-	rdata-size print-u# tab print bytes-of-data print-line
-	bss-size print-u# tab print bytes-of-variables print-line
-	dictionary load print-dict
+fn: tabstop tab print end-fn
+
+\ --
+fn: info
+	version nl
+	tabstop text-size print-u#	tabstop code-size-msg print-line
+	tabstop rdata-size print-u# tabstop data-size-msg print-line
+	tabstop bss-size print-u#	tabstop vars-size-msg print-line
+	nl
 end-fn
 
 1							var: count
@@ -343,4 +347,4 @@ fn: core-dict
 	[ current-definition load assemble-literal assemble ]
 end-fn
 
-version nl
+info
