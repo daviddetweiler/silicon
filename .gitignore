@@ -7,3 +7,5 @@
 *.ilk
 *.pdb
 README.txt
+*.bin
+.vscode/

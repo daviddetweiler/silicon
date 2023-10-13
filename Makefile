@@ -23,11 +23,17 @@ silicon.exe: silicon.obj Makefile
         /Brepro \
         $(debug_link_flags)
 
+silicon.bin: silicon-flat.asm Makefile
+    pwsh -c "nasm -fbin silicon-flat.asm -Dgit_version=""$$(git describe --dirty --tags)"" -o silicon.bin"
+
+compressed.bin: silicon.bin huffman.py Makefile
+    python .\huffman.py silicon.bin
+
 silicon.obj: silicon.asm Makefile
     pwsh -c "nasm -fwin64 silicon.asm -Dgit_version=""$$(git describe --dirty --tags)"" $(debug_nasm_flags)"
 
 clean: Makefile
-    del *.obj *.exe *.pdb *.ilk *.zip
+    del *.obj *.exe *.pdb *.ilk *.zip *.bin
 
 zip: silicon.zip Makefile
 
