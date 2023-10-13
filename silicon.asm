@@ -146,6 +146,16 @@ extern GetLastError
 		%assign dictionary_written 1
 %endmacro
 
+%macro run 0
+	jmp [wp]
+%endmacro
+
+%macro next 0
+	mov wp, [tp]
+	add tp, 8
+	run
+%endmacro
+
 section .text
 	begin_text:
 
@@ -160,27 +170,21 @@ section .text
 	start:
 		sub rsp, 8 + 8 * 16 ; enough room for 16 parameters, plus stack alignment
 		lea tp, program
-
-	next:
-		mov wp, [tp]
-		add tp, 8
-
-	run:
-		jmp [wp]
+		next
 
 	; ( -- )
 	invoke_thread:
 		sub rp, 8
 		mov [rp], tp
 		lea tp, [wp + 8]
-		jmp next
+		next
 
 	; ( -- )
 	declare "return"
 	code return
 		mov tp, [rp]
 		add rp, 8
-		jmp next
+		next
 
 	; ( code -- )
 	code exit_process
@@ -190,12 +194,12 @@ section .text
 	; ( -- )
 	code set_data_stack
 		lea dp, stack_base(data_stack)
-		jmp next
+		next
 
 	; ( -- )
 	code set_return_stack
 		lea rp, stack_base(return_stack)
-		jmp next
+		next
 
 	; ( -- leftovers? )
 	code test_stacks
@@ -207,18 +211,18 @@ section .text
 		jne .stack_error
 		sub dp, 8
 		mov qword [dp], 0
-		jmp next
+		next
 
 		.stack_error:
 		sub dp, 8
 		mov qword [dp], ~0
-		jmp next
+		next
 
 	; ( value -- )
 	declare "drop"
 	code drop
 		add dp, 8
-		jmp next
+		next
 
 	; ( -- value )
 	code literal
@@ -226,7 +230,7 @@ section .text
 		add tp, 8
 		sub dp, 8
 		mov [dp], rax
-		jmp next
+		next
 
 	; ( -- string length )
 	invoke_string:
@@ -236,7 +240,7 @@ section .text
 		mov [dp], rax
 		lea rbx, [wp + 9]
 		mov [dp + 8], rbx
-		jmp next
+		next
 
 	; ( string length handle -- succeeded )
 	declare "write-file"
@@ -249,14 +253,14 @@ section .text
 		call WriteFile
 		add dp, 8 * 2
 		mov [dp], rax
-		jmp next
+		next
 
 	; ( -- constant )
 	invoke_constant:
 		mov rax, [wp + 8]
 		sub dp, 8
 		mov [dp], rax
-		jmp next
+		next
 
 	; ( address -- value )
 	declare "load"
@@ -264,7 +268,7 @@ section .text
 		mov rax, [dp]
 		mov rax, [rax]
 		mov [dp], rax
-		jmp next
+		next
 
 	; ( value address -- )
 	declare "store"
@@ -273,14 +277,14 @@ section .text
 		mov rbx, [dp + 8]
 		mov [rax], rbx
 		add dp, 8 * 2
-		jmp next
+		next
 
 	; ( id -- handle )
 	code get_handle
 		mov rcx, [dp]
 		call GetStdHandle
 		mov [dp], rax
-		jmp next
+		next
 
 	; ( buffer length handle -- count succeeded? )
 	declare "read-file"
@@ -297,11 +301,11 @@ section .text
 		test rax, rax
 		jz .failed
 		mov qword [dp], -1
-		jmp next
+		next
 
 		.failed:
 		mov [dp], rax
-		jmp next
+		next
 
 	; ( a b -- (a - b) )
 	declare "-"
@@ -309,7 +313,7 @@ section .text
 		mov rax, [dp]
 		add dp, 8
 		sub [dp], rax
-		jmp next
+		next
 
 	; ( condition -- )
 	code branch
@@ -318,12 +322,12 @@ section .text
 		test rax, rax
 		jnz .branch
 		add tp, 8
-		jmp next
+		next
 
 		.branch:
 		mov rax, [tp]
 		lea tp, [tp + rax + 8]
-		jmp next
+		next
 
 	; ( a -- (a < 0) )
 	declare "0>"
@@ -331,11 +335,11 @@ section .text
 		cmp qword [dp], 0
 		jl .all_ones
 		mov qword [dp], 0
-		jmp next
+		next
 
 		.all_ones:
 		mov qword [dp], ~0
-		jmp next
+		next
 
 	; ( value -- value value )
 	declare "copy"
@@ -343,7 +347,7 @@ section .text
 		mov rax, [dp]
 		sub dp, 8
 		mov [dp], rax
-		jmp next
+		next
 
 	; ( value -- (value == 0) )
 	declare "0="
@@ -352,11 +356,11 @@ section .text
 		test rax, rax
 		jz .all_ones
 		mov qword [dp], 0
-		jmp next
+		next
 
 		.all_ones:
 		mov qword [dp], ~0
-		jmp next
+		next
 
 	; ( value -- (value != 0) )
 	declare "0~="
@@ -365,17 +369,17 @@ section .text
 		test rax, rax
 		jnz .all_ones
 		mov qword [dp], 0
-		jmp next
+		next
 
 		.all_ones:
 		mov qword [dp], ~0
-		jmp next
+		next
 
 	; ( -- )
 	code jump
 		mov rax, [tp]
 		lea tp, [tp + rax + 8]
-		jmp next
+		next
 
 	; ( a b -- (a + b) )
 	declare "+"
@@ -383,7 +387,7 @@ section .text
 		mov rax, [dp]
 		add dp, 8
 		add [dp], rax
-		jmp next
+		next
 
 	; ( address -- byte )
 	declare "load-byte"
@@ -392,7 +396,7 @@ section .text
 		mov al, [rax]
 		movzx rax, al
 		mov [dp], rax
-		jmp next
+		next
 
 	; ( a b -- (a != b) )
 	declare "~="
@@ -402,11 +406,11 @@ section .text
 		cmp [dp], rax
 		jne .all_ones
 		mov qword [dp], 0
-		jmp next
+		next
 
 		.all_ones:
 		mov qword [dp], ~0
-		jmp next
+		next
 
 	; ( a b -- (a == b) )
 	declare "="
@@ -416,11 +420,11 @@ section .text
 		cmp [dp], rax
 		je .all_ones
 		mov qword [dp], 0
-		jmp next
+		next
 
 		.all_ones:
 		mov qword [dp], ~0
-		jmp next
+		next
 
 	; ( value -- )
 	declare "stash"
@@ -429,7 +433,7 @@ section .text
 		add dp, 8
 		sub rp, 8
 		mov [rp], rax
-		jmp next
+		next
 
 	; ( -- value )
 	declare "unstash"
@@ -438,7 +442,7 @@ section .text
 		add rp, 8
 		sub dp, 8
 		mov [dp], rax
-		jmp next
+		next
 
 	; ( a b -- b a )
 	declare "swap"
@@ -446,7 +450,7 @@ section .text
 		mov rax, [dp]
 		xchg rax, [dp + 8]
 		mov [dp], rax
-		jmp next
+		next
 
 	; ( a b -- a b a b )
 	declare "copy-pair"
@@ -456,7 +460,7 @@ section .text
 		sub dp, 8 * 2
 		mov [dp], rax
 		mov [dp + 8], rbx
-		jmp next
+		next
 
 	; ( a b -- b )
 	declare "nip"
@@ -464,7 +468,7 @@ section .text
 		mov rax, [dp]
 		add dp, 8
 		mov [dp], rax
-		jmp next
+		next
 
 	; ( a b -- a b a )
 	declare "over"
@@ -472,7 +476,7 @@ section .text
 		mov rax, [dp + 8]
 		sub dp, 8
 		mov [dp], rax
-		jmp next
+		next
 
 	; ( value address -- )
 	declare "store-byte"
@@ -481,13 +485,13 @@ section .text
 		mov rbx, [dp + 8]
 		mov [rax], bl
 		add dp, 8 * 2
-		jmp next
+		next
 
 	; ( a -- ~a )
 	declare "~"
 	code push_not
 		not qword [dp]
-		jmp next
+		next
 
 	; ( a b -- (a & b) )
 	declare "&"
@@ -495,7 +499,7 @@ section .text
 		mov rax, [dp]
 		add dp, 8
 		and [dp], rax
-		jmp next
+		next
 
 	; ( condition -- )
 	code predicate
@@ -507,11 +511,11 @@ section .text
 		test rcx, rcx
 		jnz .all_ones
 		mov wp, rbx
-		jmp run
+		run
 
 		.all_ones:
 		mov wp, rax
-		jmp run
+		run
 
 	; ( condition -- )
 	code predicate_unary
@@ -520,9 +524,12 @@ section .text
 		mov rcx, [dp]
 		add dp, 8
 		test rcx, rcx
-		jz next
+		jz .skip
 		mov wp, rax
-		jmp run
+		run
+
+		.skip:
+		next
 
 	; ( address -- value )
 	declare "load-2nd"
@@ -530,7 +537,7 @@ section .text
 		mov rax, [dp]
 		mov rax, [rax + 8]
 		mov [dp], rax
-		jmp next
+		next
 
 	; ( value address -- )
 	declare "store-2nd"
@@ -539,20 +546,20 @@ section .text
 		mov rbx, [dp + 8]
 		mov [rax + 8], rbx
 		add dp, 8 * 2
-		jmp next
+		next
 
 	; ( a b -- )
 	declare "drop-pair"
 	code drop_pair
 		add dp, 8 * 2
-		jmp next
+		next
 
 	; ( word -- )
 	declare "invoke"
 	code invoke
 		mov wp, [dp]
 		add dp, 8
-		jmp run
+		run
 
 	; ( a b -- (a / b) )
 	declare "u/"
@@ -563,7 +570,7 @@ section .text
 		xor rdx, rdx
 		div rbx
 		mov [dp], rax
-		jmp next
+		next
 
 	; ( a b -- (a % b) )
 	declare "u%"
@@ -574,7 +581,7 @@ section .text
 		xor rdx, rdx
 		div rbx
 		mov [dp], rdx
-		jmp next
+		next
 
 	; ( a b -- (a / b) )
 	declare "/"
@@ -585,7 +592,7 @@ section .text
 		xor rdx, rdx
 		idiv rbx
 		mov [dp], rax
-		jmp next
+		next
 
 	; ( a b -- (a % b) )
 	declare "%"
@@ -596,13 +603,13 @@ section .text
 		xor rdx, rdx
 		idiv rbx
 		mov [dp], rdx
-		jmp next
+		next
 
 	; ( n -- -n )
 	declare "0-"
 	code push_negate
 		neg qword [dp]
-		jmp next
+		next
 
 	; ( a b -- (a >= b) )
 	declare ">="
@@ -612,11 +619,11 @@ section .text
 		cmp [dp], rax
 		jge .all_ones
 		mov qword [dp], 0
-		jmp next
+		next
 
 		.all_ones:
 		mov qword [dp], ~0
-		jmp next
+		next
 
 	; ( a b -- (a <= b) )
 	declare "<="
@@ -626,11 +633,11 @@ section .text
 		cmp [dp], rax
 		jle .all_ones
 		mov qword [dp], 0
-		jmp next
+		next
 
 		.all_ones:
 		mov qword [dp], ~0
-		jmp next
+		next
 
 	; ( a b -- (a > b) )
 	declare ">"
@@ -640,11 +647,11 @@ section .text
 		cmp [dp], rax
 		jg .all_ones
 		mov qword [dp], 0
-		jmp next
+		next
 
 		.all_ones:
 		mov qword [dp], ~0
-		jmp next
+		next
 
 	; ( a b -- (a < b) )
 	declare "<"
@@ -654,11 +661,11 @@ section .text
 		cmp [dp], rax
 		jl .all_ones
 		mov qword [dp], 0
-		jmp next
+		next
 
 		.all_ones:
 		mov qword [dp], ~0
-		jmp next
+		next
 
 	; ( a b -- (a * b) )
 	declare "u*"
@@ -667,7 +674,7 @@ section .text
 		add dp, 8
 		mul qword [dp]
 		mov [dp], rax
-		jmp next
+		next
 
 	; ( a b -- (a * b) )
 	declare "*"
@@ -676,13 +683,13 @@ section .text
 		add dp, 8
 		imul qword [dp]
 		mov [dp], rax
-		jmp next
+		next
 
 	; ( -- )
 	declare "break"
 	code break
 		int3
-		jmp next
+		next
 
 	; ( a b -- (a | b) )
 	declare "|"
@@ -690,7 +697,7 @@ section .text
 		mov rax, [dp]
 		add dp, 8
 		or [dp], rax
-		jmp next
+		next
 
 	; ( -- )
 	code maybe_execute
@@ -700,10 +707,10 @@ section .text
 		add tp, 8
 		test rax, rax
 		jz .skip
-		jmp run
+		run
 
 		.skip:
-		jmp next
+		next
 
 	; ( handle offset mode -- old-ptr? )
 	;
@@ -725,14 +732,14 @@ section .text
 
 		add dp, 8 * 2
 		mov qword [dp], -1
-		jmp next
+		next
 
 		.success:
 		mov [dp + 8], eax
 		mov rax, [dp + 8]
 		add dp, 8 * 2
 		mov [dp], rax
-		jmp next
+		next
 
 	; ( handle -- )
 	declare "close-handle"
@@ -740,7 +747,7 @@ section .text
 		mov rcx, [dp]
 		call CloseHandle
 		add dp, 8
-		jmp next
+		next
 
 	; ( c-string -- handle )
 	declare "open-file"
@@ -759,7 +766,7 @@ section .text
 
 		.success:
 		mov [dp], rax
-		jmp next
+		next
 
 	; ( size -- address )
 	declare "allocate-pages"
@@ -770,7 +777,7 @@ section .text
 		mov r9, 0x04 ; PAGE_READWRITE
 		call VirtualAlloc
 		mov [dp], rax
-		jmp next
+		next
 
 	; ( address -- succeeded? )
 	declare "free-pages"
@@ -780,21 +787,105 @@ section .text
 		mov r8, 0x8000 ; MEM_RELEASE
 		call VirtualFree
 		mov [dp], rax
-		jmp next
+		next
 
 	; ( -- address )
 	invoke_variable:
 		lea rax, [wp + 8]
 		sub dp, 8
 		mov [dp], rax
-		jmp next
+		next
 
 	; ( -- )
 	declare "crash"
 	code crash
 		mov rcx, 7
 		int 0x29 ; Good ol' __fastfail(FAST_FAIL_FATAL_APP_EXIT)
-		jmp next
+		next
+
+	; ( a-string a-length b-string b-length -- same? )
+	declare "string="
+	code string_eq
+		mov rcx, [dp + 8 * 2]
+		cmp rcx, [dp]
+		jne .not_equal
+		mov rsi, [dp + 8 * 3]
+		mov rdi, [dp + 8]
+		repe cmpsb
+		test rcx, rcx
+		jnz .not_equal
+		mov al, [rsi - 1]
+		cmp al, [rdi - 1]
+		jne .not_equal
+		add dp, 8 * 3
+		mov qword [dp], -1
+		next
+
+		.not_equal:
+		add dp, 8 * 3
+		xor rax, rax
+		mov [dp], rax
+		next
+
+	; ( byte-ptr length destination -- )
+	declare "copy-blob"
+	code copy_blob
+		mov rcx, [dp + 8]
+		mov rsi, [dp + 8 * 2]
+		mov rdi, [dp]
+		rep movsb
+		add dp, 8 * 3
+		next
+
+	; ( entry -- name length )
+	declare "entry-name"
+	code entry_name
+		mov rax, [dp]
+		add rax, 9
+		mov bl, [rax - 1]
+		and bl, ~immediate
+		movzx rbx, bl
+		mov [dp], rax
+		sub dp, 8
+		mov [dp], rbx
+		next
+
+	; ( -- value )
+	declare "peek-stash"
+	code peek_stash
+		mov rax, [rp]
+		sub dp, 8
+		mov [dp], rax
+		next
+
+	; ( a b c -- a b c a b )
+	declare "pair-over"
+	code pair_over
+		mov rax, [dp + 8 * 2]
+		mov rbx, [dp + 8]
+		sub dp, 8 * 2
+		mov [dp + 8], rax
+		mov [dp], rbx
+		next
+
+	; ( a b c -- a b c a )
+	declare "over-pair"
+	code over_pair
+		mov rax, [dp + 8 * 2]
+		sub dp, 8
+		mov [dp], rax
+		next
+
+	; ( a b c -- b c a )
+	declare "rot-down"
+	code rot_down
+		mov rax, [dp + 8 * 2]
+		mov rbx, [dp + 8]
+		mov rcx, [dp]
+		mov [dp + 8 * 2], rbx
+		mov [dp + 8], rcx
+		mov [dp], rax
+		next
 
 section .rdata
 	; ( -- )
@@ -1332,16 +1423,6 @@ section .rdata
 		dq all_ones
 		dq return
 
-	; ( entry -- name length immediate?  )
-	declare "entry-metadata"
-	thread entry_metadata
-		dq copy
-		dq entry_immediate
-		dq stash
-		dq entry_name
-		dq unstash
-		dq return
-
 	; ( -- )
 	thread init_dictionary
 		dq core_vocabulary
@@ -1413,63 +1494,6 @@ section .rdata
 		dq assemble
 		dq return
 
-	; ( a-string a-length b-string b-length -- same? )
-	declare "string="
-	thread string_eq
-		dq string_b
-		dq store_pair
-		dq string_a
-		dq store_pair
-
-		dq string_b
-		dq load_2nd
-		dq string_a
-		dq load_2nd
-		dq over
-		dq push_is_neq
-		branch_to .false
-
-		.again:
-		dq string_b
-		dq load
-		dq load_byte
-		dq string_a
-		dq load
-		dq load_byte
-		dq push_is_neq
-		branch_to .false
-
-		dq one
-		dq push_subtract
-		dq copy
-		dq push_is_zero
-		branch_to .all_ones
-
-		dq string_b
-		dq load
-		dq one
-		dq push_add
-		dq string_b
-		dq store
-
-		dq string_a
-		dq load
-		dq one
-		dq push_add
-		dq string_a
-		dq store
-		jump_to .again
-
-		.false:
-		dq drop
-		dq zero
-		dq return
-
-		.all_ones:
-		dq drop
-		dq all_ones
-		dq return
-
 	; ( string length -- immediate? word? )
 	declare "find"
 	thread find
@@ -1477,17 +1501,11 @@ section .rdata
 		dq load
 
 		.again:
-		dq stash
-		dq copy_pair
-		dq unstash
-		dq copy
-		dq stash
-		dq entry_metadata
-		dq drop
+		dq pair_over
+		dq over_pair
+		dq entry_name
 		dq string_eq
 		branch_to .found
-
-		dq unstash
 		dq load
 		dq copy
 		branch_to .again
@@ -1497,6 +1515,7 @@ section .rdata
 		dq return
 
 		.found:
+		dq stash
 		dq drop_pair
 		dq unstash
 		dq copy
@@ -1513,24 +1532,6 @@ section .rdata
 		dq one
 		dq push_add
 		dq cell_align
-		dq return
-
-	; ( entry -- name length )
-	declare "entry-name"
-	thread entry_name
-		dq cell_size
-		dq push_add
-
-		dq copy
-		dq one
-		dq push_add
-		dq swap
-
-		dq load_byte
-		dq literal
-		dq ~immediate
-		dq push_and
-
 		dq return
 
 	; ( entry -- immediate? )
@@ -1772,34 +1773,15 @@ section .rdata
 	; ( byte-ptr length -- )
 	declare "assemble-blob"
 	thread assemble_blob
-		dq string_a
-		dq store_pair
-
-		.again:
-		dq string_a
-		dq load
-		dq load_byte
-		dq assemble_byte
-
-		dq string_a
-		dq load
-		dq one
-		dq push_add
-
-		dq string_a
-		dq load_2nd
-		dq one
-		dq push_subtract
-
 		dq copy
 		dq stash
-
-		dq string_a
-		dq store_pair
-
+		dq assembly_ptr
+		dq copy_blob
+		dq assembly_ptr
 		dq unstash
-		branch_to .again
-
+		dq push_add
+		dq arena_top
+		dq store
 		dq return
 
 	; ( -- )
@@ -2021,6 +2003,11 @@ section .rdata
 
 	; ( -- )
 	thread pop_source_context
+		dq preloaded_source
+		dq load
+		dq free_pages
+		dq push_is_zero
+		predicated break
 		dq source_context
 		dq copy
 		dq load
