@@ -21,7 +21,12 @@ global start
 %define source_context_cells 5
 
 %define immediate (1 << 7)
-%define entry_0 -image_base
+
+%ifndef standalone
+	%define entry_0 -image_base
+%else
+	%define entry_0 0
+%endif
 
 %assign dictionary_written 0
 %assign dictionary_head 0
@@ -38,8 +43,14 @@ global start
 
 %define image_base 0x2000000000
 
+%ifndef standalone
+	%define address(x) (x) + image_base
+%else
+	%define address(x) x
+%endif
+
 %macro da 1
-	dq %1 + image_base
+	dq address(%1)
 %endmacro
 
 %macro code_field 2
@@ -71,7 +82,7 @@ global start
 %endmacro
 
 %macro variable 2
-	constant %1, %%storage + image_base
+	constant %1, address(%%storage)
 	[section .bss]
 		%%storage:
 			resq %2
@@ -132,7 +143,7 @@ global start
 %macro commit_dictionary 0
 	section .rdata
 		declare "kernel-dict"
-		constant core_vocabulary, dictionary_entry(dictionary_head) + image_base
+		constant core_vocabulary, address(dictionary_entry(dictionary_head))
 		%assign dictionary_written 1
 %endmacro
 
@@ -146,18 +157,34 @@ global start
 	run
 %endmacro
 
-%define ExitProcess 0
-%define GetStdHandle 1
-%define WriteFile 2
-%define ReadFile 3
-%define CreateFileA 4
-%define SetFilePointer 5
-%define CloseHandle 6
-%define VirtualAlloc 7
-%define VirtualFree 8
+%ifndef standalone
+	%define ExitProcess 0
+	%define GetStdHandle 1
+	%define WriteFile 2
+	%define ReadFile 3
+	%define CreateFileA 4
+	%define SetFilePointer 5
+	%define CloseHandle 6
+	%define VirtualAlloc 7
+	%define VirtualFree 8
+%else
+	extern ExitProcess
+	extern GetStdHandle
+	extern WriteFile
+	extern ReadFile
+	extern CreateFileA
+	extern SetFilePointer
+	extern CloseHandle
+	extern VirtualAlloc
+	extern VirtualFree
+%endif
 
 %macro call_import 1
-	call [rbp + 8 * %1]
+	%ifndef standalone
+		call [rbp + 8 * %1]
+	%else
+		call %1
+	%endif
 %endmacro
 
 section .text
@@ -170,16 +197,20 @@ section .bss
 	begin_bss:
 
 section .text
-	dq `silicon\0`
+	%ifndef standalone
+		dq `silicon\0`
 
-	table:
-		dq end_bss - begin_bss
+		table:
+			dq end_bss - begin_bss
+	%endif
 
 	; ( -- )
 	start:
 		sub rsp, 8 + 8 * 16 ; enough room for 16 parameters, plus stack alignment
-		lea rbp, table
-		mov rbp, [rbp]
+		%ifndef standalone
+			lea rbp, table
+			mov rbp, [rbp]
+		%endif
 		lea tp, program
 		next
 
