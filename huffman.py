@@ -143,8 +143,10 @@ def decode_with_encoded_tree(encoding, bits):
     return bytes(data)
 
 def get_size(data):
-    bss_size = int.from_bytes(data[8:16], 'little')
-    print('BSS size:', bss_size)
+    bss_size = 0
+    if len(data) >= 16 and data[0:8] == b"silicon\0":
+        bss_size = int.from_bytes(data[8:16], 'little')
+        print('BSS size:', bss_size)
 
     return len(data) + bss_size
 
