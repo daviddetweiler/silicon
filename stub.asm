@@ -91,7 +91,32 @@ section .text
         jmp .again
 
         .stream_end:
-        int3
+        lea rax, ExitProcess
+        mov [rsp], rax
+        lea rax, GetStdHandle
+        mov [rsp + 8 * 1], rax
+        lea rax, WriteFile
+        mov [rsp + 8 * 2], rax
+        lea rax, ReadFile
+        mov [rsp + 8 * 3], rax
+        lea rax, CreateFileA
+        mov [rsp + 8 * 4], rax
+        lea rax, SetFilePointer
+        mov [rsp + 8 * 5], rax
+        lea rax, CloseHandle
+        mov [rsp + 8 * 6], rax
+        lea rax, VirtualAlloc
+        mov [rsp + 8 * 7], rax
+        lea rax, VirtualFree
+        mov [rsp + 8 * 8], rax
+        lea rax, GetLastError
+        mov [rsp + 8 * 9], rax
+
+        mov rax, 0x2000000000 + 8
+        mov [rax], rsp
+        add rax, 8
+        call rax
+
         xor rcx, rcx
         call ExitProcess
 
