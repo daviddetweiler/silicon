@@ -1,6 +1,6 @@
 all: build debug-build zip Makefile
 
-build: si.exe Makefile
+build: silicon.exe Makefile
 
 debug-build: silicon-debug.exe Makefile
 
@@ -16,14 +16,23 @@ compressed.bin: silicon.bin huffman.py Makefile
     python .\huffman.py silicon.bin compressed.bin
 
 blob.inc: compressed.bin textify.py Makefile
-    python .\textify.py compressed.bin
+    python .\textify.py compressed.bin blob.inc
 
-stub.obj: stub.asm blob.inc Makefile
-    nasm -fwin64 stub.asm
+stub.bin: stub.asm blob.inc Makefile
+    nasm -fbin stub.asm -o stub.bin
 
-si.exe: stub.obj Makefile
-    link stub.obj kernel32.lib \
-        /out:si.exe \
+coded.bin: stub.bin xorcode.py Makefile
+    python .\xorcode.py stub.bin coded.bin
+
+coded.inc: coded.bin textify.py Makefile
+    python .\textify.py coded.bin coded.inc
+
+load.obj: load.asm coded.inc Makefile
+    nasm -fwin64 load.asm
+
+silicon.exe: load.obj Makefile
+    link load.obj kernel32.lib \
+        /out:silicon.exe \
         /subsystem:console \
         /entry:start \
         /nologo \
@@ -51,13 +60,13 @@ silicon-debug.exe: silicon.obj Makefile
         /debug
 
 clean: Makefile
-    del *.obj *.exe *.pdb *.ilk *.zip *.bin *.log blob.inc README.txt
+    del *.obj *.exe *.pdb *.ilk *.zip *.bin *.log blob.inc coded.inc README.txt
 
 zip: silicon.zip Makefile
 
-silicon.zip: si.exe Makefile
-    echo Verify the hash of si.exe using this powershell command > README.txt
-    echo Get-FileHash -Algorithm SHA256 si.exe >> README.txt
+silicon.zip: silicon.exe Makefile
+    echo Verify the hash of silicon.exe using this powershell command > README.txt
+    echo Get-FileHash -Algorithm SHA256 silicon.exe >> README.txt
     echo. >> README.txt
-    pwsh -c "(Get-FileHash -Algorithm SHA256 si.exe).Hash >> README.txt"
-    pwsh -c "Compress-Archive -Force -Path si.exe,README.txt,init.si -DestinationPath silicon.zip"
+    pwsh -c "(Get-FileHash -Algorithm SHA256 silicon.exe).Hash >> README.txt"
+    pwsh -c "Compress-Archive -Force -Path silicon.exe,README.txt,init.si -DestinationPath silicon.zip"
