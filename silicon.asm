@@ -199,17 +199,14 @@ section .bss
 section .text
 	%ifndef standalone
 		dq `silicon\0`
-
-		table:
-			dq end_bss - begin_bss
+		dq end_bss - begin_bss
 	%endif
 
 	; ( -- )
 	start:
 		sub rsp, 8 + 8 * 16 ; enough room for 16 parameters, plus stack alignment
 		%ifndef standalone
-			lea rbp, table
-			mov rbp, [rbp]
+			mov rbp, rcx
 		%endif
 		lea tp, program
 		next

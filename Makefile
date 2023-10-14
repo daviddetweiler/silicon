@@ -13,7 +13,7 @@ silicon.obj: silicon.asm Makefile
         -o silicon.obj -g -Dstandalone"
 
 compressed.bin: silicon.bin huffman.py Makefile
-    python .\huffman.py silicon.bin
+    python .\huffman.py silicon.bin compressed.bin
 
 blob.inc: compressed.bin textify.py Makefile
     python .\textify.py compressed.bin

@@ -13,14 +13,17 @@ extern CloseHandle
 extern VirtualAlloc
 extern VirtualFree
 
-%define mask (1 << 9) - 1
+%define id_mask (1 << 9) - 1
+%define node_mask (1 << 24) - 1
+%define leaf_bit (1 << 23)
+%define image_base 0x2000000000
 
 section .text
     start:
         mov rbp, rsp
         sub rsp, 8 * 9
 
-        mov rcx, 0x2000000000
+        mov rcx, image_base
         mov edx, [blob]
         mov r8, 0x1000 | 0x2000 ; MEM_COMMIT | MEM_RESERVE
         mov r9, 0x40 ; PAGE_EXECUTE_READWRITE
@@ -37,7 +40,7 @@ section .text
         lea r13, [rdx + 4] ; r13 points to the compressed data
         xor r14, r14 ; r14 is the bit-index into the compressed data
         lea rsi, [blob + 6] ; rsi is the huffman tree pointer
-        mov rdi, 0x2000000000 ; rdi points to the output buffer
+        mov rdi, image_base ; rdi points to the output buffer
         xor rcx, rcx ; rcx is the huffman node index
 
         .again:
@@ -57,7 +60,7 @@ section .text
         imul rdx, rcx, 3
         add rdx, rsi
         mov rdx, [rdx]
-        and rdx, (1 << 24) - 1
+        and rdx, node_mask
 
         test rax, rax
         jnz .no_adjust
@@ -65,15 +68,15 @@ section .text
 
         .no_adjust:
         mov rcx, rdx
-        and rcx, mask
+        and rcx, id_mask
         inc r14
 
         imul rdx, rcx, 3
         add rdx, rsi
         mov rdx, [rdx]
-        and rdx, (1 << 24) - 1
+        and rdx, node_mask
         
-        test rdx, (1 << 23)
+        test rdx, leaf_bit
         jnz .not_leaf
         mov [rdi], dl
         add rdi, 1
@@ -102,9 +105,8 @@ section .text
         lea rax, VirtualFree
         mov [rsp + 8 * 8], rax
 
-        mov rax, 0x2000000000 + 8
-        mov [rax], rsp
-        add rax, 8
+        mov rax, image_base + 8 * 2
+        mov rcx, rsp
         call rax
 
         xor rcx, rcx

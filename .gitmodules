@@ -1,3 +1,0 @@
-[submodule "load"]
-	path = load
-	url = git@github.com:daviddetweiler/load.git

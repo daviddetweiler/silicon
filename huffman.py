@@ -75,20 +75,20 @@ def to_byte(bits):
     for i in range(len(bits)):
         byte |= bits[i] << i
 
-    return byte.to_bytes(1, "little")
+    return byte.to_bytes(1, 'little')
 
 
-def tape_out(uncompressed_size, encoding, bit_string):
-    with open("compressed.bin", "wb") as file:
-        file.write(uncompressed_size.to_bytes(4, "little"))
-        file.write(len(encoding).to_bytes(2, "little"))
-        file.write(b"".join(node.to_bytes(3, "little") for node in encoding))
+def tape_out(destination, uncompressed_size, encoding, bit_string):
+    with open(destination, 'wb') as file:
+        file.write(uncompressed_size.to_bytes(4, 'little'))
+        file.write(len(encoding).to_bytes(2, 'little'))
+        file.write(b''.join(node.to_bytes(3, 'little') for node in encoding))
 
         valid_size = len(bit_string)
         align = (8 - (len(bit_string) % 8)) % 8
         bit_string += [0] * align
-        file.write(valid_size.to_bytes(4, "little"))
-        byte_string = b"".join(
+        file.write(valid_size.to_bytes(4, 'little'))
+        byte_string = b''.join(
             to_byte(bit_string[i : i + 8]) for i in range(0, len(bit_string), 8)
         )
 
@@ -139,19 +139,20 @@ def decode_with_encoded_tree(encoding, bits):
 
 def get_size(data):
     bss_size = 0
-    if len(data) >= 16 and data[0:8] == b"silicon\0":
+    if len(data) > 8 and data[0:8] == b'silicon\0':
         bss_size = int.from_bytes(data[8:16], 'little')
         print('BSS size:', bss_size)
 
     return len(data) + bss_size
 
-if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print("Usage: python huffman.py <filename>")
+if __name__ == '__main__':
+    if len(sys.argv) != 3:
+        print('Usage: python huffman.py <filename> <destination>')
         sys.exit(1)
 
     filename = sys.argv[1]
-    with open(filename, "rb") as file:
+    destination = sys.argv[2]
+    with open(filename, 'rb') as file:
         data = file.read()
 
     histogram = defaultdict(lambda: 0)
@@ -170,18 +171,18 @@ if __name__ == "__main__":
 
     tree = nodes[0]
     bit_string = encode(tree, data)
-    print("Compressed size:", len(bit_string) / 8, "bytes")
-    print("Tree contains:", node_count(tree), "nodes")
-    print("Entropy:", entropy(histogram), "bits per byte")
+    print('Compressed size:', len(bit_string) / 8, 'bytes')
+    print('Tree contains:', node_count(tree), 'nodes')
+    print('Entropy:', entropy(histogram), 'bits per byte')
     good_round_trip = decode(tree, bit_string) == data
-    print("Successful round-trip:", good_round_trip)
+    print('Successful round-trip:', good_round_trip)
     if not good_round_trip:
         sys.exit(1)
 
     encoded_tree = encode_tree(tree)
     good_round_trip = decode_with_encoded_tree(encoded_tree, bit_string) == data
-    print("Successful second round-trip:", good_round_trip)
+    print('Successful second round-trip:', good_round_trip)
     if not good_round_trip:
         sys.exit(1)
 
-    tape_out(get_size(data), encoded_tree, bit_string)
+    tape_out(destination, get_size(data), encoded_tree, bit_string)
