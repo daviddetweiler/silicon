@@ -12,27 +12,19 @@ extern SetFilePointer
 extern CloseHandle
 extern VirtualAlloc
 extern VirtualFree
-extern GetLastError
-extern VirtualProtect
 
 %define mask (1 << 9) - 1
 
 section .text
     start:
         mov rbp, rsp
-        sub rsp, 8 * 9 + 8 * 16
+        sub rsp, 8 * 9
 
         mov rcx, 0x2000000000
         mov edx, [blob]
         mov r8, 0x1000 | 0x2000 ; MEM_COMMIT | MEM_RESERVE
-        mov r9, 0x04 ; PAGE_READWRITE
+        mov r9, 0x40 ; PAGE_EXECUTE_READWRITE
         call VirtualAlloc
-
-        mov rcx, 0x2000000000
-        mov edx, [blob]
-        mov r8, 0x40 ; PAGE_EXECUTE_READWRITE
-        lea r9, [rsp + 8 * 4]
-        call VirtualProtect
 
         mov cx, [blob + 4]
         mov dx, cx
@@ -109,8 +101,6 @@ section .text
         mov [rsp + 8 * 7], rax
         lea rax, VirtualFree
         mov [rsp + 8 * 8], rax
-        lea rax, GetLastError
-        mov [rsp + 8 * 9], rax
 
         mov rax, 0x2000000000 + 8
         mov [rax], rsp
@@ -122,4 +112,4 @@ section .text
 
     blob:
         %include "blob.inc"
-        align 8 ; We rely on this in next_bit
+        align 8 ; We rely on this when extracting bits from the compressed data
