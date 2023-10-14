@@ -14,6 +14,8 @@ extern VirtualAlloc
 extern VirtualFree
 extern VirtualProtect
 
+%include "chksum.inc"
+
 section .text
     start:
         sub rsp, 8 + 8 * 4
@@ -25,7 +27,7 @@ section .text
         call VirtualProtect
 
         mov r12, (end - image) / 4
-        mov r13, 0xbebafeca
+        mov r13, [seed_addr]
         mov r14, image
         xor r15, r15
         
@@ -49,6 +51,9 @@ section .text
         mov r15, rax
         lea rcx, table
         call r15
+
+    seed_addr:
+        dd seed
 
     align 8
     table:

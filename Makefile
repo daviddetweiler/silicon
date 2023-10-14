@@ -21,13 +21,13 @@ blob.inc: compressed.bin textify.py Makefile
 stub.bin: stub.asm blob.inc Makefile
     nasm -fbin stub.asm -o stub.bin
 
-coded.bin: stub.bin xorcode.py Makefile
-    python .\xorcode.py stub.bin coded.bin
+coded.bin chksum.inc: stub.bin xorcode.py Makefile
+    python .\xorcode.py stub.bin coded.bin chksum.inc
 
 coded.inc: coded.bin textify.py Makefile
     python .\textify.py coded.bin coded.inc
 
-load.obj: load.asm coded.inc Makefile
+load.obj: load.asm coded.inc chksum.inc Makefile
     nasm -fwin64 load.asm
 
 silicon.exe: load.obj Makefile
@@ -60,7 +60,7 @@ silicon-debug.exe: silicon.obj Makefile
         /debug
 
 clean: Makefile
-    del *.obj *.exe *.pdb *.ilk *.zip *.bin *.log blob.inc coded.inc README.txt
+    del *.obj *.exe *.pdb *.ilk *.zip *.bin *.log *.inc README.txt
 
 zip: silicon.zip Makefile
 
