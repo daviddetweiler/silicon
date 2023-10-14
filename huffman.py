@@ -72,8 +72,8 @@ def entropy(histogram):
 
 def to_byte(bits):
     byte = 0
-    for bit in bits:
-        byte = (byte << 1) | bit
+    for i in range(len(bits)):
+        byte |= bits[i] << i
 
     return byte.to_bytes(1, "little")
 
@@ -119,20 +119,28 @@ def encode_tree_recurse(tree, encoding, i):
         return i, i + 1
     
 def decode_with_encoded_tree(encoding, bits):
+    log = open('decode.log', 'w')
+
     data = []
     i = 0
+    j = 0
     while i < len(bits):
-        j = 0
-        while encoding[j] & (1 << 23):
-            mask = ((1 << 9) - 1)
-            if bits[i]:
-                j = encoding[j] & mask
-            else:
-                j = (encoding[j] >> 9) & mask
-            
-            i += 1
+        print(f'i={i:02x} {encoding[j]:03x}', file=log)
+        mask = ((1 << 9) - 1)
+        if bits[i]:
+            j = encoding[j] & mask
+        else:
+            j = (encoding[j] >> 9) & mask
+        
+        i += 1
 
-        data.append(encoding[j])
+        if encoding[j] & (1 << 23):
+            pass
+        else:
+            data.append(encoding[j])
+            j = 0
+
+    log.close()
 
     return bytes(data)
 
@@ -182,3 +190,14 @@ if __name__ == "__main__":
         sys.exit(1)
 
     tape_out(get_size(data), encoded_tree, bit_string)
+
+    with open('bits.log', 'w') as file:
+        for bit in bit_string:
+            print('1' if bit else '0', file=file)
+
+    with open('raw-compressed.bin', 'wb') as file:
+        byte_string = b"".join(
+            to_byte(bit_string[i : i + 8]) for i in range(0, len(bit_string), 8)
+        )
+
+        file.write(byte_string)
