@@ -127,16 +127,14 @@ def decode_with_encoded_tree(encoding, bits):
     while i < len(bits):
         print(f'i={i:02x} {encoding[j]:03x}', file=log)
         mask = ((1 << 9) - 1)
-        if bits[i]:
-            j = encoding[j] & mask
-        else:
-            j = (encoding[j] >> 9) & mask
+        node = encoding[j]
+        if bits[i] == 0:
+            node >>= 9
         
+        j = node & mask
         i += 1
 
-        if encoding[j] & (1 << 23):
-            pass
-        else:
+        if encoding[j] & (1 << 23) == 0:
             data.append(encoding[j])
             j = 0
 

@@ -61,10 +61,33 @@ section .text
         bt r15, r14
         setc al
         movzx rax, al
-        int3
+        
+        imul rdx, rcx, 3
+        add rdx, rsi
+        mov rdx, [rdx]
+        and rdx, (1 << 24) - 1
 
+        test rax, rax
+        jnz .no_adjust
+        shr rdx, 9
+
+        .no_adjust:
+        mov rcx, rdx
+        and rcx, mask
         inc r14
 
+        imul rdx, rcx, 3
+        add rdx, rsi
+        mov rdx, [rdx]
+        and rdx, (1 << 24) - 1
+        
+        test rdx, (1 << 23)
+        jnz .not_leaf
+        mov [rdi], dl
+        add rdi, 1
+        xor rcx, rcx
+
+        .not_leaf:
         jmp .again
 
         .stream_end:
