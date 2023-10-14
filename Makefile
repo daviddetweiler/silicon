@@ -8,23 +8,10 @@ debug_link_flags=
 debug_nasm_flags=
 !endif
 
-silicon.exe: silicon.obj Makefile
-    link silicon.obj kernel32.lib \
-        /subsystem:console \
-        /entry:start \
-        /nologo \
-        /fixed \
-        /ignore:4254 \
-        /section:kernel,RE \
-        /section:data,RWE \
-        /merge:.rdata=kernel \
-        /merge:.text=kernel \
-        /merge:.bss=data \
-        /Brepro \
-        $(debug_link_flags)
+build: silicon.exe Makefile
 
-silicon.bin: silicon-flat.asm Makefile
-    pwsh -c "nasm -fbin silicon-flat.asm -Dgit_version=""$$(git describe --dirty --tags)"" -o silicon.bin"
+silicon.bin: silicon.asm Makefile
+    pwsh -c "nasm -fbin silicon.asm -Dgit_version=""$$(git describe --dirty --tags)"" -o silicon.bin"
 
 compressed.bin: silicon.bin huffman.py Makefile
     python .\huffman.py silicon.bin
@@ -35,20 +22,25 @@ blob.inc: compressed.bin textify.py Makefile
 stub.obj: stub.asm blob.inc Makefile
     nasm -fwin64 stub.asm
 
-stub.exe: stub.obj Makefile
+silicon.exe: stub.obj Makefile
     link stub.obj kernel32.lib \
+        /out:silicon.exe \
         /subsystem:console \
         /entry:start \
         /nologo \
         /fixed \
         /Brepro \
+        /ignore:4254 \
+        /section:kernel,RE \
+        /merge:.rdata=kernel \
+        /merge:.text=kernel \
         $(debug_link_flags)
 
 silicon.obj: silicon.asm Makefile
     pwsh -c "nasm -fwin64 silicon.asm -Dgit_version=""$$(git describe --dirty --tags)"" $(debug_nasm_flags)"
 
 clean: Makefile
-    del *.obj *.exe *.pdb *.ilk *.zip *.bin
+    del *.obj *.exe *.pdb *.ilk *.zip *.bin *.log
 
 zip: silicon.zip Makefile
 
