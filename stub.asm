@@ -77,7 +77,6 @@ section .text
     add rsp, 8 + 8 * 4
     ret
 
-    align 4
     blob:
         %include "blob.inc"
-        align 8 ; We rely on this when extracting bits from the compressed data
+        db `padding\0` ; We rely on this when extracting bits from the compressed data
