@@ -158,26 +158,28 @@ global start
 %endmacro
 
 %ifndef standalone
-	%define ExitProcess 0
-	%define GetStdHandle 1
-	%define WriteFile 2
-	%define ReadFile 3
-	%define CreateFileA 4
-	%define SetFilePointer 5
-	%define CloseHandle 6
-	%define VirtualAlloc 7
-	%define VirtualFree 8
+	%define id_ExitProcess 0
+	%define id_GetStdHandle 1
+	%define id_WriteFile 2
+	%define id_ReadFile 3
+	%define id_CreateFileA 4
+	%define id_SetFilePointer 5
+	%define id_CloseHandle 6
+	%define id_VirtualAlloc 7
+	%define id_VirtualFree 8
 	%define n_imports 9
 
+	%define id(name) id_ %+ name
 	%macro get_import 1
 		mov rcx, rbp
 		lea rdx, name_ %+ %1
 		call rdi
-		mov [table_imports + 8 * %1], rax
+		mov [table_imports + 8 * id(%1)], rax
 	%endmacro
 
 	%macro name 1
 		name_ %+ %1:
+			db %str(%1), 0
 	%endmacro
 %else
 	extern ExitProcess
@@ -193,7 +195,7 @@ global start
 
 %macro call_import 1
 	%ifndef standalone
-		call [table_imports + 8 * %1]
+		call [table_imports + 8 * id(%1)]
 	%else
 		call %1
 	%endif
@@ -217,6 +219,10 @@ section .text
 	; ( -- )
 	start:
 		sub rsp, 8 + 8 * 16 ; enough room for 16 parameters, plus stack alignment
+		%ifndef standalone
+			mov [get_module_handle], rcx
+			mov [get_proc_address], rdx
+		%endif
 		lea tp, program
 		next
 
@@ -937,8 +943,8 @@ section .text
 
 	%ifndef standalone
 		code set_imports
-			mov rsi, rcx
-			mov rdi, rdx
+			mov rsi, [get_module_handle]
+			mov rdi, [get_proc_address]
 
 			lea rcx, kernel32
 			call rsi
@@ -2220,36 +2226,25 @@ section .rdata
 			db `kernel32.dll\0`
 
 		name ExitProcess
-			db `ExitProcess\0`
-
 		name GetStdHandle
-			db `GetStdHandle\0`
-
 		name WriteFile
-			db `WriteFile\0`
-
 		name ReadFile
-			db `ReadFile\0`
-
 		name CreateFileA
-			db `CreateFileA\0`
-
 		name SetFilePointer
-			db `SetFilePointer\0`
-
 		name CloseHandle
-			db `CloseHandle\0`
-
 		name VirtualAlloc
-			db `VirtualAlloc\0`
-
 		name VirtualFree
-			db `VirtualFree\0`
 	%endif
 
 section .bss
 	align 8
 	%ifndef standalone
+		get_module_handle:
+			resq 1
+
+		get_proc_address:
+			resq 1
+
 		table_imports:
 			resq n_imports
 	%endif
