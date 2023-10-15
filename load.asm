@@ -40,6 +40,8 @@ section .text
         lea rdx, GetProcAddress
         call r15
 
+        db 'NOPE'
+
     align 8
     image:
         %include "coded.inc"

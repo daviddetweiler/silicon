@@ -80,16 +80,16 @@ def to_byte(bits):
 
 def tape_out(destination, uncompressed_size, encoding, bit_string):
     with open(destination, "wb") as file:
+        valid_size = len(bit_string)
         file.write(uncompressed_size.to_bytes(4, "little"))
+        file.write(valid_size.to_bytes(4, "little"))
         file.write(len(encoding).to_bytes(2, "little"))
         file.write(b"".join(node.to_bytes(3, "little") for node in encoding))
 
-        valid_size = len(bit_string)
         align = (8 - (len(bit_string) % 8)) % 8
         bit_string += [0] * align
 
         file.write(b"\0" * ((8 - (file.tell() % 8)) % 8))
-        file.write(valid_size.to_bytes(8, "little"))
         byte_string = b"".join(
             to_byte(bit_string[i : i + 8]) for i in range(0, len(bit_string), 8)
         )
