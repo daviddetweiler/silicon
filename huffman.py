@@ -75,24 +75,28 @@ def to_byte(bits):
     for i in range(len(bits)):
         byte |= bits[i] << i
 
-    return byte.to_bytes(1, 'little')
+    return byte.to_bytes(1, "little")
 
 
 def tape_out(destination, uncompressed_size, encoding, bit_string):
-    with open(destination, 'wb') as file:
-        file.write(uncompressed_size.to_bytes(4, 'little'))
-        file.write(len(encoding).to_bytes(2, 'little'))
-        file.write(b''.join(node.to_bytes(3, 'little') for node in encoding))
+    with open(destination, "wb") as file:
+        file.write(uncompressed_size.to_bytes(4, "little"))
+        file.write(len(encoding).to_bytes(2, "little"))
+        file.write(b"".join(node.to_bytes(3, "little") for node in encoding))
 
         valid_size = len(bit_string)
         align = (8 - (len(bit_string) % 8)) % 8
         bit_string += [0] * align
-        file.write(valid_size.to_bytes(4, 'little'))
-        byte_string = b''.join(
+
+        file.write(b"\0" * ((8 - (file.tell() % 8)) % 8))
+        file.write(valid_size.to_bytes(8, "little"))
+        byte_string = b"".join(
             to_byte(bit_string[i : i + 8]) for i in range(0, len(bit_string), 8)
         )
 
         file.write(byte_string)
+        file.write(b"\0" * ((8 - (file.tell() % 8)) % 8))
+
 
 # A maximum of 512 nodes in the tree, so only 9 bits are needed to label a node
 # Here's a non-leaf node:
@@ -100,11 +104,13 @@ def tape_out(destination, uncompressed_size, encoding, bit_string):
 # Here's a leaf node:
 # | 0 | 15-bit pad | 8-bit byte |
 
+
 def encode_tree(tree):
     size = node_count(tree)
     encoding = [None] * size
     encode_tree_recurse(tree, encoding, 0)
     return encoding
+
 
 # Returns (node, free)
 def encode_tree_recurse(tree, encoding, i):
@@ -117,17 +123,18 @@ def encode_tree_recurse(tree, encoding, i):
     else:
         encoding[i] = tree[0]
         return i, i + 1
-    
+
+
 def decode_with_encoded_tree(encoding, bits):
     data = []
     i = 0
     j = 0
     while i < len(bits):
-        mask = ((1 << 9) - 1)
+        mask = (1 << 9) - 1
         node = encoding[j]
         if bits[i] == 0:
             node >>= 9
-        
+
         j = node & mask
         i += 1
 
@@ -137,22 +144,24 @@ def decode_with_encoded_tree(encoding, bits):
 
     return bytes(data)
 
+
 def get_size(data):
     bss_size = 0
-    if len(data) > 8 and data[0:8] == b'silicon\0':
-        bss_size = int.from_bytes(data[8:16], 'little')
-        print('BSS size:', bss_size)
+    if len(data) > 8 and data[0:8] == b"silicon\0":
+        bss_size = int.from_bytes(data[8:16], "little")
+        print("BSS size:", bss_size)
 
     return len(data) + bss_size
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     if len(sys.argv) != 3:
-        print('Usage: python huffman.py <filename> <destination>')
+        print("Usage: python huffman.py <filename> <destination>")
         sys.exit(1)
 
     filename = sys.argv[1]
     destination = sys.argv[2]
-    with open(filename, 'rb') as file:
+    with open(filename, "rb") as file:
         data = file.read()
 
     histogram = defaultdict(lambda: 0)
@@ -171,17 +180,17 @@ if __name__ == '__main__':
 
     tree = nodes[0]
     bit_string = encode(tree, data)
-    print('Compressed size:', len(bit_string) / 8, 'bytes')
-    print('Tree contains:', node_count(tree), 'nodes')
-    print('Entropy:', entropy(histogram), 'bits per byte')
+    print("Compressed size:", len(bit_string) / 8, "bytes")
+    print("Tree contains:", node_count(tree), "nodes")
+    print("Entropy:", entropy(histogram), "bits per byte")
     good_round_trip = decode(tree, bit_string) == data
-    print('Successful round-trip:', good_round_trip)
+    print("Successful round-trip:", good_round_trip)
     if not good_round_trip:
         sys.exit(1)
 
     encoded_tree = encode_tree(tree)
     good_round_trip = decode_with_encoded_tree(encoded_tree, bit_string) == data
-    print('Successful second round-trip:', good_round_trip)
+    print("Successful second round-trip:", good_round_trip)
     if not good_round_trip:
         sys.exit(1)
 

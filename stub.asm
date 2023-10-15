@@ -23,8 +23,15 @@ section .text
     movzx rcx, cx
     lea rdx, blob
     lea rdx, [rdx + rcx + 6]
+    int3
+    mov rax, rdx
+    and rax, 7
+    mov rbx, 8
+    sub rbx, rax
+    and rbx, 7
+    add rdx, rbx
     mov r12d, [rdx] ; r12 is the bit-length of the compressed data
-    lea r13, [rdx + 4] ; r13 points to the compressed data
+    lea r13, [rdx + 8] ; r13 points to the compressed data
     xor r14, r14 ; r14 is the bit-index into the compressed data
     lea rsi, [blob + 6] ; rsi is the huffman tree pointer
     mov rdi, image_base ; rdi points to the output buffer
@@ -77,6 +84,6 @@ section .text
     add rsp, 8 + 8 * 4
     ret
 
+    align 8
     blob:
         %include "blob.inc"
-        db `padding\0` ; We rely on this when extracting bits from the compressed data
