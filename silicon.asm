@@ -167,6 +167,18 @@ global start
 	%define CloseHandle 6
 	%define VirtualAlloc 7
 	%define VirtualFree 8
+	%define n_imports 9
+
+	%macro get_import 1
+		mov rcx, rbp
+		lea rdx, name_ %+ %1
+		call rdi
+		mov [table_imports + 8 * %1], rax
+	%endmacro
+
+	%macro name 1
+		name_ %+ %1:
+	%endmacro
 %else
 	extern ExitProcess
 	extern GetStdHandle
@@ -181,7 +193,7 @@ global start
 
 %macro call_import 1
 	%ifndef standalone
-		call [rbp + 8 * %1]
+		call [table_imports + 8 * %1]
 	%else
 		call %1
 	%endif
@@ -205,9 +217,6 @@ section .text
 	; ( -- )
 	start:
 		sub rsp, 8 + 8 * 16 ; enough room for 16 parameters, plus stack alignment
-		%ifndef standalone
-			mov rbp, rcx
-		%endif
 		lea tp, program
 		next
 
@@ -926,9 +935,33 @@ section .text
 		mov [dp], rax
 		next
 
+	%ifndef standalone
+		code set_imports
+			mov rsi, rcx
+			mov rdi, rdx
+
+			lea rcx, kernel32
+			call rsi
+			mov rbp, rax
+			get_import ExitProcess
+			get_import GetStdHandle
+			get_import WriteFile
+			get_import ReadFile
+			get_import CreateFileA
+			get_import SetFilePointer
+			get_import CloseHandle
+			get_import VirtualAlloc
+			get_import VirtualFree
+			jmp next
+	%endif
+			
 section .rdata
+	align 8
 	; ( -- )
 	program:
+		%ifndef standalone
+			da set_imports
+		%endif
 		da set_return_stack
 		da set_data_stack
 		da init_handles
@@ -2182,7 +2215,45 @@ section .rdata
 	declare "version-string"
 	string version_banner, cyan(version_string)
 
+	%ifndef standalone
+		kernel32:
+			db `kernel32.dll\0`
+
+		name ExitProcess
+			db `ExitProcess\0`
+
+		name GetStdHandle
+			db `GetStdHandle\0`
+
+		name WriteFile
+			db `WriteFile\0`
+
+		name ReadFile
+			db `ReadFile\0`
+
+		name CreateFileA
+			db `CreateFileA\0`
+
+		name SetFilePointer
+			db `SetFilePointer\0`
+
+		name CloseHandle
+			db `CloseHandle\0`
+
+		name VirtualAlloc
+			db `VirtualAlloc\0`
+
+		name VirtualFree
+			db `VirtualFree\0`
+	%endif
+
 section .bss
+	align 8
+	%ifndef standalone
+		table_imports:
+			resq n_imports
+	%endif
+
 	data_stack:
 		resq stack_depth
 

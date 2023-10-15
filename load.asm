@@ -3,16 +3,9 @@ bits 64
 
 global start
 
-extern ExitProcess
-extern GetStdHandle
-extern WriteFile
-extern ReadFile
-extern CreateFileA
-extern SetFilePointer
-extern CloseHandle
 extern VirtualAlloc
-extern VirtualFree
-extern VirtualProtect
+extern GetModuleHandleA
+extern GetProcAddress
 
 %include "chksum.inc"
 
@@ -20,14 +13,8 @@ section .text
     start:
         sub rsp, 8 + 8 * 4
 
-        lea rcx, image
-        mov rdx, end - start
-        mov r8, 0x40 ; PAGE_EXECUTE_READWRITE
-        lea r9, [rsp + 8 * 4]
-        call VirtualProtect
-
         mov r12, (end - image) / 4
-        mov r13, [seed_addr]
+        mov r13, seed
         mov r14, image
         xor r15, r15
         
@@ -49,23 +36,9 @@ section .text
         lea rcx, VirtualAlloc
         call image
         mov r15, rax
-        lea rcx, table
+        lea rcx, GetModuleHandleA
+        lea rdx, GetProcAddress
         call r15
-
-    seed_addr:
-        dd seed
-
-    align 8
-    table:
-        dq ExitProcess
-        dq GetStdHandle
-        dq WriteFile
-        dq ReadFile
-        dq CreateFileA
-        dq SetFilePointer
-        dq CloseHandle
-        dq VirtualAlloc
-        dq VirtualFree
 
     align 16
     image:

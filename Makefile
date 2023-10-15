@@ -39,7 +39,7 @@ silicon.exe: load.obj Makefile
         /fixed \
         /Brepro \
         /ignore:4254 \
-        /section:kernel,RE \
+        /section:kernel,RWE \
         /merge:.rdata=kernel \
         /merge:.text=kernel
 
