@@ -8,19 +8,19 @@ if __name__ == "__main__":
     filename = sys.argv[1]
     with open(filename, "rb") as file:
         data = file.read()
-    
-    with open(sys.argv[2], 'w') as file:
+
+    with open(sys.argv[2], "w") as file:
         i = 0
         for byte in data:
             if i % 16 == 0:
-                print('db `', end='', file=file)
+                print("db `", end="", file=file)
 
-            print('\\x{:02x}'.format(byte), end='', file=file)
+            print("\\x{:02x}".format(byte), end="", file=file)
 
             if i % 16 == 15:
-                print('`', file=file)
-            
+                print("`", file=file)
+
             i += 1
 
         if i % 16 != 0:
-            print('`', file=file)
+            print("`", file=file)

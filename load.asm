@@ -13,83 +13,71 @@ extern GetProcAddress
 %define image_base 0x2000000000
 
 %define blob_uncompressed_size blob + 0
-%define blob_bits blob + 4
-%define blob_tree_size blob + 8
-%define blob_tree blob + 10
+%define blob_bit_count blob + 4
+%define blob_stream blob + 8
 
 section .text
     start:
         sub rsp, 8 + 8 * 16
 
-        mov rax, rcx
         mov rcx, image_base
         mov edx, [blob_uncompressed_size]
         mov r8, 0x1000 | 0x2000 ; MEM_COMMIT | MEM_RESERVE
         mov r9, 0x40 ; PAGE_EXECUTE_READWRITE
         call VirtualAlloc
+        mov rdi, rax ; rdi has the decompression buffer
 
-        mov cx, [blob_tree_size]
-        mov dx, cx
-        shl cx, 1
-        add cx, dx
-        movzx rcx, cx
-        lea rdx, blob_tree
-        lea rdx, [rdx + rcx]
-
-        mov rax, rdx
-        and rax, 7
-        mov rbx, 8
-        sub rbx, rax
+        mov r12d, [blob_bit_count] ; r12 is the bitstream length in bits
+        mov rbx, r12
         and rbx, 7
-        add rdx, rbx
+        mov r9, 8
+        sub r9, rbx
+        and r9, 7
+        add r9, r12
+        shr r9, 3 ; r9 now has the number of bitstream bytes
 
-        mov r12d, [blob_bits] ; r12 is the bit-length of the compressed data
-        mov r13, rdx ; r13 points to the compressed data
-        xor r14, r14 ; r14 is the bit-index into the compressed data
-        lea rsi, blob_tree ; rsi is the huffman tree pointer
-        mov rdi, image_base ; rdi points to the output buffer
-        xor rcx, rcx ; rcx is the huffman node index
+        lea rsi, blob_stream ; rsi is the bitstream pointer
+        xor r13, r13 ; r13 is the bitstream index, r14 will hold the current 8-byte stretch of bitstream
+        xor r15, r15 ; r15 is the current node index
+
+        add r9, rsi ; r9 now points to the tree data
+        movzx rbx, byte [r9] ; bitfield length in bytes
+        inc r9 ; bitfield ptr
+        add rbx, r9 ; nodes ptr
 
         .again:
-        cmp r14, r12
-        jge .stream_end
+        cmp r13, r12
+        je .stream_end
+        test r13, 64 - 1
+        jnz .valid_bits
+        lodsq
+        mov r14, rax
 
-        test r14, 64 - 1
-        jnz .bits_left
-        mov r15, [r13]
-        add r13, 8
+        .valid_bits:
+        mov rcx, r15
+        shl rcx, 1 ; bitpair index (also node index)
+        mov r8, rcx ; stashing the node index
+        mov rdx, rcx
+        shr rdx, 3 ; bitpair byte index
+        and rcx, 7 ; bitpair bit index
+        movzx rdx, byte [r9 + rdx]
+        shr rdx, cl ; rdx now has the bitpair at the bottom
 
-        .bits_left:
-        bt r15, r14
-        setc al
-        movzx rax, al
+        bt r14, r13
+        jc .skip_adjust
+        shr rdx, 1
+        inc r8
 
-        imul rdx, rcx, 3
-        add rdx, rsi
-        mov rdx, [rdx]
-        and rdx, node_mask
+        .skip_adjust:
+        movzx rax, byte [rbx + r8] ; node data
+        test rdx, 1
+        jz .nonleaf
+        stosb
+        xor rax, rax
 
-        test rax, rax
-        jnz .no_adjust
-        shr rdx, 9
-
-        .no_adjust:
-        mov rcx, rdx
-        and rcx, id_mask
-        inc r14
-
-        imul rdx, rcx, 3
-        add rdx, rsi
-        mov rdx, [rdx]
-        and rdx, node_mask
-
-        test rdx, leaf_bit
-        jnz .not_leaf
-        mov [rdi], dl
-        add rdi, 1
-        xor rcx, rcx
-
-        .not_leaf:
+        .nonleaf:
+        mov r15, rax
+        inc r13
         jmp .again
 
         .stream_end:

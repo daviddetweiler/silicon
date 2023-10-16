@@ -290,8 +290,7 @@ section .text
 	; ( -- string length )
 	invoke_string:
 		sub dp, 8 * 2
-		mov al, [wp + 8]
-		movzx rax, al
+		movzx rax, byte [wp + 8]
 		mov [dp], rax
 		lea rbx, [wp + 9]
 		mov [dp + 8], rbx
@@ -448,8 +447,7 @@ section .text
 	declare "load-byte"
 	code load_byte
 		mov rax, [dp]
-		mov al, [rax]
-		movzx rax, al
+		movzx rax, byte [rax]
 		mov [dp], rax
 		next
 
@@ -897,9 +895,8 @@ section .text
 	code entry_name
 		mov rax, [dp]
 		add rax, 9
-		mov bl, [rax - 1]
-		and bl, ~immediate
-		movzx rbx, bl
+		movzx rbx, byte [rax - 1]
+		and rbx, ~immediate
 		mov [dp], rax
 		sub dp, 8
 		mov [dp], rbx
