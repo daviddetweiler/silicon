@@ -93,7 +93,7 @@ section .text
         jmp .again
 
         .stream_end:
-        mov rax, image_base + 8 * 2
+        mov rax, image_base + 8
         lea rcx, GetModuleHandleA
         lea rdx, GetProcAddress
         jmp rax

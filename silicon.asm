@@ -213,7 +213,6 @@ section .bss
 
 section .text
 	%ifndef standalone
-		dq `silicon\0`
 		dq end_bss - begin_bss
 	%endif
 
