@@ -36,10 +36,11 @@ global start
 %define vt_cyan `\x1b[36m`
 %define vt_yellow `\x1b[33m`
 %define vt_clear `\x1b[2J\x1b[H`
+%define vt_clear_scrollback `\x1b[3J`
 %define red(string) %strcat(vt_red, string, vt_default)
 %define cyan(string) %strcat(vt_cyan, string, vt_default)
 %define yellow(string) %strcat(vt_yellow, string, vt_default)
-%define version_string %strcat(`Silicon (`, git_version, `) (c) 2023 @daviddetweiler`)
+%define version_string %strcat(`Silicon `, git_version)
 
 %define image_base 0x2000000000
 
@@ -1885,13 +1886,6 @@ section .rdata
 		da return
 
 	; ( -- )
-	declare "clear"
-	thread clear
-		da seq_clear
-		da print
-		da return
-
-	; ( -- )
 	declare "immediate"
 	thread make_immediate
 		da dictionary
@@ -2217,6 +2211,9 @@ section .rdata
 
 	declare "seq-default"
 	string seq_default, vt_default
+
+	declare "seq-clear-scrollback"
+	string seq_clear_scrollback, vt_clear_scrollback
 
 	declare "version-string"
 	string version_banner, cyan(version_string)

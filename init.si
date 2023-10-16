@@ -368,8 +368,20 @@ fn: info
 	nl
 end-fn
 
-fn: core-dict
-	[ current-definition load assemble-literal assemble ]
+\ --
+fn: clear seq-clear print end-fn
+
+\ --
+fn: clear-all
+	clear
+	seq-clear-scrollback print
 end-fn
 
-info
+\ --
+fn: checkpoint:
+	fn:
+	current-definition load assemble-literal assemble
+	assemble-word: end-fn
+end-fn
+
+checkpoint: core-dict

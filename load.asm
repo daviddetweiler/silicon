@@ -35,12 +35,9 @@ section .text
 
         lea rcx, VirtualAlloc
         call image
-        mov r15, rax
         lea rcx, GetModuleHandleA
         lea rdx, GetProcAddress
-        call r15
-
-        db 'NOPE'
+        call rax
 
     align 8
     image:
