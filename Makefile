@@ -12,22 +12,13 @@ silicon.obj: silicon.asm Makefile
     pwsh -c "nasm -fwin64 silicon.asm -Dgit_version=""$$(git describe --dirty --tags)"" \
         -o silicon.obj -g -Dstandalone"
 
-compressed.bin: silicon.bin huffman.py Makefile
-    python .\huffman.py silicon.bin compressed.bin
+blob.bin: silicon.bin huffman.py Makefile
+    python .\huffman.py silicon.bin blob.bin
 
-blob.inc: compressed.bin textify.py Makefile
-    python .\textify.py compressed.bin blob.inc
+blob.inc: blob.bin textify.py Makefile
+    python .\textify.py blob.bin blob.inc
 
-stub.bin: stub.asm blob.inc Makefile
-    nasm -fbin stub.asm -o stub.bin
-
-coded.bin chksum.inc: stub.bin xorcode.py Makefile
-    python .\xorcode.py stub.bin coded.bin chksum.inc
-
-coded.inc: coded.bin textify.py Makefile
-    python .\textify.py coded.bin coded.inc
-
-load.obj: load.asm coded.inc chksum.inc Makefile
+load.obj: load.asm blob.inc Makefile
     nasm -fwin64 load.asm
 
 silicon.exe: load.obj Makefile
@@ -39,7 +30,7 @@ silicon.exe: load.obj Makefile
         /fixed \
         /Brepro \
         /ignore:4254 \
-        /section:kernel,RWE \
+        /section:kernel,RE \
         /merge:.rdata=kernel \
         /merge:.text=kernel
 
@@ -53,7 +44,7 @@ silicon-debug.exe: silicon.obj Makefile
         /Brepro \
         /ignore:4254 \
         /section:kernel,RE \
-        /section:data,RWE \
+        /section:data,RW \
         /merge:.rdata=kernel \
         /merge:.text=kernel \
         /merge:.bss=data \

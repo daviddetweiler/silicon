@@ -219,8 +219,9 @@ section .text
 
 	; ( -- )
 	start:
-		sub rsp, 8 + 8 * 16 ; enough room for 16 parameters, plus stack alignment
-		%ifndef standalone
+		%ifdef standalone
+			sub rsp, 8 + 8 * 16 ; enough room for 16 parameters, plus stack alignment
+		%else
 			mov [get_module_handle], rcx
 			mov [get_proc_address], rdx
 		%endif
