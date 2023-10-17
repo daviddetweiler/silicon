@@ -180,7 +180,11 @@ def decode_with_encoded_tree(encoding, leaf_mask_ref, bits):
 def get_size(data):
     bss_size = 0
     bss_size = int.from_bytes(data[0:8], "little")
+    if bss_size > 2**32: # We're probably dealing with a non-image
+        bss_size = 0
+
     print("BSS size:", bss_size)
+    
     return len(data) + bss_size
 
 

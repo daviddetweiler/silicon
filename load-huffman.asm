@@ -85,6 +85,6 @@ section .text
 
     align 8
     blob:
-        %include "blob.inc"
+        %include "huffman.inc"
 
     end:

@@ -1,6 +1,6 @@
 all: build debug-build zip Makefile
 
-build: silicon.exe Makefile
+build-huffman: silicon-huffman.exe Makefile
 
 debug-build: silicon-debug.exe Makefile
 
@@ -12,18 +12,24 @@ silicon.obj: silicon.asm Makefile
     pwsh -c "nasm -fwin64 silicon.asm -Dgit_version=""$$(git describe --dirty --tags)"" \
         -o silicon.obj -g -Dstandalone"
 
-blob.bin: silicon.bin huffman.py Makefile
-    python .\huffman.py silicon.bin blob.bin
+lzw.bin: silicon.bin lzw.py Makefile
+    python .\lzw.py silicon.bin lzw.bin
 
-blob.inc: blob.bin textify.py Makefile
-    python .\textify.py blob.bin blob.inc
+lzw.inc: lzw.bin textify.py Makefile
+    python .\textify.py lzw.bin lzw.inc
 
-load.obj: load.asm blob.inc Makefile
-    nasm -fwin64 load.asm
+huffman.bin: silicon.bin huffman.py Makefile
+    python .\huffman.py silicon.bin huffman.bin
 
-silicon.exe: load.obj Makefile
-    link load.obj kernel32.lib \
-        /out:silicon.exe \
+huffman.inc: huffman.bin textify.py Makefile
+    python .\textify.py huffman.bin huffman.inc
+
+load-huffman.obj: load-huffman.asm huffman.inc Makefile
+    nasm -fwin64 load-huffman.asm
+
+silicon-huffman.exe: load-huffman.obj Makefile
+    link load-huffman.obj kernel32.lib \
+        /out:silicon-huffman.exe \
         /subsystem:console \
         /entry:start \
         /nologo \
