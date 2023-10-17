@@ -38,28 +38,36 @@ def encode(data):
 
 
 def decode(codes):
-    table = init_inverse_table()
+    data = bytes(i for i in range(256))
+    span = lambda pair : data[pair[0] : pair[0] + pair[1]]
+    table = [(0, 0)] * 4096
+    seen = set()
+    for i in range(256):
+        table[i] = (i, 1)
+        seen.add(span(table[i]))
+
     next_code = 256
-    data = b""
-    prev = b""
+    prev = 256, 0
     for code in codes:
-        if code in table:
-            decoded = table[code]
+        if code < next_code:
+            value = table[code]
+            decoded = span(value)
             data += decoded
-            candidate = prev + decoded[:1]
-            if candidate not in table.values():
+            candidate = prev[0], prev[1] + 1            
+            if span(candidate) not in seen:
                 table[next_code] = candidate
+                seen.add(span(candidate))
                 next_code += 1
 
-            prev = decoded
+            prev = prev[0] + prev[1], value[1]
         else:
-            decoded = prev + prev[:1]
-            data += decoded
+            data += span(prev) + span(prev)[:1]
+            decoded = prev[0] + prev[1], prev[1] + 1
             table[next_code] = decoded
             next_code += 1
             prev = decoded
 
-    return data
+    return data[256:]
 
 
 def to_triplets(codes):
@@ -89,6 +97,10 @@ def from_triplets(data):
 
     return codes
 
+def dump(filename, data):
+    with open(filename, "w") as f:
+        for byte in data:
+            f.write(repr(byte) + "\n")
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
@@ -101,6 +113,8 @@ if __name__ == "__main__":
 
     result = encode(data)
     round_trip = decode(result)
+    dump("a.log", data)
+    dump("b.log", round_trip)
     if round_trip != data:
         print("Round trip failed")
         sys.exit(1)
