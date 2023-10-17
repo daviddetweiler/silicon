@@ -72,7 +72,7 @@ def to_triplets(codes):
         r = codes[i + 1]
         assert l < 4096
         assert r < 4096
-        triplet = (l << 12) | r
+        triplet = (r << 12) | l
         data += triplet.to_bytes(3, "little")
 
     return data
@@ -82,8 +82,8 @@ def from_triplets(data):
     codes = []
     for i in range(0, len(data), 3):
         triplet = int.from_bytes(data[i : i + 3], "little")
-        l = (triplet >> 12) & 0xFFF
-        r = triplet & 0xFFF
+        r = (triplet >> 12) & 0xFFF
+        l = triplet & 0xFFF
         codes.append(l)
         codes.append(r)
 
@@ -106,7 +106,8 @@ if __name__ == "__main__":
         sys.exit(1)
 
     print(len(data), "bytes uncompressed")
-    print(len(result), "codes")
+    n_codes = len(result)
+    print(n_codes, "codes")
 
     compressed = to_triplets(result)
     if from_triplets(compressed)[:len(result)] != result:
@@ -116,4 +117,6 @@ if __name__ == "__main__":
     print(len(compressed), "bytes compressed")
     print(len(compressed) / len(data), "compression ratio")
     with open(sys.argv[2], "wb") as f:
+        f.write(len(data).to_bytes(4, "little"))
+        f.write(n_codes.to_bytes(4, "little"))
         f.write(compressed)
