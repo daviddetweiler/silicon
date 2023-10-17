@@ -1,6 +1,8 @@
-all: build debug-build zip Makefile
+all: build build-huffman debug-build zip Makefile
 
 build-huffman: silicon-huffman.exe Makefile
+
+build: silicon.exe Makefile
 
 debug-build: silicon-debug.exe Makefile
 
@@ -27,9 +29,25 @@ huffman.inc: huffman.bin textify.py Makefile
 load-huffman.obj: load-huffman.asm huffman.inc Makefile
     nasm -fwin64 load-huffman.asm
 
+load.obj: load.asm lzw.inc Makefile
+    nasm -fwin64 load.asm
+
 silicon-huffman.exe: load-huffman.obj Makefile
     link load-huffman.obj kernel32.lib \
         /out:silicon-huffman.exe \
+        /subsystem:console \
+        /entry:start \
+        /nologo \
+        /fixed \
+        /Brepro \
+        /ignore:4254 \
+        /section:kernel,RE \
+        /merge:.rdata=kernel \
+        /merge:.text=kernel
+
+silicon.exe: load.obj Makefile
+    link load.obj kernel32.lib \
+        /out:silicon.exe \
         /subsystem:console \
         /entry:start \
         /nologo \
