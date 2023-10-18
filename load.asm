@@ -19,12 +19,31 @@ section .text
     start:
         sub rsp, 8 + 8 * 16
 
-        mov rcx, image_base - dict_size
+        mov rcx, image_base - dict_size - 256
         mov edx, [blob_uncompressed_size]
         add rdx, dict_size
         mov r8, 0x1000 | 0x2000 ; MEM_COMMIT | MEM_RESERVE
         mov r9, 0x40 ; PAGE_EXECUTE_READWRITE
         call VirtualAlloc
+
+        mov rcx, image_base - dict_size ; dict base
+        mov rdx, image_base - dict_size - 256 ; byte array
+        xor r8, r8
+        
+        .next_init:
+        mov r9, r8
+        shl r9, 4 ; * 16
+        lea r9, [r9 + rcx]
+        lea rax, [r8 + rdx]
+        mov [rax], r8b
+        mov [r9], rax
+        mov dword [r9 + 8], 1
+        xor rax, rax
+        crc32 rax, r8b
+        mov dword [r9 + 12], eax
+        inc r8
+        cmp r8, 256
+        jne .next_init
 
         lea rsi, blob_stream
         mov rdi, image_base ; decompression buffer
@@ -38,8 +57,8 @@ section .text
         add rsi, 3
 
         .odd:
-        mov rax, r14
-        and rax, 0xfff
+        mov rbx, r14
+        and rbx, 0xfff
 
         shr r14, 12
         inc rdi
