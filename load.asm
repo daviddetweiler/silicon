@@ -217,6 +217,7 @@ section .text
 
         xor rax, rax
         ret
-    
+
+    align 8
     blob:
         %include "lzw.inc"
