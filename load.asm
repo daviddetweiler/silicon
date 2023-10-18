@@ -140,8 +140,7 @@ section .text
         call write_span
         mov rax, [prev_ptr]
         mov al, byte [rax]
-        mov byte [rdi], al
-        inc rdi
+        stosb
 
         mov rcx, [prev_ptr]
         mov rdx, [prev_len]
@@ -169,9 +168,8 @@ section .text
 
         .again:
         mov al, byte [rcx]
-        mov byte [rdi], al
+        stosb
         inc rcx
-        inc rdi
         dec rdx
         jnz .again
 
@@ -182,8 +180,8 @@ section .text
     write_row:
         mov rax, [8 + next_code]
         inc qword [8 + next_code]
-        shl rax, 4 ; * 16
-        lea rax, [r13 + rax]
+        add rax, rax
+        lea rax, [r13 + rax * 8]
         mov [rax], rcx
         mov [rax + 8], rdx
         ret
