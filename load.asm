@@ -18,6 +18,7 @@ extern GetProcAddress
 %define next_code rsp + 0
 %define prev_ptr rsp + 8
 %define prev_len rsp + 16
+%define triplet_id rsp + 24
 
 section .text
     start:
@@ -59,7 +60,7 @@ section .text
         mov qword [prev_len], rax
 
         .again:
-        test rdi, 1
+        test qword [triplet_id], 1
         jnz .odd
         mov r14, [rsi]
         add rsi, 3
@@ -80,7 +81,31 @@ section .text
         cmp rbx, [next_code]
         jge .no_match
 
+        shl rbx, 4 ; * 16
+        add rbx, r13
+        mov rcx, [rbx]
+        mov edx, [rbx + 8]
+        call write_span
 
+        mov rcx, [prev_ptr]
+        mov rdx, [prev_len]
+        inc rdx
+        call contains
+        test rax, rax
+        jnz .contained
+
+        mov rcx, [prev_ptr]
+        mov rdx, [prev_len]
+        inc rdx
+        call write_row
+
+        .contained:
+        mov rcx, [prev_ptr]
+        mov rdx, [prev_len]
+        add rcx, rdx
+        mov [prev_ptr], rcx
+        mov eax, [rbx + 8]
+        mov [prev_len], rax
 
         jmp .advance
 
@@ -102,7 +127,7 @@ section .text
 
         .advance:
         shr r14, 12
-        inc rdi
+        inc qword [triplet_id]
         dec r12
         jnz .again
 
@@ -152,6 +177,45 @@ section .text
         mov [rax], r10
         mov dword [rax + 8], r11d
         mov dword [rax + 12], ecx
+        ret
+
+    ; contains(ptr, len)
+    contains:
+        mov r10, rcx
+        mov r11, rdx
+        call crc_bytes
+        mov rcx, rax ; crc
+        mov r8, [8 + next_code] ; next code
+        mov r9, r13 ; dictionary base
+
+        .next_row:
+        cmp ecx, [r9 + 12]
+        jne .next_entry
+
+        cmp r11d, [r9 + 8]
+        jne .next_entry
+
+        xor rdx, rdx
+
+        .compare_next:
+        mov rax, [r9]
+        mov al, [rax + rdx]
+        cmp al, byte [r10 + rdx]
+        jne .next_entry
+
+        mov rax, 1
+        ret
+
+        inc rdx
+        cmp rdx, r11
+        jne .compare_next
+
+        .next_entry:
+        add r9, 16 ; sizeof(dict_entry)
+        dec r8
+        jnz .next_row
+
+        xor rax, rax
         ret
     
     blob:
