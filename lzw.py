@@ -1,5 +1,5 @@
 import sys
-import math
+import binascii
 
 
 def init_table():
@@ -27,23 +27,40 @@ def encode(data):
     while b < len(data):
         subdata = data[b:e]
         if subdata not in table or e > len(data):
-            result.append(table[data[b : e - 1]])
+            result.append(table[data[b: e - 1]])
             table[subdata] = code
             code += 1
             b = e - 1
         else:
             e += 1
 
+    print(code, "dictionary slots used")
+
     return result
 
+def span_raw(data, s):
+    return data[s[0] : s[0] + s[1]]
+
+def contains(data, table, c):
+    crc = binascii.crc32(span_raw(data, c))
+    found = False
+    for row in table:
+        if crc != row[2]:
+            continue
+
+        if span_raw(data, row) == span_raw(data, c):
+            found = True
+            break
+
+    return found
 
 def decode(codes):
     data = bytes(i for i in range(256))
-    span = lambda pair : data[pair[0] : pair[0] + pair[1]]
-    table = [(0, 0)] * 4096
+    span = lambda pair : span_raw(data, pair)
+    table = [(0, 0, 0)] * 4096
     seen = set()
     for i in range(256):
-        table[i] = (i, 1)
+        table[i] = (i, 1, binascii.crc32(i.to_bytes(1, "little")))
         seen.add(span(table[i]))
 
     next_code = 256
@@ -53,17 +70,18 @@ def decode(codes):
             value = table[code]
             decoded = span(value)
             data += decoded
-            candidate = prev[0], prev[1] + 1            
-            if span(candidate) not in seen:
-                table[next_code] = candidate
+            candidate = prev[0], prev[1] + 1
+            if not contains(data, table, candidate):
+                table[next_code] = candidate + (binascii.crc32(span(candidate)),)
                 seen.add(span(candidate))
                 next_code += 1
 
             prev = prev[0] + prev[1], value[1]
         else:
-            data += span(prev) + span(prev)[:1]
+            data += span(prev)
+            data += span(prev)[:1]
             decoded = prev[0] + prev[1], prev[1] + 1
-            table[next_code] = decoded
+            table[next_code] = decoded + (binascii.crc32(span(decoded)),)
             next_code += 1
             prev = decoded
 
@@ -89,7 +107,7 @@ def to_triplets(codes):
 def from_triplets(data):
     codes = []
     for i in range(0, len(data), 3):
-        triplet = int.from_bytes(data[i : i + 3], "little")
+        triplet = int.from_bytes(data[i: i + 3], "little")
         r = (triplet >> 12) & 0xFFF
         l = triplet & 0xFFF
         codes.append(l)
@@ -97,10 +115,12 @@ def from_triplets(data):
 
     return codes
 
+
 def dump(filename, data):
     with open(filename, "w") as f:
         for byte in data:
             f.write(repr(byte) + "\n")
+
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
@@ -119,6 +139,7 @@ if __name__ == "__main__":
         print("Round trip failed")
         sys.exit(1)
 
+    print(max(result), "max code")
     print(len(data), "bytes uncompressed")
     n_codes = len(result)
     print(n_codes, "codes")
