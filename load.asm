@@ -75,7 +75,7 @@ section .text
         mov [prev_ptr], rdi
         xor rax, rax
         mov qword [prev_len], rax
-        jmp .again
+        jmp .advance
 
         .no_reset:
         cmp rbx, [next_code]
