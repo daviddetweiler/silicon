@@ -1,0 +1,92 @@
+1 var: handle
+1 var: size
+1 var: buffer
+
+s" silicon.bin" drop open-file handle store
+
+handle load file-size copy size store
+allocate-pages buffer store
+
+buffer load
+size load
+handle load
+read-file
+
+s" Succeeded" string: success
+s" Failed" string: failure
+
+\ flag --
+fn: succeeded?
+    if
+        success print-line
+    else
+        failure print-line
+    end-if
+end-fn
+
+succeeded?
+size load = succeeded?
+
+handle load close-handle
+
+256 var: histogram
+
+\ n -- addr
+fn: hist[]
+    cell-size * histogram +
+end-fn
+
+\ --
+fn: init-histogram
+    0
+    while
+        copy 256 <
+    do
+        copy hist[] 0 swap store
+        1 +
+    end-while
+    drop
+end-fn
+
+init-histogram
+
+\ n -- addr
+fn: buffer[]
+    buffer load +
+end-fn
+
+\ addr --
+fn: inc-cell
+    copy load 1 + swap store
+end-fn
+
+\ --
+fn: do-count
+    size load
+    while
+        copy 0~=
+    do
+        copy 1 - buffer[] load-byte hist[] inc-cell
+        1 -
+    end-while
+    drop
+end-fn
+
+s" : " string: separator
+
+\ --
+fn: print-histogram
+    0
+    while
+        copy 256 <
+    do
+        copy print-u# separator print
+        copy hist[] load print-u# nl
+        1 +
+    end-while
+    drop
+end-fn
+
+do-count
+print-histogram
+size load print-u# nl

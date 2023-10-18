@@ -956,7 +956,7 @@ section .text
 			get_import CloseHandle
 			get_import VirtualAlloc
 			get_import VirtualFree
-			jmp next
+			next
 	%endif
 			
 section .rdata
