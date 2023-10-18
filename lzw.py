@@ -20,31 +20,39 @@ def init_inverse_table():
 
 
 def encode(data):
+    resets = 0
     table = init_table()
     code = 256
-    result = []
+    codes = []
     b, e = 0, 1
     while b < len(data):
         subdata = data[b:e]
         if subdata not in table or e > len(data):
-            result.append(table[data[b: e - 1]])
+            if code == 4095:
+                codes.append(code)
+                table = init_table()
+                code = 256
+                e = b + 1
+                resets += 1
+                continue
+
+            codes.append(table[data[b: e - 1]])
             table[subdata] = code
             code += 1
             b = e - 1
         else:
             e += 1
 
-    print(code, "dictionary slots used")
-
-    return result
+    return codes, resets
 
 def span_raw(data, s):
     return data[s[0] : s[0] + s[1]]
 
-def contains(data, table, c):
+def contains(data, table, next_code, c):
     crc = binascii.crc32(span_raw(data, c))
     found = False
-    for row in table:
+    for i in range(next_code):
+        row = table[i]
         if crc != row[2]:
             continue
 
@@ -58,22 +66,24 @@ def decode(codes):
     data = bytes(i for i in range(256))
     span = lambda pair : span_raw(data, pair)
     table = [(0, 0, 0)] * 4096
-    seen = set()
     for i in range(256):
         table[i] = (i, 1, binascii.crc32(i.to_bytes(1, "little")))
-        seen.add(span(table[i]))
 
     next_code = 256
     prev = 256, 0
     for code in codes:
+        if code == 4095:
+            next_code = 256
+            prev = len(data), 0
+            continue
+
         if code < next_code:
             value = table[code]
             decoded = span(value)
             data += decoded
             candidate = prev[0], prev[1] + 1
-            if not contains(data, table, candidate):
+            if not contains(data, table, next_code, candidate):
                 table[next_code] = candidate + (binascii.crc32(span(candidate)),)
-                seen.add(span(candidate))
                 next_code += 1
 
             prev = prev[0] + prev[1], value[1]
@@ -131,21 +141,19 @@ if __name__ == "__main__":
     with open(filename, "rb") as f:
         data = f.read()
 
-    result = encode(data)
-    round_trip = decode(result)
-    dump("a.log", data)
-    dump("b.log", round_trip)
+    codes, resets = encode(data)
+    round_trip = decode(codes)
     if round_trip != data:
         print("Round trip failed")
         sys.exit(1)
 
-    print(max(result), "max code")
+    print(resets, "dictionary resets")
     print(len(data), "bytes uncompressed")
-    n_codes = len(result)
+    n_codes = len(codes)
     print(n_codes, "codes")
 
-    compressed = to_triplets(result)
-    if from_triplets(compressed)[:len(result)] != result:
+    compressed = to_triplets(codes)
+    if from_triplets(compressed)[:len(codes)] != codes:
         print("Triplet round trip failed")
         sys.exit(1)
 
