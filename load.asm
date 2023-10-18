@@ -113,7 +113,8 @@ section .text
         mov rcx, [prev_ptr]
         mov rdx, [prev_len]
         call write_span
-        mov al, [prev_ptr]
+        mov rax, [prev_ptr]
+        mov al, byte [rax]
         mov byte [rdi], al
         inc rdi
 
@@ -131,7 +132,6 @@ section .text
         dec r12
         jnz .again
 
-        int3
         mov rax, image_base + 8
         lea rcx, GetModuleHandleA
         lea rdx, GetProcAddress

@@ -131,6 +131,15 @@ def dump(filename, data):
         for byte in data:
             f.write(repr(byte) + "\n")
 
+def get_size(data):
+    bss_size = 0
+    bss_size = int.from_bytes(data[0:8], "little")
+    if bss_size > 2**32: # We're probably dealing with a non-image
+        bss_size = 0
+
+    print("BSS size:", bss_size)
+    
+    return len(data) + bss_size
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
@@ -141,6 +150,7 @@ if __name__ == "__main__":
     with open(filename, "rb") as f:
         data = f.read()
 
+    uncompressed_size = get_size(data)
     codes, resets = encode(data)
     round_trip = decode(codes)
     if round_trip != data:
@@ -148,7 +158,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
     print(resets, "dictionary resets")
-    print(len(data), "bytes uncompressed")
+    print(uncompressed_size, "bytes uncompressed")
     n_codes = len(codes)
     print(n_codes, "codes")
 
@@ -160,6 +170,6 @@ if __name__ == "__main__":
     print(len(compressed), "bytes compressed")
     print(len(compressed) / len(data), "compression ratio")
     with open(sys.argv[2], "wb") as f:
-        f.write(len(data).to_bytes(4, "little"))
+        f.write(uncompressed_size.to_bytes(4, "little"))
         f.write(n_codes.to_bytes(4, "little"))
         f.write(compressed)
