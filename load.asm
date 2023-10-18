@@ -32,7 +32,7 @@ section .text
         call VirtualAlloc
 
         mov rcx, image_base - dict_size ; dict base
-        mov rdx, image_base - dict_size - 256 ; byte array
+        lea rdx, [rcx - 256] ; single-bytes array
         xor r8, r8
 
         .next_init:
@@ -42,10 +42,7 @@ section .text
         lea rax, [r8 + rdx]
         mov [rax], r8b
         mov [r9], rax
-        mov dword [r9 + 8], 1
-        xor rax, rax
-        crc32 rax, r8b
-        mov dword [r9 + 12], eax
+        mov qword [r9 + 8], 1
         inc r8
         cmp r8, 256
         jne .next_init
@@ -84,7 +81,7 @@ section .text
         shl rbx, 4 ; * 16
         add rbx, r13
         mov rcx, [rbx]
-        mov edx, [rbx + 8]
+        mov rdx, [rbx + 8]
         call write_span
 
         mov rcx, [prev_ptr]
@@ -96,7 +93,7 @@ section .text
         mov r9, r13 ; dictionary base
 
         .next_row:
-        cmp edx, [r9 + 8]
+        cmp rdx, [r9 + 8]
         jne .next_entry
         xor r10, r10
 
@@ -130,11 +127,9 @@ section .text
         call write_row
 
         .contained:
-        mov rcx, [prev_ptr]
-        mov rdx, [prev_len]
-        add rcx, rdx
-        mov [prev_ptr], rcx
-        mov eax, [rbx + 8]
+        mov rcx, [prev_len]
+        add [prev_ptr], rcx
+        mov rax, [rbx + 8]
         mov [prev_len], rax
 
         jmp .advance
@@ -190,7 +185,7 @@ section .text
         shl rax, 4 ; * 16
         lea rax, [r13 + rax]
         mov [rax], rcx
-        mov dword [rax + 8], edx
+        mov [rax + 8], rdx
         ret
 
     align 8
