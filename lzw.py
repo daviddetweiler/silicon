@@ -91,9 +91,9 @@ def decode(codes):
             data += span(prev)
             data += span(prev)[:1]
             decoded = prev[0] + prev[1], prev[1] + 1
+            prev = decoded
             table[next_code] = decoded + (binascii.crc32(span(decoded)),)
             next_code += 1
-            prev = decoded
 
     return data[256:]
 

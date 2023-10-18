@@ -74,10 +74,33 @@ section .text
         mov [prev_ptr], rdi
         xor rax, rax
         mov qword [prev_len], rax
-        int3
         jmp .again
 
         .no_reset:
+        cmp rbx, [next_code]
+        jge .no_match
+
+
+
+        jmp .advance
+
+        .no_match:
+        mov rcx, [prev_ptr]
+        mov rdx, [prev_len]
+        call write_span
+        mov al, [prev_ptr]
+        mov byte [rdi], al
+        inc rdi
+
+        mov rcx, [prev_ptr]
+        mov rdx, [prev_len]
+        add rcx, rdx
+        inc rdx
+        mov [prev_ptr], rcx
+        mov [prev_len], rdx
+        call write_row
+
+        .advance:
         shr r14, 12
         inc rdi
         dec r12
@@ -98,6 +121,37 @@ section .text
         inc rcx
         dec rdx
         jnz .next
+        ret
+
+    ; write_span(ptr, len)
+    write_span:
+        test rdx, rdx
+        jz .skip
+
+        .again:
+        mov al, byte [rcx]
+        mov byte [rdi], al
+        inc rcx
+        inc rdi
+        dec rdx
+        jnz .again
+
+        .skip:
+        ret
+
+    ; write_row(ptr, len)
+    write_row:
+        mov r10, rcx
+        mov r11, rdx
+        call crc_bytes
+        mov rcx, rax
+        mov rax, [8 + next_code]
+        inc qword [8 + next_code]
+        shl rax, 4 ; * 16
+        lea rax, [r13 + rax]
+        mov [rax], r10
+        mov dword [rax + 8], r11d
+        mov dword [rax + 12], ecx
         ret
     
     blob:
