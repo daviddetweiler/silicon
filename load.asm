@@ -15,6 +15,10 @@ extern GetProcAddress
 
 %define dict_size (8 * 2) * 4096
 
+%define next_code rsp + 0
+%define prev_ptr rsp + 8
+%define prev_len rsp + 16
+
 section .text
     start:
         sub rsp, 8 + 8 * 16
@@ -49,6 +53,10 @@ section .text
         mov rdi, image_base ; decompression buffer
         mov r12d, [blob_triplet_count]
         mov r13, image_base - dict_size ; dictionary base
+        mov qword [next_code], 256
+        mov [prev_ptr], rdi
+        xor rax, rax
+        mov qword [prev_len], rax
 
         .again:
         test rdi, 1
@@ -60,6 +68,16 @@ section .text
         mov rbx, r14
         and rbx, 0xfff
 
+        cmp rbx, 4095
+        jne .no_reset
+        mov qword [next_code], 256
+        mov [prev_ptr], rdi
+        xor rax, rax
+        mov qword [prev_len], rax
+        int3
+        jmp .again
+
+        .no_reset:
         shr r14, 12
         inc rdi
         dec r12
@@ -70,6 +88,17 @@ section .text
         lea rcx, GetModuleHandleA
         lea rdx, GetProcAddress
         jmp rax
+
+    ; crc_bytes(ptr, len): crc
+    crc_bytes:
+        xor rax, rax
+
+        .next:
+        crc32 rax, byte [rcx]
+        inc rcx
+        dec rdx
+        jnz .next
+        ret
     
     blob:
         %include "lzw.inc"
