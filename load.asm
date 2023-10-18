@@ -34,7 +34,7 @@ section .text
         mov rcx, image_base - dict_size ; dict base
         mov rdx, image_base - dict_size - 256 ; byte array
         xor r8, r8
-        
+
         .next_init:
         mov r9, r8
         shl r9, 4 ; * 16
@@ -191,10 +191,8 @@ section .text
         .next_row:
         cmp ecx, [r9 + 12]
         jne .next_entry
-
         cmp r11d, [r9 + 8]
         jne .next_entry
-
         xor rdx, rdx
 
         .compare_next:
@@ -202,13 +200,12 @@ section .text
         mov al, [rax + rdx]
         cmp al, byte [r10 + rdx]
         jne .next_entry
-
-        mov rax, 1
-        ret
-
         inc rdx
         cmp rdx, r11
         jne .compare_next
+
+        mov rax, 1
+        ret
 
         .next_entry:
         add r9, 16 ; sizeof(dict_entry)

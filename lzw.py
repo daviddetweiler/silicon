@@ -36,7 +36,7 @@ def encode(data):
                 resets += 1
                 continue
 
-            codes.append(table[data[b: e - 1]])
+            codes.append(table[data[b : e - 1]])
             table[subdata] = code
             code += 1
             b = e - 1
@@ -45,8 +45,10 @@ def encode(data):
 
     return codes, resets
 
+
 def span_raw(data, s):
     return data[s[0] : s[0] + s[1]]
+
 
 def contains(data, table, next_code, c):
     crc = binascii.crc32(span_raw(data, c))
@@ -62,9 +64,10 @@ def contains(data, table, next_code, c):
 
     return found
 
+
 def decode(codes):
     data = bytes(i for i in range(256))
-    span = lambda pair : span_raw(data, pair)
+    span = lambda pair: span_raw(data, pair)
     table = [(0, 0, 0)] * 4096
     for i in range(256):
         table[i] = (i, 1, binascii.crc32(i.to_bytes(1, "little")))
@@ -117,7 +120,7 @@ def to_triplets(codes):
 def from_triplets(data):
     codes = []
     for i in range(0, len(data), 3):
-        triplet = int.from_bytes(data[i: i + 3], "little")
+        triplet = int.from_bytes(data[i : i + 3], "little")
         r = (triplet >> 12) & 0xFFF
         l = triplet & 0xFFF
         codes.append(l)
@@ -131,15 +134,17 @@ def dump(filename, data):
         for byte in data:
             f.write(repr(byte) + "\n")
 
+
 def get_size(data):
     bss_size = 0
     bss_size = int.from_bytes(data[0:8], "little")
-    if bss_size > 2**32: # We're probably dealing with a non-image
+    if bss_size > 2**32:  # We're probably dealing with a non-image
         bss_size = 0
 
     print("BSS size:", bss_size)
-    
+
     return len(data) + bss_size
+
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
@@ -163,7 +168,7 @@ if __name__ == "__main__":
     print(n_codes, "codes")
 
     compressed = to_triplets(codes)
-    if from_triplets(compressed)[:len(codes)] != codes:
+    if from_triplets(compressed)[: len(codes)] != codes:
         print("Triplet round trip failed")
         sys.exit(1)
 
