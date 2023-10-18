@@ -137,17 +137,6 @@ section .text
         lea rdx, GetProcAddress
         jmp rax
 
-    ; crc_bytes(ptr, len): crc
-    crc_bytes:
-        xor rax, rax
-
-        .next:
-        crc32 rax, byte [rcx]
-        inc rcx
-        dec rdx
-        jnz .next
-        ret
-
     ; write_span(ptr, len)
     write_span:
         test rdx, rdx
@@ -166,42 +155,31 @@ section .text
 
     ; write_row(ptr, len)
     write_row:
-        mov r10, rcx
-        mov r11, rdx
-        call crc_bytes
-        mov rcx, rax
         mov rax, [8 + next_code]
         inc qword [8 + next_code]
         shl rax, 4 ; * 16
         lea rax, [r13 + rax]
-        mov [rax], r10
-        mov dword [rax + 8], r11d
-        mov dword [rax + 12], ecx
+        mov [rax], rcx
+        mov dword [rax + 8], edx
         ret
 
     ; contains(ptr, len)
     contains:
-        mov r10, rcx
-        mov r11, rdx
-        call crc_bytes
-        mov rcx, rax ; crc
         mov r8, [8 + next_code] ; next code
         mov r9, r13 ; dictionary base
 
         .next_row:
-        cmp ecx, [r9 + 12]
+        cmp edx, [r9 + 8]
         jne .next_entry
-        cmp r11d, [r9 + 8]
-        jne .next_entry
-        xor rdx, rdx
+        xor r10, r10
 
         .compare_next:
         mov rax, [r9]
-        mov al, [rax + rdx]
-        cmp al, byte [r10 + rdx]
+        mov al, [rax + r10]
+        cmp al, byte [rcx + r10]
         jne .next_entry
-        inc rdx
-        cmp rdx, r11
+        inc r10
+        cmp r10, rdx
         jne .compare_next
 
         mov rax, 1
