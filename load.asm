@@ -90,7 +90,37 @@ section .text
         mov rcx, [prev_ptr]
         mov rdx, [prev_len]
         inc rdx
-        call contains
+
+        ; contains(ptr, len)
+        mov r8, [next_code] ; next code
+        mov r9, r13 ; dictionary base
+
+        .next_row:
+        cmp edx, [r9 + 8]
+        jne .next_entry
+        xor r10, r10
+
+        .compare_next:
+        mov rax, [r9]
+        mov al, [rax + r10]
+        cmp al, byte [rcx + r10]
+        jne .next_entry
+        inc r10
+        cmp r10, rdx
+        jne .compare_next
+
+        mov rax, 1
+        jmp .search_done
+
+        .next_entry:
+        add r9, 16 ; sizeof(dict_entry)
+        dec r8
+        jnz .next_row
+
+        xor rax, rax
+        
+        ; after contains()
+        .search_done:
         test rax, rax
         jnz .contained
 
@@ -161,36 +191,6 @@ section .text
         lea rax, [r13 + rax]
         mov [rax], rcx
         mov dword [rax + 8], edx
-        ret
-
-    ; contains(ptr, len)
-    contains:
-        mov r8, [8 + next_code] ; next code
-        mov r9, r13 ; dictionary base
-
-        .next_row:
-        cmp edx, [r9 + 8]
-        jne .next_entry
-        xor r10, r10
-
-        .compare_next:
-        mov rax, [r9]
-        mov al, [rax + r10]
-        cmp al, byte [rcx + r10]
-        jne .next_entry
-        inc r10
-        cmp r10, rdx
-        jne .compare_next
-
-        mov rax, 1
-        ret
-
-        .next_entry:
-        add r9, 16 ; sizeof(dict_entry)
-        dec r8
-        jnz .next_row
-
-        xor rax, rax
         ret
 
     align 8
