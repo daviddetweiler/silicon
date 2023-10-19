@@ -9,9 +9,8 @@ extern GetProcAddress
 
 %define image_base 0x2000000000
 
-%define blob_uncompressed_size blob + 0
-%define blob_triplet_count blob + 4
-%define blob_stream blob + 8
+%define blob_uncompressed_size (blob + 0)
+%define blob_stream (blob + 4)
 
 %define dict_size (8 * 2) * 4096
 
@@ -49,7 +48,7 @@ section .text
 
         lea rsi, blob_stream
         mov rdi, image_base ; decompression buffer
-        mov r12d, [blob_triplet_count]
+        mov r12d, 2 * (end - blob_stream) / 3 ; stream size
         mov r13, image_base - dict_size ; dictionary base
         mov qword [next_code], 256
         mov [prev_ptr], rdi
@@ -186,6 +185,8 @@ section .text
         mov [rax + 8], rdx
         ret
 
-    align 8
+    align 4
     blob:
         %include "lzw.inc"
+
+    end:

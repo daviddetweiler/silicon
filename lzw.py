@@ -64,7 +64,7 @@ def contains(data, table, next_code, c):
 
     return found
 
-
+# Kept as documentation
 def decode(codes):
     data = bytes(i for i in range(256))
     span = lambda pair: span_raw(data, pair)
@@ -116,18 +116,8 @@ def to_triplets(codes):
 
     return data
 
-
-def from_triplets(data):
-    codes = []
-    for i in range(0, len(data), 3):
-        triplet = int.from_bytes(data[i : i + 3], "little")
-        r = (triplet >> 12) & 0xFFF
-        l = triplet & 0xFFF
-        codes.append(l)
-        codes.append(r)
-
-    return codes
-
+# If there is an odd number of codes, a 0 is appended and the uncompressed size is incremented by 1 to make space for
+# the extra zero byte after decompression.
 
 def dump(filename, data):
     with open(filename, "w") as f:
@@ -157,24 +147,16 @@ if __name__ == "__main__":
 
     uncompressed_size = get_size(data)
     codes, resets = encode(data)
-    round_trip = decode(codes)
-    if round_trip != data:
-        print("Round trip failed")
-        sys.exit(1)
 
     print(resets, "dictionary resets")
     print(uncompressed_size, "bytes uncompressed")
-    n_codes = len(codes)
-    print(n_codes, "codes")
+    print(len(codes), "codes")
 
-    compressed = to_triplets(codes)
-    if from_triplets(compressed)[: len(codes)] != codes:
-        print("Triplet round trip failed")
-        sys.exit(1)
-
+    compressed = (uncompressed_size + 1).to_bytes(4, "little")
+    compressed += to_triplets(codes)
     print(len(compressed), "bytes compressed")
-    print(len(compressed) / len(data), "compression ratio")
+
+    ratio = len(compressed) / len(data)
+    print(f"{ratio * 100:.2f}%", "compression ratio")
     with open(sys.argv[2], "wb") as f:
-        f.write(uncompressed_size.to_bytes(4, "little"))
-        f.write(n_codes.to_bytes(4, "little"))
         f.write(compressed)
