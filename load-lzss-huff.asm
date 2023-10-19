@@ -57,7 +57,6 @@ section .text
         jz .next_find_length
         
     decode:
-        int3
         xor rax, rax ; rax is the bit index
         xor rdx, rdx ; rdx is the number of bytes decoded
 
@@ -66,11 +65,13 @@ section .text
         xor rcx, rcx ; rcx is the current code length (to determine validity)
         
         .decode_next_bit:
-        int3
         mov r8, rax
         shr r8, 4 ; r8 is the word index
-        bt word [r15 + r8 * 2], ax ; check if the bit is set
+        mov rbx, rax
+        and rbx, 16 - 1 ; rbx is the bit index
+        bt word [r15 + r8 * 2], bx ; check if the bit is set
         setc r8b ; r8b is the bit value
+        int3
         inc rax ; increment the bit index
         inc rcx ; increment the code length
         shl rbx, 1 ; shift the prefix

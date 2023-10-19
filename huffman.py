@@ -60,6 +60,10 @@ def encode_huffman(data):
         else:
             codebook_packed += b"\x00"
 
+    with open("bits.log", "w") as f:
+        for bit in bits:
+            f.write(str(bit) + "\n")
+
     return (
         len(data).to_bytes(2, "little")
         + codebook_packed
