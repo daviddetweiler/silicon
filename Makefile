@@ -27,8 +27,8 @@ lzss.inc: lzss.bin textify.py Makefile
 load-lzss.bin: load-lzss.asm lzss.inc Makefile
     nasm -fbin load-lzss.asm -o load-lzss.bin
 
-lzss-huff.bin: lzss.bin huffman.py Makefile
-    python .\huffman.py lzss.bin lzss-huff.bin
+lzss-huff.bin: load-lzss.bin huffman.py Makefile
+    python .\huffman.py load-lzss.bin lzss-huff.bin
 
 lzss-huff.inc: lzss-huff.bin textify.py Makefile
     python .\textify.py lzss-huff.bin lzss-huff.inc
