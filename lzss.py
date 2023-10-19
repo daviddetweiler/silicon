@@ -72,29 +72,30 @@ def encode(data):
 
     return (
         len(data).to_bytes(2, "little")
-        + len(bits).to_bytes(2, "little")
+        + math.ceil(len(bits) / 8).to_bytes(2, "little")
         + to_bytes(bits)
         + coded
     )
 
 
 def decode(data):
-    _ = int.from_bytes(data[:2], "little")
+    uncompressed_size = int.from_bytes(data[:2], "little")
     data = data[2:]
-    length = int.from_bytes(data[:2], "little")
+    bitvector_length = int.from_bytes(data[:2], "little")
     data = data[2:]
 
     bits = []
-    bitvector_length = math.ceil(length / 8)
     for byte in data[:bitvector_length]:
         for i in range(8):
-            if i < length:
-                bits.append(byte >> i & 1)
+            bits.append(byte >> i & 1)
 
     coded = data[bitvector_length:]
 
     data = b""
     for bit in bits:
+        if len(data) == uncompressed_size:
+            break
+
         if bit == 0:
             data += coded[:1]
             coded = coded[1:]
