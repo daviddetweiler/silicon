@@ -17,6 +17,7 @@ global start
 
 section .text
     start:
+        ; This can be wrapped into a call for deduplication
         mov rcx, image_base - dict_size - 256
         mov edx, [blob_uncompressed_size]
         add rdx, dict_size

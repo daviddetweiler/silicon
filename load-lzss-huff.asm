@@ -35,6 +35,7 @@ section .text
         xor rax, rax
         inc rax ; rax will be the current code length
         xor rbx, rbx ; rbx will be the current code bits
+        xor r11, r11 ; r11 will be the minimum code length
 
         .next_find_length:
         xor rcx, rcx ; rcx will be the packed index (i.e. the byte value)
@@ -42,6 +43,8 @@ section .text
         .next_find:
         cmp [r13 + rcx], al
         jne .next_code
+        test r11, r11
+        cmovz r11, rax ; if min_length is not set yet, set it
         mov [r12 + rcx * 8], rbx ; store the reconstructed code
         inc rbx
         .next_code:
@@ -53,12 +56,57 @@ section .text
         test rax, 64
         jz .next_find_length
         
+    decode:
+        int3
+        xor rax, rax ; rax is the bit index
+        xor rdx, rdx ; rdx is the number of bytes decoded
+
+        .decode_next_byte:
+        xor rbx, rbx ; rbx is the current prefix (the prospective code)
+        xor rcx, rcx ; rcx is the current code length (to determine validity)
+        
+        .decode_next_bit:
+        int3
+        mov r8, rax
+        shr r8, 4 ; r8 is the word index
+        bt word [r15 + r8 * 2], ax ; check if the bit is set
+        setc r8b ; r8b is the bit value
+        inc rax ; increment the bit index
+        inc rcx ; increment the code length
+        shl rbx, 1 ; shift the prefix
+        or bl, r8b ; set the bit
+
+        cmp rcx, r11
+        jne .decode_next_bit
+
+        xor r13, r13 ; r13 is the current index into the codebook (for searches)
+
+        .try_next_code:
+        cmp rbx, [r12 + r13 * 8]
+        jne .next_code
+        mov [r14 + rdx], r13b
+        inc rdx
+        jmp .byte_decoded
+        
+        .next_code:
+        inc r13
+        and r13, 256 - 1
+        jnz .try_next_code
+
+        ; By here we've tried all 256 codes and none of them matched.
+        ; Therefore, we pull in the next bit and try again.
+        jmp .decode_next_bit
+
+        .byte_decoded:
+        cmp dx, [blob_uncompressed_size]
+        jne .decode_next_byte 
+
+    load:
         int3
         mov rcx, VirtualAlloc
         call r14 ; call stage 2
         jmp rax ; invoke final decompressed image
 
-    align 4
     blob:
         %include "lzss-huff.inc"
 
