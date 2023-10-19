@@ -27,17 +27,17 @@ def encode(data):
         j = 3  # At least 4 bytes are needed to encode a match, so we match only 5 bytes or more.
         longest_match = None
         while True:
+            window_base = max(0, i - window)
             window_data = data[i - window : i + j - 1]
             m = window_data.rfind(data[i : i + j])
             if m == -1 or i + j > len(data):
                 break
             else:
-                longest_match = m, j
+                longest_match = i - (window_base + m), j
                 j += 1
 
         if longest_match is not None:
-            offset = i - longest_match[0]
-            length = longest_match[1]
+            offset, length = longest_match
             coded += offset.to_bytes(2, "little")
             coded += length.to_bytes(2, "little")
             bits.append(1)
@@ -135,7 +135,8 @@ def encode_huffman(data):
     byte_length = math.ceil(bit_length / 8)
 
     coded = b"\xff" * byte_length
-    return coded
+    codebook = b"".join(cl.to_bytes(1, "little") for cl in code_lengths.values())
+    return len(data).to_bytes(2, "little") + bit_length.to_bytes(2, "little") + codebook + coded
 
 
 if __name__ == "__main__":
@@ -160,3 +161,6 @@ if __name__ == "__main__":
     ratio = len(coded) / len(data)
     print(f"{ratio * 100:.2f}%", "compression ratio")
     print(len(coded), "bytes compressed")
+
+    with open(sys.argv[2], "wb") as f:
+        f.write(coded)
