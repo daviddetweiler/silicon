@@ -110,7 +110,8 @@ section .text
     load:
         mov rax, VirtualAlloc
         call r14 ; call stage 2
-        int3
+        mov rcx, GetModuleHandleA
+        mov rdx, GetProcAddress
         jmp rax ; invoke final decompressed image
 
     blob:

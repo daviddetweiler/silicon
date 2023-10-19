@@ -18,6 +18,7 @@ def to_bytes(bits):
 
     return coded
 
+
 def encode_15bit(n):
     assert 0 <= n < 2**15
     if n < 0x80:
@@ -26,7 +27,8 @@ def encode_15bit(n):
         hi = n >> 8
         lo = n & 0xFF
         return (0x80 | hi).to_bytes(1, "little") + lo.to_bytes(1, "little")
-    
+
+
 def decode_15bit(data):
     leader = data[0]
     if leader < 0x80:
@@ -35,6 +37,7 @@ def decode_15bit(data):
         hi = leader & 0x7F
         lo = data[1]
         return (hi << 8) | lo, data[2:]
+
 
 def encode(data):
     window = 2**15
@@ -72,7 +75,8 @@ def encode(data):
 
     print(len(bits), "bits")
     return (
-        len(data).to_bytes(2, "little")
+        get_size(data).to_bytes(4, "little")
+        + len(data).to_bytes(2, "little")
         + math.ceil(len(bits) / 8).to_bytes(2, "little")
         + to_bytes(bits)
         + coded
@@ -80,8 +84,12 @@ def encode(data):
 
 
 def decode(data):
+    alloc_size = int.from_bytes(data[:4], "little")
+    data = data[4:]
+
     uncompressed_size = int.from_bytes(data[:2], "little")
     data = data[2:]
+
     bitvector_length = int.from_bytes(data[:2], "little")
     data = data[2:]
 
@@ -133,6 +141,17 @@ def entropy_limit(data):
     return ratio
 
 
+def get_size(data):
+    bss_size = 0
+    bss_size = int.from_bytes(data[0:8], "little")
+    if bss_size > 2**32:  # We're probably dealing with a non-image
+        bss_size = 0
+
+    print("BSS size:", bss_size)
+
+    return len(data) + bss_size
+
+
 if __name__ == "__main__":
     if len(sys.argv) != 3:
         print("Usage: lzss.py <input> <output>")
@@ -151,10 +170,10 @@ if __name__ == "__main__":
     round_trip = decode(lzss)
     assert round_trip == data
 
-    #coded = encode_huffman(lzss)
+    # coded = encode_huffman(lzss)
     coded = lzss
     ratio = len(coded) / len(data)
-    #print(f"{ratio * 100:.2f}%", "compression ratio")
+    # print(f"{ratio * 100:.2f}%", "compression ratio")
     print(len(coded), "bytes compressed")
 
     with open(sys.argv[2], "wb") as f:

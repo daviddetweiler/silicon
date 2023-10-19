@@ -5,9 +5,9 @@ global start
 
 %define image_base 0x2000000000
 
-%define blob_uncompressed_size (blob + 0)
-%define blob_bitfield_bytes (blob + 2)
-%define blob_bitfield (blob + 4)
+%define blob_uncompressed_size (blob + 4)
+%define blob_bitfield_bytes (blob + 6)
+%define blob_bitfield (blob + 8)
 
 %define dict_size (8 * 2) * 4096
 
@@ -25,7 +25,7 @@ section .text
 
         ; This can be wrapped into a call for deduplication
         mov rcx, image_base
-        mov rdx, r12
+        mov edx, dword [r14 - 8]
         add rdx, dict_size
         mov r8, 0x1000 | 0x2000 ; MEM_COMMIT | MEM_RESERVE
         mov r9, 0x40 ; PAGE_EXECUTE_READWRITE
