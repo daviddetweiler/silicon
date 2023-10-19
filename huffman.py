@@ -64,6 +64,10 @@ def encode_huffman(data):
         for bit in bits:
             f.write(str(bit) + "\n")
 
+    with open("codebook.log", "w") as f:
+        for byte, bitstring in sorted(codebook.items(), key=operator.itemgetter(0)):
+            f.write(f"{byte:02x} -> {bitstring}\n")
+
     return (
         len(data).to_bytes(2, "little")
         + codebook_packed

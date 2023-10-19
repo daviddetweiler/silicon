@@ -13,7 +13,7 @@ extern GetProcAddress
 %define blob_codebook (blob + 2)
 %define blob_stream (blob + 2 + 256)
 
-%define codebook_size 8 * 256
+%define codebook_size (8 * 2) * 256
 
 section .text
     start:
@@ -45,7 +45,9 @@ section .text
         jne .next_code
         test r11, r11
         cmovz r11, rax ; if min_length is not set yet, set it
-        mov [r12 + rcx * 8], rbx ; store the reconstructed code
+        lea r10, [rcx * 2]
+        mov [r12 + r10 * 8], rbx ; store the reconstructed code
+        mov [r12 + r10 * 8 + 8], rax ; store the code length
         inc rbx
         .next_code:
         inc rcx
@@ -57,6 +59,7 @@ section .text
         jz .next_find_length
         
     decode:
+        int3
         xor rax, rax ; rax is the bit index
         xor rdx, rdx ; rdx is the number of bytes decoded
 
@@ -67,23 +70,26 @@ section .text
         .decode_next_bit:
         mov r8, rax
         shr r8, 4 ; r8 is the word index
-        mov rbx, rax
-        and rbx, 16 - 1 ; rbx is the bit index
-        bt word [r15 + r8 * 2], bx ; check if the bit is set
+        mov r9, rax
+        and r9, 16 - 1 ; rbx is the bit index
+        bt word [r15 + r8 * 2], r9w ; check if the bit is set
         setc r8b ; r8b is the bit value
-        int3
         inc rax ; increment the bit index
         inc rcx ; increment the code length
         shl rbx, 1 ; shift the prefix
         or bl, r8b ; set the bit
 
+        ; not yet enough bits to start cheching for a match
         cmp rcx, r11
-        jne .decode_next_bit
+        jl .decode_next_bit
 
         xor r13, r13 ; r13 is the current index into the codebook (for searches)
 
         .try_next_code:
-        cmp rbx, [r12 + r13 * 8]
+        lea r10, [r13 * 2]
+        cmp rbx, [r12 + r10 * 8]
+        jne .next_code
+        cmp rcx, [r12 + r10 * 8 + 8]
         jne .next_code
         mov [r14 + rdx], r13b
         inc rdx
