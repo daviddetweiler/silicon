@@ -41,7 +41,23 @@ section .text
         and rbx, 15 ; bit address
         bt word [r14 + rax * 2], bx
         jnc .literal
-        int3
+
+        call decode_15bit
+        mov rbx, rax ; rbx keeps the offset
+        call decode_15bit ; rcx keeps the length
+        mov rcx, rax
+        neg rbx ; rbx was a backwards offset, so we negate it to get the true relative offset
+        sub r12, rcx ; r12 keeps the remaining bytes to decode
+
+        .next_copy:
+        mov rax, [rdi + rbx]
+        stosb
+        dec rcx
+        jnz .next_copy
+
+        ; r13 was already adjusted by decode_15bit
+        inc r15
+        jmp .next_command
 
         .literal:
         movzx rax, byte [r13]
@@ -50,6 +66,27 @@ section .text
         inc r15
         dec r12
         jnz .next_command
+
+        int3
+        ret
+
+    ; r13 keeps the compressed stream
+    decode_15bit:
+        movzx r10, byte [r13]
+        test r10, 0x80
+        jnz .long
+        mov rax, r10
+        inc r13
+        ret
+
+        .long:
+        mov rax, r10
+        and rax, 0x7f
+        shl rax, 8
+        movzx r10, byte [r13 + 1]
+        or rax, r10
+        add r13, 2
+        ret
 
     blob:
         %include "lzss.inc"
