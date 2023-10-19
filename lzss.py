@@ -70,6 +70,7 @@ def encode(data):
             bits.append(0)
             i += 1
 
+    print(len(bits), "bits")
     return (
         len(data).to_bytes(2, "little")
         + math.ceil(len(bits) / 8).to_bytes(2, "little")

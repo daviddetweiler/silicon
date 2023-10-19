@@ -66,6 +66,7 @@ def encode_huffman(data):
 
     with open("codebook.log", "w") as f:
         for byte, bitstring in sorted(codebook.items(), key=operator.itemgetter(0)):
+            assert len(bitstring) <= 64 # Otherwise it won't fit in a machine register
             f.write(f"{byte:02x} -> {bitstring}\n")
 
     return (

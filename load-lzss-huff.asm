@@ -59,7 +59,6 @@ section .text
         jz .next_find_length
         
     decode:
-        int3
         xor rax, rax ; rax is the bit index
         xor rdx, rdx ; rdx is the number of bytes decoded
 
@@ -109,12 +108,9 @@ section .text
         jne .decode_next_byte 
 
     load:
-        int3
-        mov rcx, VirtualAlloc
+        mov rax, VirtualAlloc
         call r14 ; call stage 2
         jmp rax ; invoke final decompressed image
 
     blob:
         %include "lzss-huff.inc"
-
-    end:
