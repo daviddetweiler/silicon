@@ -29,7 +29,7 @@ def encode(data):
         longest_match = None
         while True:
             window_base = max(0, i - window)
-            window_data = data[i - window : i + j - 1]
+            window_data = data[window_base : i + j - 1]
             m = window_data.rfind(data[i : i + j])
             if m == -1 or i + j > len(data):
                 break
