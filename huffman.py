@@ -49,7 +49,6 @@ def encode_huffman(data):
     codebook = b"".join(cl.to_bytes(1, "little") for cl in code_lengths.values())
     return (
         len(data).to_bytes(2, "little")
-        + bit_length.to_bytes(2, "little")
         + codebook
         + coded
     )

@@ -18,9 +18,26 @@ def to_bytes(bits):
 
     return coded
 
+def encode_15bit(n):
+    assert 0 <= n < 2**15
+    if n < 0x80:
+        return n.to_bytes(1, "little")
+    else:
+        hi = n >> 8
+        lo = n & 0xFF
+        return (0x80 | hi).to_bytes(1, "little") + lo.to_bytes(1, "little")
+    
+def decode_15bit(data):
+    leader = data[0]
+    if leader < 0x80:
+        return leader, data[1:]
+    else:
+        hi = leader & 0x7F
+        lo = data[1]
+        return (hi << 8) | lo, data[2:]
 
 def encode(data):
-    window = 2**16
+    window = 2**15
     i = 0
     bits = []
     coded = b""
@@ -39,10 +56,15 @@ def encode(data):
 
         if longest_match is not None:
             offset, length = longest_match
-            coded += offset.to_bytes(2, "little")
-            coded += length.to_bytes(2, "little")
-            bits.append(1)
-            i += length
+            pair_code = encode_15bit(offset) + encode_15bit(length)
+            if len(pair_code) < length:
+                coded += pair_code
+                bits.append(1)
+                i += length
+            else:
+                coded += data[i].to_bytes(1, "little")
+                bits.append(0)
+                i += 1
         else:
             coded += data[i].to_bytes(1, "little")
             bits.append(0)
@@ -77,9 +99,8 @@ def decode(data):
             data += coded[:1]
             coded = coded[1:]
         else:
-            offset = int.from_bytes(coded[:2], "little")
-            length = int.from_bytes(coded[2:4], "little")
-            coded = coded[4:]
+            offset, coded = decode_15bit(coded)
+            length, coded = decode_15bit(coded)
             if offset > length:
                 data += data[-offset : -(offset - length)]
             else:
