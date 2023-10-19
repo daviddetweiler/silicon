@@ -15,14 +15,32 @@ silicon.obj: silicon.asm Makefile
 lzw.bin: silicon.bin lzw.py Makefile
     python .\lzw.py silicon.bin lzw.bin
 
+lzss.bin: silicon.bin lzss.py Makefile
+    python .\lzss.py silicon.bin lzss.bin
+
 lzw.inc: lzw.bin textify.py Makefile
     python .\textify.py lzw.bin lzw.inc
+
+lzss.inc: lzss.bin textify.py Makefile
+    python .\textify.py lzss.bin lzss.inc
+
+load-lzss.bin: load-lzss.asm lzss.inc Makefile
+    nasm -fbin load-lzss.asm -o load-lzss.bin
+
+lzss-huff.bin: load-lzss.bin huffman.py Makefile
+    python .\huffman.py load-lzss.bin lzss-huff.bin
+
+lzss-huff.inc: lzss-huff.bin textify.py Makefile
+    python .\textify.py lzss-huff.bin lzss-huff.inc
 
 load.obj: load.asm lzw.inc Makefile
     nasm -fwin64 load.asm
 
-silicon.exe: load.obj Makefile
-    link load.obj kernel32.lib \
+load-lzss-huff.obj: load-lzss-huff.asm lzss-huff.inc Makefile
+    nasm -fwin64 load-lzss-huff.asm
+
+silicon.exe: load-lzss-huff.obj Makefile
+    link load-lzss-huff.obj kernel32.lib \
         /out:silicon.exe \
         /subsystem:console \
         /entry:start \
