@@ -18,6 +18,8 @@ global start
 
 section .text
     start:
+        sub rsp, 8 + 8 * 4
+
         lea r14, blob_bitfield ; r14 keeps the bitfield
         movzx r12, word [r14 - 4] ; r12 keeps the decompressed size
 
@@ -57,7 +59,12 @@ section .text
 
         ; r13 was already adjusted by decode_15bit
         inc r15
-        jmp .next_command
+        test r12, r12
+        jnz .next_command
+
+        mov rax, image_base + 8
+        add rsp, 8 + 8 * 4
+        ret
 
         .literal:
         movzx rax, byte [r13]
@@ -66,9 +73,6 @@ section .text
         inc r15
         dec r12
         jnz .next_command
-
-        int3
-        ret
 
     ; r13 keeps the compressed stream
     decode_15bit:
