@@ -44,6 +44,7 @@ def encode(data):
     i = 0
     bits = []
     coded = b""
+    log = []
     while i < len(data):
         j = 3  # At least 4 bytes are needed to encode a match, so we match only 5 bytes or more.
         longest_match = None
@@ -61,19 +62,30 @@ def encode(data):
             offset, length = longest_match
             pair_code = encode_15bit(offset) + encode_15bit(length)
             if len(pair_code) < length:
+                log.append(longest_match)
                 coded += pair_code
                 bits.append(1)
                 i += length
             else:
+                log.append(data[i])
                 coded += data[i].to_bytes(1, "little")
                 bits.append(0)
                 i += 1
         else:
+            log.append(data[i])
             coded += data[i].to_bytes(1, "little")
             bits.append(0)
             i += 1
 
     print(len(bits), "bits")
+
+    with open("lzss.log", "w") as f:
+        for item in log:
+            if isinstance(item, int):
+                f.write(f"{item.to_bytes(1, 'little')}\n")
+            else:
+                f.write(f"{item}\n")
+
     return (
         get_size(data).to_bytes(4, "little")
         + len(data).to_bytes(2, "little")
@@ -84,7 +96,6 @@ def encode(data):
 
 
 def decode(data):
-    alloc_size = int.from_bytes(data[:4], "little")
     data = data[4:]
 
     uncompressed_size = int.from_bytes(data[:2], "little")
