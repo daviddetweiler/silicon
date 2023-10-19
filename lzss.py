@@ -108,6 +108,35 @@ def entropy_limit(data):
 
     return ratio
 
+def encode_huffman(data):
+    histogram = {}
+    for byte in data:
+        histogram[byte] = histogram.get(byte, 0) + 1
+
+    nodes = [(count, byte, None) for byte, count in histogram.items()]
+    while len(nodes) > 1:
+        nodes.sort(key=lambda x: x[0])
+        left = nodes.pop(0)
+        right = nodes.pop(0)
+        nodes.append((left[0] + right[0], None, (left, right)))
+
+    tree = nodes[0]
+    code_lengths = {}
+    def traverse(node, length):
+        if node[1] is not None:
+            code_lengths[node[1]] = length
+        else:
+            traverse(node[2][0], length + 1)
+            traverse(node[2][1], length + 1)
+
+    traverse(tree, 0)
+
+    bit_length = sum(code_lengths[byte] * count for byte, count in histogram.items())
+    byte_length = math.ceil(bit_length / 8)
+
+    coded = b"\xff" * byte_length
+    return coded
+
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
@@ -121,8 +150,13 @@ if __name__ == "__main__":
     ratio = len(lzss) / len(data)
     print(f"{ratio * 100:.2f}%", "compression ratio")
 
-    final_ratio = entropy_limit(data) * ratio
-    print(f"{final_ratio * 100:.2f}%", "final compression ratio")
+    final_ratio = entropy_limit(lzss) * ratio
+    print(f"{final_ratio * 100:.2f}%", "theoretical final compression ratio")
 
     round_trip = decode(lzss)
     assert round_trip == data
+
+    coded = encode_huffman(lzss)
+    ratio = len(coded) / len(data)
+    print(f"{ratio * 100:.2f}%", "compression ratio")
+    print(len(coded), "bytes compressed")
