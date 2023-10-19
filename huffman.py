@@ -1,11 +1,19 @@
 from lzss import to_bytes
 import operator
 import sys
+import math
 
 def encode_huffman(data):
     histogram = {}
     for byte in data:
         histogram[byte] = histogram.get(byte, 0) + 1
+
+    entropy = 0
+    for count in histogram.values():
+        p = count / len(data)
+        entropy += p * math.log2(p)
+
+    print(f"{-entropy * 100 / 8:.2f}% theoretical limit")
 
     nodes = [(count, byte, None) for byte, count in histogram.items()]
     while len(nodes) > 1:
