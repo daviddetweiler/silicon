@@ -10,3 +10,4 @@ README.txt
 *.bin
 .vscode/
 *.inc
+__pycache__/
