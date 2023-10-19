@@ -11,11 +11,6 @@ global start
 
 %define dict_size (8 * 2) * 4096
 
-%define next_code rsp + 0
-%define prev_ptr rsp + 8
-%define prev_len rsp + 16
-%define triplet_id rsp + 24
-
 section .text
     start:
         sub rsp, 8 + 8 * 4
@@ -26,7 +21,6 @@ section .text
         ; This can be wrapped into a call for deduplication
         mov rcx, image_base
         mov edx, dword [r14 - 8]
-        add rdx, dict_size
         mov r8, 0x1000 | 0x2000 ; MEM_COMMIT | MEM_RESERVE
         mov r9, 0x40 ; PAGE_EXECUTE_READWRITE
         call rax
