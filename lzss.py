@@ -1,5 +1,6 @@
 import sys
 import math
+import operator
 
 # There is some anecdotal evidence that the LZSS algorithm outperforms LZW in terms of compression ratio.
 
@@ -108,6 +109,7 @@ def entropy_limit(data):
 
     return ratio
 
+
 def encode_huffman(data):
     histogram = {}
     for byte in data:
@@ -122,6 +124,7 @@ def encode_huffman(data):
 
     tree = nodes[0]
     code_lengths = {}
+
     def traverse(node, length):
         if node[1] is not None:
             code_lengths[node[1]] = length
@@ -131,12 +134,33 @@ def encode_huffman(data):
 
     traverse(tree, 0)
 
-    bit_length = sum(code_lengths[byte] * count for byte, count in histogram.items())
-    byte_length = math.ceil(bit_length / 8)
+    pairs = sorted(code_lengths.items(), key=operator.itemgetter(1, 0))
+    current_code = 0
+    current_length = 1
+    codebook = {}
+    for byte, length in pairs:
+        if length > current_length:
+            current_code <<= length - current_length
+            current_length = length
 
-    coded = b"\xff" * byte_length
+        bitstring = []
+        for i in range(length):
+            bitstring.append(current_code >> i & 1)
+
+        bitstring.reverse()
+        codebook[byte] = bitstring
+        current_code += 1
+
+    bits = sum((codebook[byte] for byte in data), [])
+    bit_length = len(bits)
+    coded = to_bytes(bits)
     codebook = b"".join(cl.to_bytes(1, "little") for cl in code_lengths.values())
-    return len(data).to_bytes(2, "little") + bit_length.to_bytes(2, "little") + codebook + coded
+    return (
+        len(data).to_bytes(2, "little")
+        + bit_length.to_bytes(2, "little")
+        + codebook
+        + coded
+    )
 
 
 if __name__ == "__main__":
