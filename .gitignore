@@ -11,3 +11,6 @@ README.txt
 .vscode/
 *.inc
 __pycache__/
+*.hf
+*.lzss
+*.xsh32

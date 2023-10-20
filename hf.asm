@@ -111,4 +111,4 @@ section .text
         ret
 
     blob:
-        %include "lzss-huff.inc"
+        %include "hf.inc"

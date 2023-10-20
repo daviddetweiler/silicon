@@ -12,35 +12,35 @@ silicon.obj: silicon.asm Makefile
     pwsh -c "nasm -fwin64 silicon.asm -Dgit_version=""$$(git describe --dirty --tags)"" \
         -o silicon.obj -g -Dstandalone"
 
-lzss.bin: silicon.bin lzss.py Makefile
-    python .\lzss.py silicon.bin lzss.bin
+silicon.bin.lzss: silicon.bin lzss.py Makefile
+    python .\lzss.py silicon.bin silicon.bin.lzss
 
-lzss.inc: lzss.bin textify.py Makefile
-    python .\textify.py lzss.bin lzss.inc
+lzss.inc: silicon.bin.lzss inc.py Makefile
+    python .\inc.py silicon.bin.lzss lzss.inc
 
-load-lzss.bin: load-lzss.asm lzss.inc Makefile
-    nasm -fbin load-lzss.asm -o load-lzss.bin
+lzss.bin: lzss.asm lzss.inc Makefile
+    nasm -fbin lzss.asm -o lzss.bin
 
-lzss-huff.bin: load-lzss.bin huffman.py Makefile
-    python .\huffman.py load-lzss.bin lzss-huff.bin
+lzss.bin.hf: lzss.bin hf.py Makefile
+    python .\hf.py lzss.bin lzss.bin.hf
 
-lzss-huff.inc: lzss-huff.bin textify.py Makefile
-    python .\textify.py lzss-huff.bin lzss-huff.inc
+hf.inc: lzss.bin.hf inc.py Makefile
+    python .\inc.py lzss.bin.hf hf.inc
 
-load-lzss-huff.bin: load-lzss-huff.asm lzss-huff.inc Makefile
-    nasm -fbin load-lzss-huff.asm -o load-lzss-huff.bin
+hf.bin: hf.asm hf.inc Makefile
+    nasm -fbin hf.asm -o hf.bin
 
-coded.bin chksum.inc: load-lzss-huff.bin xorcode.py Makefile
-    python .\xorcode.py load-lzss-huff.bin coded.bin chksum.inc
+hf.bin.xsh32 seed.inc: hf.bin xsh32.py Makefile
+    python .\xsh32.py hf.bin hf.bin.xsh32 seed.inc
 
-coded.inc: coded.bin textify.py Makefile
-    python .\textify.py coded.bin coded.inc
+xsh32.inc: hf.bin.xsh32 inc.py Makefile
+    python .\inc.py hf.bin.xsh32 xsh32.inc
 
-load.obj: load.asm coded.inc chksum.inc Makefile
-    nasm -fwin64 load.asm
+xsh32.obj: xsh32.asm xsh32.inc seed.inc Makefile
+    nasm -fwin64 xsh32.asm
 
-silicon.exe: load.obj Makefile
-    link load.obj kernel32.lib \
+silicon.exe: xsh32.obj Makefile
+    link xsh32.obj kernel32.lib \
         /out:silicon.exe \
         /subsystem:console \
         /entry:start \
@@ -67,7 +67,7 @@ silicon-debug.exe: silicon.obj Makefile
         /debug
 
 clean: Makefile
-    del *.obj *.exe *.pdb *.ilk *.zip *.bin *.log *.inc README.txt
+    del *.obj *.exe *.pdb *.ilk *.zip *.bin *.log *.inc README.txt *.hf *.lzss *.xsh32
 
 zip: silicon.zip Makefile
 

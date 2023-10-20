@@ -7,7 +7,7 @@ extern VirtualAlloc
 extern GetModuleHandleA
 extern GetProcAddress
 
-%include "chksum.inc"
+%include "seed.inc"
 
 section .text
     start:
@@ -41,6 +41,6 @@ section .text
 
     align 8
     image:
-        %include "coded.inc"
+        %include "xsh32.inc"
 
     end:
