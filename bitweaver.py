@@ -61,7 +61,7 @@ def entropy(symbols):
     probabilities = [histogram[symbol] / total for symbol in histogram]
     return sum(-p * math.log2(p) for p in probabilities)
 
-def encode(lzss):
+def encode(lzss, allocation_size):
     print(len(lzss[0]), "bits")
     print(len(lzss[1][0]), "bytes of literals")
     print(len(lzss[1][1]), "bytes of offsets")
@@ -101,12 +101,15 @@ def encode(lzss):
     offset_model = ac.uniform_model(256)
     length_model = ac.uniform_model(256)
 
+
     commands = lzss[0]
     literals = lzss[1][0]
     offsets = lzss[1][1]
     lengths = lzss[1][2]
     a, b, c = 0, 0, 0
-    for bit in lzss[0]:
+    encoder.encode_incremental(literal_model, allocation_size.to_bytes(4, "little"))
+    encoder.encode_incremental(literal_model, len(commands).to_bytes(4, "little"))
+    for bit in commands:
         encoder.encode_incremental(command_model, [bit])
         if bit == 0:
             encoder.encode_incremental(literal_model, literals[a : a + 1])
@@ -144,7 +147,7 @@ if __name__ == "__main__":
         data = f.read()
 
     lzss = lzss_compress(data)
-    encoded = encode(lzss)
+    encoded = encode(lzss, len(data))
 
     with open(sys.argv[2], "wb") as f:
         f.write(encoded)
