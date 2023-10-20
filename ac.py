@@ -71,18 +71,14 @@ def encode(model, data):
         histogram[byte] += 1
         total += 1
 
-    a &= b
+    a = add(a, 1 << 32) # The decoder semantics use open intervals
     to_code = shr(a, 32)
     encoded += to_code.to_bytes(4, "little")
-
-    with open("ac.log", "w") as f:
-        for a, b in debug:
-            f.write(f"[{a:064b}, {b:064b}]\n")
 
     return encoded
 
 
-def decode(model, data):
+def decode(model, data, expected_length):
     total, histogram = model
     a, b = 0, (1 << 64) - 1
     decoded = b""
@@ -92,7 +88,7 @@ def decode(model, data):
 
     i = 2
     window = shl(bitgroups[0], 32) | bitgroups[1]
-    while i < len(bitgroups):
+    while len(decoded) < expected_length:
         probabilities = [divide(histogram[i], total) for i in range(256)]
         interval_width = subtract(b, a)
         byte = None
@@ -110,7 +106,7 @@ def decode(model, data):
             # 32 bits have been locked in
             a = shl(a, 32)
             b = shl(b, 32)
-            window = shl(window, 32) | bitgroups[i]
+            window = shl(window, 32) | (bitgroups[i] if i < len(bitgroups) else 0)
             i += 1
 
         decoded += bytes([byte])
@@ -131,7 +127,8 @@ if __name__ == "__main__":
     model = (256, [1] * 256)
     ac = encode(model, data)
     model = (256, [1] * 256)
-    round_trip = decode(model, ac)
+    round_trip = decode(model, ac, len(data))
+    assert round_trip == data
     print("Compressed size:", len(ac))
     print("Compression ratio:", len(ac) / len(data))
     with open(sys.argv[2], "wb") as f:
