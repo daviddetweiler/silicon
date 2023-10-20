@@ -103,3 +103,28 @@ if __name__ == "__main__":
     print(
         f"{length_entropy_limit:.4f} bytes per length minimum ({length_entropy_limit * len(lzss[1][2]):.0f} bytes)"
     )
+
+    encoder = ac.Encoder()
+    command_model = ac.uniform_model(2)
+    literal_model = ac.uniform_model(256)
+    offset_model = ac.uniform_model(256)
+    length_model = ac.uniform_model(256)
+
+    commands = lzss[0]
+    literals = lzss[1][0]
+    offsets = lzss[1][1]
+    lengths = lzss[1][2]
+    a, b, c = 0, 0, 0
+    for bit in lzss[0]:
+        encoder.encode_incremental(command_model, [bit])
+        if bit == 0:
+            encoder.encode_incremental(literal_model, literals[a:a + 1])
+            a += 1
+        else:
+            encoder.encode_incremental(offset_model, offsets[b:b + 1])
+            encoder.encode_incremental(length_model, lengths[c:c + 1])
+            b += 1
+            c += 1
+
+    coded = encoder.finalize()
+    print(len(coded), "bytes")
