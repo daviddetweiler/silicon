@@ -39,6 +39,7 @@ def encode(model, data):
     a, b = 0, 1 << 64 - 1
     encoded = b""
     debug = []
+    print(len(data))
     for byte in data:
         probabilities = [divide(histogram[i], total) for i in range(256)]
         interval_width = subtract(b, a)
@@ -46,6 +47,7 @@ def encode(model, data):
             subinterval_width = multiply(interval_width, probabilities[i])
             if byte == i:
                 b = add(a, subinterval_width)
+                break
             else:
                 a = add(a, subinterval_width)
 
@@ -77,6 +79,32 @@ def decode(model, data):
     a, b = 0, (1 << 64) - 1
     decoded = b""
     bitgroups = [int.from_bytes(data[i : i + 4], "little") for i in range(0, len(data), 4)]
+    i = 2
+    window = bitgroups[0] << 32 | bitgroups[1]
+    while i < len(bitgroups):
+        probabilities = [divide(histogram[i], total) for i in range(256)]
+        interval_width = subtract(b, a)
+        byte = None
+        for j in range(256):
+            subinterval_width = multiply(interval_width, probabilities[j])
+            next_a = add(a, subinterval_width)
+            if next_a > window:
+                b = next_a
+                byte = j
+                break
+
+            a = next_a
+
+        if (a ^ b) & UPPER32 == 0:
+            # 32 bits have been locked in
+            a <<= 32
+            b <<= 32
+            window = window << 32 | bitgroups[i]
+            i += 1
+
+        decoded += bytes([byte])
+        histogram[byte] += 1
+        total += 1
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
@@ -89,7 +117,7 @@ if __name__ == "__main__":
     model = (256, [1] * 256)
     ac = encode(model, data)
     model = (256, [1] * 256)
-    round_trip = encode(model, ac)
+    round_trip = decode(model, ac)
     print("Compression ratio:", len(ac) / len(data))
     with open(sys.argv[2], "wb") as f:
         f.write(ac)
