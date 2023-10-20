@@ -27,18 +27,27 @@ lzss-huff.bin: load-lzss.bin huffman.py Makefile
 lzss-huff.inc: lzss-huff.bin textify.py Makefile
     python .\textify.py lzss-huff.bin lzss-huff.inc
 
-load-lzss-huff.obj: load-lzss-huff.asm lzss-huff.inc Makefile
-    nasm -fwin64 load-lzss-huff.asm
+load-lzss-huff.bin: load-lzss-huff.asm lzss-huff.inc Makefile
+    nasm -fbin load-lzss-huff.asm -o load-lzss-huff.bin
 
-silicon.exe: load-lzss-huff.obj Makefile
-    link load-lzss-huff.obj kernel32.lib \
+coded.bin chksum.inc: load-lzss-huff.bin xorcode.py Makefile
+    python .\xorcode.py load-lzss-huff.bin coded.bin chksum.inc
+
+coded.inc: coded.bin textify.py Makefile
+    python .\textify.py coded.bin coded.inc
+
+load.obj: load.asm coded.inc chksum.inc Makefile
+    nasm -fwin64 load.asm
+
+silicon.exe: load.obj Makefile
+    link load.obj kernel32.lib \
         /out:silicon.exe \
         /subsystem:console \
         /entry:start \
         /nologo \
         /fixed \
         /ignore:4254 \
-        /section:kernel,RE \
+        /section:kernel,RWE \
         /merge:.rdata=kernel \
         /merge:.text=kernel
 
@@ -51,7 +60,7 @@ silicon-debug.exe: silicon.obj Makefile
         /fixed \
         /ignore:4254 \
         /section:kernel,RE \
-        /section:data,RW \
+        /section:data,RWE \
         /merge:.rdata=kernel \
         /merge:.text=kernel \
         /merge:.bss=data \

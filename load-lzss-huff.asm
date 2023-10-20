@@ -3,10 +3,6 @@ bits 64
 
 global start
 
-extern VirtualAlloc
-extern GetModuleHandleA
-extern GetProcAddress
-
 %define image_base 0x2000000000
 
 %define blob_uncompressed_size (blob + 0)
@@ -17,14 +13,15 @@ extern GetProcAddress
 
 section .text
     start:
-        sub rsp, 8 + 8 * 16
+        sub rsp, 8 + 8 * 4
+        mov rbp, rcx
 
         xor rcx, rcx
         movzx rdx, word [blob_uncompressed_size]
         add rdx, codebook_size
         mov r8, 0x1000 | 0x2000 ; MEM_COMMIT | MEM_RESERVE
         mov r9, 0x40 ; PAGE_EXECUTE_READWRITE
-        call VirtualAlloc
+        call rbp
 
         mov r12, rax ; unpacked codebook
         lea r13, blob_codebook ; packed codebook
@@ -107,12 +104,11 @@ section .text
         cmp dx, [blob_uncompressed_size]
         jne .decode_next_byte 
 
-    load:
-        mov rax, VirtualAlloc
+    chain:
+        mov rax, rbp
         call r14 ; call stage 2
-        mov rcx, GetModuleHandleA
-        mov rdx, GetProcAddress
-        jmp rax ; invoke final decompressed image
+        add rsp, 8 + 8 * 4
+        ret
 
     blob:
         %include "lzss-huff.inc"
