@@ -1,5 +1,6 @@
 import sys
 import math
+import ac
 
 
 def encode_15bit(n):
@@ -51,6 +52,16 @@ def encode(data):
     return bits, coded
 
 
+def entropy(symbols):
+    histogram = {}
+    for symbol in symbols:
+        histogram[symbol] = histogram.get(symbol, 0) + 1
+
+    total = sum(histogram.values())
+    probabilities = [histogram[symbol] / total for symbol in histogram]
+    return sum(-p * math.log2(p) for p in probabilities)
+
+
 if __name__ == "__main__":
     if len(sys.argv) != 3:
         print("Usage: lzss.py <input> <output>")
@@ -70,4 +81,25 @@ if __name__ == "__main__":
         + len(lzss[1][2])
         + math.ceil(len(lzss[0]) / 8),
         "bytes total",
+    )
+
+    command_entropy_limit = entropy(lzss[0]) / 1  # 1 bit per command
+    literal_entropy_limit = entropy(lzss[1][0]) / 8  # 8 bits per byte
+    offset_entropy_limit = entropy(lzss[1][1]) / 8  # 8 bits per byte
+    length_entropy_limit = entropy(lzss[1][2]) / 8  # 8 bits per byte
+
+    print(
+        f"{command_entropy_limit:.4f} bits per command minimum ({command_entropy_limit * len(lzss[0]) / 8:.0f} bytes)"
+    )
+
+    print(
+        f"{literal_entropy_limit:.4f} bytes per literal minimum ({literal_entropy_limit * len(lzss[1][0]):.0f} bytes)"
+    )
+
+    print(
+        f"{offset_entropy_limit:.4f} bytes per offset minimum ({offset_entropy_limit * len(lzss[1][1]):.0f} bytes)"
+    )
+
+    print(
+        f"{length_entropy_limit:.4f} bytes per length minimum ({length_entropy_limit * len(lzss[1][2]):.0f} bytes)"
     )
