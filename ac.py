@@ -48,14 +48,6 @@ def nlog2(n):
 
 def encode(model, data):
     total, histogram = model
-    probabilities = [divide(histogram[i], total) for i in range(256)]
-    quantized_entropy = 0
-    for i in range(256):
-        p = probabilities[i]
-        if p != 0:
-            quantized_entropy += nlog2(p) * (p / (1 << 64))
-
-    print("Quantized entropy limit:", quantized_entropy / 8)
 
     a, b = 0, (1 << 64) - 1
     encoded = b""
@@ -63,6 +55,7 @@ def encode(model, data):
     frozen_bits = 0
     print(len(data))
     for byte in data:
+        probabilities = [divide(histogram[i], total) for i in range(256)]
         interval_width = subtract(b, a)
         for i in range(256):
             subinterval_width = multiply(interval_width, probabilities[i])
@@ -89,6 +82,9 @@ def encode(model, data):
             b = shl(b, 32)
             b |= (1 << 32) - 1
             frozen_bits = 0
+        
+        histogram[byte] += 1
+        total += 1
 
     a = add(a, 1 << 32) # The decoder semantics use open intervals
     to_code = shr(a, 32)
@@ -134,6 +130,8 @@ def decode(model, data, expected_length):
             i += 1
 
         decoded += bytes([byte])
+        histogram[byte] += 1
+        total += 1
 
     return decoded
 
@@ -146,13 +144,8 @@ if __name__ == "__main__":
     with open(sys.argv[1], "rb") as f:
         data = f.read()
 
-    model = [len(data), [0] * 256]
-    for byte in data:
-        model[1][byte] += 1
-
-    ac = encode(model, data)
-    print(model[1])
-    round_trip = decode(model, ac, len(data))
+    ac = encode((256, [1] * 256), data)
+    round_trip = decode((256, [1] * 256), ac, len(data))
     assert round_trip == data
     print("Compressed size:", len(ac))
     print("Compression ratio:", len(ac) / len(data))
