@@ -11,7 +11,7 @@ import math
 # by multiplying two 64-bit numbers, we get a 128-bit number, and then we take the 64 most significant bits of that
 # ("left" bits) and shift right by one bit.
 
-UPPER32 = ((1 << 32) - 1) << 32
+UPPER8 = ((1 << 8) - 1) << (64 - 8)
 BITS64 = (1 << 64) - 1
 
 
@@ -42,6 +42,7 @@ def shl(a, n):
 def shr(a, n):
     return (a >> n) & BITS64
 
+
 def nlog2(n):
     return 64 - math.log2(n)
 
@@ -51,8 +52,6 @@ def encode(model, data):
 
     a, b = 0, (1 << 64) - 1
     encoded = b""
-    debug = []
-    frozen_bits = 0
     print(len(data))
     for byte in data:
         probabilities = [divide(histogram[i], total) for i in range(256)]
@@ -65,34 +64,20 @@ def encode(model, data):
             else:
                 a = add(a, subinterval_width)
 
-        c = a ^ b
-        for i in range(64):
-            if c & (1 << (63 - i)):
-                n = i - frozen_bits
-                previous = debug[-1] if len(debug) > 0 else (0, 0)
-                debug.append((n + previous[0], nlog2(probabilities[byte]) + previous[1]))
-                frozen_bits = i
-                break
+        if (a ^ b) & UPPER8 == 0:
+            # 8 bits have been locked in
+            to_code = shr(a, 64 - 8)
+            encoded += to_code.to_bytes(1, "little")
+            a = shl(a, 8)
+            b = shl(b, 8)
+            b |= (1 << 8) - 1
 
-        if (a ^ b) & UPPER32 == 0:
-            # 32 bits have been locked in
-            to_code = shr(a, 32)
-            encoded += to_code.to_bytes(4, "little")
-            a = shl(a, 32)
-            b = shl(b, 32)
-            b |= (1 << 32) - 1
-            frozen_bits = 0
-        
         histogram[byte] += 1
         total += 1
 
-    a = add(a, 1 << 32) # The decoder semantics use open intervals
-    to_code = shr(a, 32)
-    encoded += to_code.to_bytes(4, "little")
-
-    with open("ac.log", "w") as f:
-        for i, j in debug:
-            f.write(f"{i} {j}\n")
+    a = add(a, 1 << (64 - 8))  # The decoder semantics use open intervals
+    to_code = shr(a, (64 - 8))
+    encoded += to_code.to_bytes(1, "little")
 
     return encoded
 
@@ -101,12 +86,14 @@ def decode(model, data, expected_length):
     total, histogram = model
     a, b = 0, (1 << 64) - 1
     decoded = b""
-    bitgroups = [
-        int.from_bytes(data[i : i + 4], "little") for i in range(0, len(data), 4)
-    ]
+    bitgroups = [byte for byte in data]
 
-    i = 2
-    window = shl(bitgroups[0], 32) | bitgroups[1]
+    i = 0
+    window = 0
+    while i < 8:
+        window = shl(window, 8) | (bitgroups[i] if i < len(bitgroups) else 0)
+        i += 1
+
     while len(decoded) < expected_length:
         probabilities = [divide(histogram[i], total) for i in range(256)]
         interval_width = subtract(b, a)
@@ -121,12 +108,12 @@ def decode(model, data, expected_length):
 
             a = next_a
 
-        if (a ^ b) & UPPER32 == 0:
-            # 32 bits have been locked in
-            a = shl(a, 32)
-            b = shl(b, 32)
-            b |= (1 << 32) - 1
-            window = shl(window, 32) | (bitgroups[i] if i < len(bitgroups) else 0)
+        if (a ^ b) & UPPER8 == 0:
+            # 8 bits have been locked in
+            a = shl(a, 8)
+            b = shl(b, 8)
+            b |= (1 << 8) - 1
+            window = shl(window, 8) | (bitgroups[i] if i < len(bitgroups) else 0)
             i += 1
 
         decoded += bytes([byte])
