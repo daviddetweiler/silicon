@@ -9,8 +9,6 @@ global start
 %define blob_bitfield_bytes (blob + 6)
 %define blob_bitfield (blob + 8)
 
-%define dict_size (8 * 2) * 4096
-
 section .text
     start:
         sub rsp, 8 + 8 * 4

@@ -3,6 +3,7 @@ import operator
 import sys
 import math
 
+
 def encode_huffman(data):
     histogram = {}
     for byte in data:
@@ -60,22 +61,10 @@ def encode_huffman(data):
         else:
             codebook_packed += b"\x00"
 
-    with open("bits.log", "w") as f:
-        for bit in bits:
-            f.write(str(bit) + "\n")
+    return len(data).to_bytes(2, "little") + codebook_packed + coded
 
-    with open("codebook.log", "w") as f:
-        for byte, bitstring in sorted(codebook.items(), key=operator.itemgetter(0)):
-            assert len(bitstring) <= 64 # Otherwise it won't fit in a machine register
-            f.write(f"{byte:02x} -> {bitstring}\n")
 
-    return (
-        len(data).to_bytes(2, "little")
-        + codebook_packed
-        + coded
-    )
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     if len(sys.argv) != 3:
         print("Usage: python huffman.py <input> <output>")
         sys.exit(1)

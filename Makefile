@@ -12,14 +12,8 @@ silicon.obj: silicon.asm Makefile
     pwsh -c "nasm -fwin64 silicon.asm -Dgit_version=""$$(git describe --dirty --tags)"" \
         -o silicon.obj -g -Dstandalone"
 
-lzw.bin: silicon.bin lzw.py Makefile
-    python .\lzw.py silicon.bin lzw.bin
-
 lzss.bin: silicon.bin lzss.py Makefile
     python .\lzss.py silicon.bin lzss.bin
-
-lzw.inc: lzw.bin textify.py Makefile
-    python .\textify.py lzw.bin lzw.inc
 
 lzss.inc: lzss.bin textify.py Makefile
     python .\textify.py lzss.bin lzss.inc
@@ -32,9 +26,6 @@ lzss-huff.bin: load-lzss.bin huffman.py Makefile
 
 lzss-huff.inc: lzss-huff.bin textify.py Makefile
     python .\textify.py lzss-huff.bin lzss-huff.inc
-
-load.obj: load.asm lzw.inc Makefile
-    nasm -fwin64 load.asm
 
 load-lzss-huff.obj: load-lzss-huff.asm lzss-huff.inc Makefile
     nasm -fwin64 load-lzss-huff.asm
