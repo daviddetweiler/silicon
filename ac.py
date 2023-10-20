@@ -42,6 +42,9 @@ def shl(a, n):
 def shr(a, n):
     return (a >> n) & BITS64
 
+def nlog2(n):
+    return 64 - math.log2(n)
+
 
 def encode(model, data):
     total, histogram = model
@@ -53,6 +56,15 @@ def encode(model, data):
             entropy -= p * math.log2(p)
 
     print("Entropy limit:", entropy / 8)
+
+    probabilities = [divide(histogram[i], total) for i in range(256)]
+    quantized_entropy = 0
+    for i in range(256):
+        p = probabilities[i]
+        if p != 0:
+            quantized_entropy += nlog2(p) * (p / (1 << 64))
+
+    print("Quantized entropy limit:", quantized_entropy / 8)
 
     a, b = 0, (1 << 64) - 1
     encoded = b""
@@ -75,7 +87,7 @@ def encode(model, data):
             if c & (1 << (63 - i)):
                 n = i - frozen_bits
                 previous = debug[-1] if len(debug) > 0 else (0, 0)
-                debug.append((n + previous[0], -math.log2(histogram[byte] / total) + previous[1]))
+                debug.append((n + previous[0], nlog2(probabilities[byte]) + previous[1]))
                 frozen_bits = i
                 break
 
