@@ -13,13 +13,13 @@ def encode_15bit(n):
         return (0x80 | hi).to_bytes(1, "little") + lo.to_bytes(1, "little")
 
 
-def encode(data):
+def lzss_compress(data):
     window = 2**15
     i = 0
     bits = []
     coded = [b"", b"", b""]
     while i < len(data):
-        j = 3  # At least 4 bytes are needed to encode a match, so we match only 5 bytes or more.
+        j = 3  # At least 4 bytes are needed to lzss_compress a match, so we match only 5 bytes or more.
         longest_match = None
         while True:
             window_base = max(0, i - window)
@@ -61,16 +61,7 @@ def entropy(symbols):
     probabilities = [histogram[symbol] / total for symbol in histogram]
     return sum(-p * math.log2(p) for p in probabilities)
 
-
-if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        print("Usage: lzss.py <input> <output>")
-        sys.exit(1)
-
-    with open(sys.argv[1], "rb") as f:
-        data = f.read()
-
-    lzss = encode(data)
+def encode(lzss):
     print(len(lzss[0]), "bits")
     print(len(lzss[1][0]), "bytes of literals")
     print(len(lzss[1][1]), "bytes of offsets")
@@ -140,3 +131,20 @@ if __name__ == "__main__":
     assert c == len(lengths)
     coded = encoder.finalize()
     print(len(coded), "bytes")
+
+    return coded
+
+
+if __name__ == "__main__":
+    if len(sys.argv) != 3:
+        print("Usage: lzss.py <input> <output>")
+        sys.exit(1)
+
+    with open(sys.argv[1], "rb") as f:
+        data = f.read()
+
+    lzss = lzss_compress(data)
+    encoded = encode(lzss)
+
+    with open(sys.argv[2], "wb") as f:
+        f.write(encoded)
