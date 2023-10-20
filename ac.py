@@ -64,7 +64,7 @@ def encode(model, data):
             else:
                 a = add(a, subinterval_width)
 
-        if (a ^ b) & UPPER8 == 0:
+        while (a ^ b) & UPPER8 == 0:
             # 8 bits have been locked in
             to_code = shr(a, 64 - 8)
             encoded += to_code.to_bytes(1, "little")
@@ -111,7 +111,7 @@ def decode(model, data, expected_length, reference):
 
             a = next_a
 
-        if (a ^ b) & UPPER8 == 0:
+        while (a ^ b) & UPPER8 == 0:
             # 8 bits have been locked in
             a = shl(a, 8)
             b = shl(b, 8)
@@ -134,10 +134,12 @@ class Encoder:
 
     def encode_incremental(self, model, data):
         total, histogram = model
+        n_symbols = len(histogram)
+        assert n_symbols <= 256 # Otherwise the models would get huge
         for byte in data:
-            probabilities = [divide(histogram[i], total) for i in range(256)]
+            probabilities = [divide(histogram[i], total) for i in range(n_symbols)]
             interval_width = subtract(self.b, self.a)
-            for i in range(256):
+            for i in range(n_symbols):
                 subinterval_width = multiply(interval_width, probabilities[i])
                 if byte == i:
                     self.b = add(self.a, subinterval_width)
@@ -145,7 +147,7 @@ class Encoder:
                 else:
                     self.a = add(self.a, subinterval_width)
 
-            if (self.a ^ self.b) & UPPER8 == 0:
+            while (self.a ^ self.b) & UPPER8 == 0:
                 # 8 bits have been locked in
                 to_code = shr(self.a, 64 - 8)
                 self.encoded += to_code.to_bytes(1, "little")
@@ -159,7 +161,7 @@ class Encoder:
         model[0] = total
         model[1] = histogram
 
-    def stream(self):
+    def finalize(self):
         self.a = add(self.a, 1 << (64 - 8))  # The decoder semantics use open intervals
         to_code = shr(self.a, (64 - 8))
         self.encoded += to_code.to_bytes(1, "little")
@@ -174,14 +176,11 @@ if __name__ == "__main__":
     with open(sys.argv[1], "rb") as f:
         data = f.read()
 
-    # encoder = Encoder()
-    # test_model = [256, [1] * 256]
-    # encoder.encode_incremental(test_model, data[: len(data) // 2])
-    # encoder.encode_incremental(test_model, data[len(data) // 2 :])
-    # test = encoder.stream()
-
-    ac = encode((256, [1] * 256), data)
-    # assert ac == test
+    encoder = Encoder()
+    test_model = [256, [1] * 256]
+    encoder.encode_incremental(test_model, data[: len(data) // 2])
+    encoder.encode_incremental(test_model, data[len(data) // 2 :])
+    ac = encoder.finalize()
     round_trip = decode((256, [1] * 256), ac, len(data), data)
     assert round_trip == data
     print("Compressed size:", len(ac))
