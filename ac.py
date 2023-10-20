@@ -1,4 +1,5 @@
 import sys
+import math
 
 # It may be possible to measurably beat huffman coding by using arithmetic coding
 # It allows "fractional bit-packing," allowing a closer approach to the entropy limit, while also being adaptive,
@@ -44,9 +45,19 @@ def shr(a, n):
 
 def encode(model, data):
     total, histogram = model
+
+    entropy = 0
+    for i in range(256):
+        p = histogram[i] / total
+        if p != 0:
+            entropy -= p * math.log2(p)
+
+    print("Entropy limit:", entropy / 8)
+
     a, b = 0, (1 << 64) - 1
     encoded = b""
     debug = []
+    frozen_bits = 0
     print(len(data))
     for byte in data:
         probabilities = [divide(histogram[i], total) for i in range(256)]
@@ -59,7 +70,14 @@ def encode(model, data):
             else:
                 a = add(a, subinterval_width)
 
-        debug.append((a, b))
+        c = a ^ b
+        for i in range(64):
+            if c & (1 << (63 - i)):
+                n = i - frozen_bits
+                previous = debug[-1] if len(debug) > 0 else (0, 0)
+                debug.append((n + previous[0], -math.log2(histogram[byte] / total) + previous[1]))
+                frozen_bits = i
+                break
 
         if (a ^ b) & UPPER32 == 0:
             # 32 bits have been locked in
@@ -67,13 +85,16 @@ def encode(model, data):
             encoded += to_code.to_bytes(4, "little")
             a = shl(a, 32)
             b = shl(b, 32)
-
-        histogram[byte] += 1
-        total += 1
+            b |= (1 << 32) - 1
+            frozen_bits = 0
 
     a = add(a, 1 << 32) # The decoder semantics use open intervals
     to_code = shr(a, 32)
     encoded += to_code.to_bytes(4, "little")
+
+    with open("ac.log", "w") as f:
+        for i, j in debug:
+            f.write(f"{i} {j}\n")
 
     return encoded
 
@@ -106,12 +127,11 @@ def decode(model, data, expected_length):
             # 32 bits have been locked in
             a = shl(a, 32)
             b = shl(b, 32)
+            b |= (1 << 32) - 1
             window = shl(window, 32) | (bitgroups[i] if i < len(bitgroups) else 0)
             i += 1
 
         decoded += bytes([byte])
-        histogram[byte] += 1
-        total += 1
 
     return decoded
 
@@ -124,9 +144,12 @@ if __name__ == "__main__":
     with open(sys.argv[1], "rb") as f:
         data = f.read()
 
-    model = (256, [1] * 256)
+    model = [len(data), [0] * 256]
+    for byte in data:
+        model[1][byte] += 1
+
     ac = encode(model, data)
-    model = (256, [1] * 256)
+    print(model[1])
     round_trip = decode(model, ac, len(data))
     assert round_trip == data
     print("Compressed size:", len(ac))
