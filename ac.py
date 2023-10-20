@@ -24,7 +24,7 @@ def divide(a, b):
 def multiply(a, b):
     a *= b
     a >>= 64
-    return (a >> 1) & BITS64
+    return a & BITS64
 
 
 def add(a, b):
@@ -48,15 +48,6 @@ def nlog2(n):
 
 def encode(model, data):
     total, histogram = model
-
-    entropy = 0
-    for i in range(256):
-        p = histogram[i] / total
-        if p != 0:
-            entropy -= p * math.log2(p)
-
-    print("Entropy limit:", entropy / 8)
-
     probabilities = [divide(histogram[i], total) for i in range(256)]
     quantized_entropy = 0
     for i in range(256):
@@ -72,7 +63,6 @@ def encode(model, data):
     frozen_bits = 0
     print(len(data))
     for byte in data:
-        probabilities = [divide(histogram[i], total) for i in range(256)]
         interval_width = subtract(b, a)
         for i in range(256):
             subinterval_width = multiply(interval_width, probabilities[i])
