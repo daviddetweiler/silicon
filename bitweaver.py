@@ -118,13 +118,25 @@ if __name__ == "__main__":
     for bit in lzss[0]:
         encoder.encode_incremental(command_model, [bit])
         if bit == 0:
-            encoder.encode_incremental(literal_model, literals[a:a + 1])
+            encoder.encode_incremental(literal_model, literals[a : a + 1])
             a += 1
         else:
-            encoder.encode_incremental(offset_model, offsets[b:b + 1])
-            encoder.encode_incremental(length_model, lengths[c:c + 1])
-            b += 1
-            c += 1
+            if offsets[b] & 0x80 == 0:
+                encoder.encode_incremental(offset_model, offsets[b : b + 1])
+                b += 1
+            else:
+                encoder.encode_incremental(offset_model, offsets[b : b + 2])
+                b += 2
 
+            if lengths[c] & 0x80 == 0:
+                encoder.encode_incremental(length_model, lengths[c : c + 1])
+                c += 1
+            else:
+                encoder.encode_incremental(length_model, lengths[c : c + 2])
+                c += 2
+
+    assert a == len(literals)
+    assert b == len(offsets)
+    assert c == len(lengths)
     coded = encoder.finalize()
     print(len(coded), "bytes")
