@@ -10,33 +10,41 @@ import sys
 # by multiplying two 64-bit numbers, we get a 128-bit number, and then we take the 64 most significant bits of that
 # ("left" bits) and shift right by one bit.
 
+UPPER32 = ((1 << 32) - 1) << 32
+BITS64 = (1 << 64) - 1
+
 
 def divide(a, b):
     a <<= 64
     a //= b
-    return a & ((1 << 64) - 1)
+    return a & BITS64
 
 
 def multiply(a, b):
     a *= b
     a >>= 64
-    return (a >> 1) & ((1 << 64) - 1)
+    return (a >> 1) & BITS64
 
 
 def add(a, b):
-    return (a + b) & ((1 << 64) - 1)
+    return (a + b) & BITS64
 
 
 def subtract(a, b):
-    return (a - b) & ((1 << 64) - 1)
+    return (a - b) & BITS64
 
 
-UPPER32 = ((1 << 32) - 1) << 32
+def shl(a, n):
+    return (a << n) & BITS64
+
+
+def shr(a, n):
+    return (a >> n) & BITS64
 
 
 def encode(model, data):
     total, histogram = model
-    a, b = 0, 1 << 64 - 1
+    a, b = 0, (1 << 64) - 1
     encoded = b""
     debug = []
     print(len(data))
@@ -55,16 +63,16 @@ def encode(model, data):
 
         if (a ^ b) & UPPER32 == 0:
             # 32 bits have been locked in
-            to_code = a >> 32
+            to_code = shr(a, 32)
             encoded += to_code.to_bytes(4, "little")
-            a <<= 32
-            b <<= 32
+            a = shl(a, 32)
+            b = shl(b, 32)
 
         histogram[byte] += 1
         total += 1
 
     a &= b
-    to_code = a >> 32
+    to_code = shr(a, 32)
     encoded += to_code.to_bytes(4, "little")
 
     with open("ac.log", "w") as f:
@@ -78,9 +86,12 @@ def decode(model, data):
     total, histogram = model
     a, b = 0, (1 << 64) - 1
     decoded = b""
-    bitgroups = [int.from_bytes(data[i : i + 4], "little") for i in range(0, len(data), 4)]
+    bitgroups = [
+        int.from_bytes(data[i : i + 4], "little") for i in range(0, len(data), 4)
+    ]
+
     i = 2
-    window = bitgroups[0] << 32 | bitgroups[1]
+    window = shl(bitgroups[0], 32) | bitgroups[1]
     while i < len(bitgroups):
         probabilities = [divide(histogram[i], total) for i in range(256)]
         interval_width = subtract(b, a)
@@ -97,14 +108,17 @@ def decode(model, data):
 
         if (a ^ b) & UPPER32 == 0:
             # 32 bits have been locked in
-            a <<= 32
-            b <<= 32
-            window = window << 32 | bitgroups[i]
+            a = shl(a, 32)
+            b = shl(b, 32)
+            window = shl(window, 32) | bitgroups[i]
             i += 1
 
         decoded += bytes([byte])
         histogram[byte] += 1
         total += 1
+
+    return decoded
+
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
@@ -118,6 +132,7 @@ if __name__ == "__main__":
     ac = encode(model, data)
     model = (256, [1] * 256)
     round_trip = decode(model, ac)
+    print("Compressed size:", len(ac))
     print("Compression ratio:", len(ac) / len(data))
     with open(sys.argv[2], "wb") as f:
         f.write(ac)
