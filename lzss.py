@@ -1,6 +1,5 @@
 import sys
 import math
-import operator
 
 # There is some anecdotal evidence that the LZSS algorithm outperforms LZW in terms of compression ratio.
 
@@ -52,7 +51,7 @@ def encode(data):
             window_base = max(0, i - window)
             window_data = data[window_base : i + j - 1]
             m = window_data.rfind(data[i : i + j])
-            if m == -1 or i + j > len(data):
+            if m == -1 or i + j > len(data) or j >= window:
                 break
             else:
                 longest_match = i - (window_base + m), j
@@ -126,7 +125,11 @@ def decode(data):
                 data += data[-offset : -(offset - length)]
             else:
                 while length > 0:
-                    data += data[-offset:]
+                    if offset <= length:
+                        data += data[-offset:]
+                    else:
+                        data += data[-offset : -(offset - length)]
+
                     length -= offset
 
     return data
@@ -181,10 +184,8 @@ if __name__ == "__main__":
     round_trip = decode(lzss)
     assert round_trip == data
 
-    # coded = encode_huffman(lzss)
     coded = lzss
     ratio = len(coded) / len(data)
-    # print(f"{ratio * 100:.2f}%", "compression ratio")
     print(len(coded), "bytes compressed")
 
     with open(sys.argv[2], "wb") as f:
