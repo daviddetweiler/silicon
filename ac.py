@@ -84,6 +84,8 @@ def encode(model, data):
 
 def decode(model, data, expected_length, reference):
     total, histogram = model
+    n_symbols = len(histogram)
+
     a, b = 0, (1 << 64) - 1
     decoded = b""
     bitgroups = [byte for byte in data]
@@ -98,10 +100,10 @@ def decode(model, data, expected_length, reference):
         if decoded != reference[: len(decoded)]:
             pass
 
-        probabilities = [divide(histogram[i], total) for i in range(256)]
+        probabilities = [divide(histogram[i], total) for i in range(n_symbols)]
         interval_width = subtract(b, a)
         byte = None
-        for j in range(256):
+        for j in range(n_symbols):
             subinterval_width = multiply(interval_width, probabilities[j])
             next_a = add(a, subinterval_width)
             if next_a > window:
@@ -135,7 +137,7 @@ class Encoder:
     def encode_incremental(self, model, data):
         total, histogram = model
         n_symbols = len(histogram)
-        assert n_symbols <= 256 # Otherwise the models would get huge
+        assert n_symbols <= 256  # Otherwise the models would get huge
         for byte in data:
             probabilities = [divide(histogram[i], total) for i in range(n_symbols)]
             interval_width = subtract(self.b, self.a)
@@ -168,6 +170,10 @@ class Encoder:
         return self.encoded
 
 
+def uniform_model(n_symbols):
+    return [n_symbols, [1] * n_symbols]
+
+
 if __name__ == "__main__":
     if len(sys.argv) != 3:
         print("Usage: python3 ac.py <input> <output>")
@@ -177,11 +183,11 @@ if __name__ == "__main__":
         data = f.read()
 
     encoder = Encoder()
-    test_model = [256, [1] * 256]
+    test_model = uniform_model(256)
     encoder.encode_incremental(test_model, data[: len(data) // 2])
     encoder.encode_incremental(test_model, data[len(data) // 2 :])
     ac = encoder.finalize()
-    round_trip = decode((256, [1] * 256), ac, len(data), data)
+    round_trip = decode(uniform_model(256), ac, len(data), data)
     assert round_trip == data
     print("Compressed size:", len(ac))
     print("Compression ratio:", len(ac) / len(data))
