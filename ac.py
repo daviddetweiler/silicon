@@ -37,6 +37,17 @@ def nlog2(n):
     return 64 - math.log2(n)
 
 
+def entropy(symbols):
+    histogram = {}
+    for symbol in symbols:
+        histogram[symbol] = histogram.get(symbol, 0) + 1
+
+    total = sum(histogram.values())
+    p_values = [count / total for count in histogram.values()]
+
+    return sum(-p * math.log2(p) for p in p_values)
+
+
 class GlobalAdaptiveModel:
     def __init__(self, n_symbols):
         assert (
@@ -67,7 +78,9 @@ class AdaptiveMarkovModel:
     def pvalue(self, symbol):
         # At least 256 observations are required to use the model
         if self.totals[self.context] > 512:
-            return divide(self.histograms[self.context][symbol], self.totals[self.context])
+            return divide(
+                self.histograms[self.context][symbol], self.totals[self.context]
+            )
         else:
             return self.fallback.pvalue(symbol)
 
@@ -162,22 +175,38 @@ class Decoder:
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        print("Usage: python3 ac.py <input> <output>")
+    if len(sys.argv) != 4 or sys.argv[1] not in ("pack", "unpack"):
+        print("Usage: ac.py <pack|unpack> <input> <output>")
         sys.exit(1)
 
-    with open(sys.argv[1], "rb") as f:
+    with open(sys.argv[2], "rb") as f:
         data = f.read()
 
-    encoder = Encoder()
-    encoder.encode_incremental(GlobalAdaptiveModel(256), data)
-    encoded = encoder.finalize()
+    if sys.argv[1] == "pack":
+        e = entropy(data)
+        print(f"{e:.2f}\tbits of entropy per byte")
+        print(f"{100 * e / 8 :.2f}%\toptimal compression ratio")
+        min_size = math.ceil((e / 8) * len(data))
 
-    decoder = Decoder(encoded)
-    decoded = decoder.decode_incremental(GlobalAdaptiveModel(256), len(data))
-    assert decoded == list(data)
+        encoder = Encoder()
+        encoder.encode_incremental(GlobalAdaptiveModel(256), data)
+        encoded = encoder.finalize()
 
-    print("Compressed size:", len(encoded))
-    print("Compression ratio:", len(encoded) / len(data))
-    with open(sys.argv[2], "wb") as f:
-        f.write(encoded)
+        decoder = Decoder(encoded)
+        decoded = decoder.decode_incremental(GlobalAdaptiveModel(256), len(data))
+        if decoded != list(data):
+            print("Stream corruption detected!")
+            sys.exit(1)
+
+        print(len(encoded), "compressed size", sep="\t")
+        print(f"{100 * len(encoded) / len(data):.2f}%\tcompression ratio")
+        print(
+            f"{100 * (len(encoded) - min_size) / min_size:.2f}%\tadaptive coding overhead"
+        )
+        with open(sys.argv[3], "wb") as f:
+            f.write(encoded)
+    elif sys.argv[1] == "unpack":
+        decoder = Decoder(data)
+        decoded = decoder.decode_incremental(GlobalAdaptiveModel(256), len(data))
+        with open(sys.argv[3], "wb") as f:
+            f.write(decoded)

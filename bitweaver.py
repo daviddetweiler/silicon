@@ -56,17 +56,6 @@ def bake_lzss_model(data):
     return bits, coded
 
 
-def entropy(symbols):
-    histogram = {}
-    for symbol in symbols:
-        histogram[symbol] = histogram.get(symbol, 0) + 1
-
-    total = sum(histogram.values())
-    p_values = [count / total for count in histogram.values()]
-
-    return sum(-p * math.log2(p) for p in p_values)
-
-
 def encode(lzss_model, allocation_size, model_type):
     commands, (literals, offsets, lengths) = lzss_model
 
@@ -77,16 +66,16 @@ def encode(lzss_model, allocation_size, model_type):
     lengths_size = len(lengths)
     total_bytes = literals_size + offsets_size + lengths_size + commands_bytes
 
-    print(commands_size, "bits")
-    print(literals_size, "bytes of literals")
-    print(offsets_size, "bytes of offsets")
-    print(lengths_size, "bytes of lengths")
-    print(total_bytes, "bytes total")
+    print(commands_size, "bits", sep="\t")
+    print(literals_size, "bytes of literals", sep="\t")
+    print(offsets_size, "bytes of offsets", sep="\t")
+    print(lengths_size, "bytes of lengths", sep="\t")
+    print(total_bytes, "bytes total", sep="\t")
 
-    command_entropy_limit = entropy(commands) / 1  # 1 bit per command
-    literal_entropy_limit = entropy(literals) / 8  # 8 bits per byte
-    offset_entropy_limit = entropy(offsets) / 8  # 8 bits per byte
-    length_entropy_limit = entropy(lengths) / 8  # 8 bits per byte
+    command_entropy_limit = ac.entropy(commands) / 1  # 1 bit per command
+    literal_entropy_limit = ac.entropy(literals) / 8  # 8 bits per byte
+    offset_entropy_limit = ac.entropy(offsets) / 8  # 8 bits per byte
+    length_entropy_limit = ac.entropy(lengths) / 8  # 8 bits per byte
 
     min_command_bytes = command_entropy_limit * commands_bytes
     min_literal_bytes = literal_entropy_limit * literals_size
@@ -97,10 +86,10 @@ def encode(lzss_model, allocation_size, model_type):
         min_command_bytes + min_literal_bytes + min_offset_bytes + min_length_bytes
     )
 
-    print(f"{command_entropy_limit:.4f} bits per command minimum")
-    print(f"{literal_entropy_limit:.4f} bytes per literal minimum")
-    print(f"{offset_entropy_limit:.4f} bytes per offset minimum")
-    print(f"{length_entropy_limit:.4f} bytes per length minimum")
+    print(f"{command_entropy_limit:.4f}\tbits per command minimum")
+    print(f"{literal_entropy_limit:.4f}\tbytes per literal minimum")
+    print(f"{offset_entropy_limit:.4f}\tbytes per offset minimum")
+    print(f"{length_entropy_limit:.4f}\tbytes per length minimum")
 
     encoder = ac.Encoder()
     command_model = model_type(2)
@@ -136,8 +125,8 @@ def encode(lzss_model, allocation_size, model_type):
     assert c == len(lengths)
     coded = encoder.finalize()
 
-    print(len(coded), "bytes compressed")
-    print(f"{100 * (len(coded) / minimum_bytes - 1):.2f}% adaptive coding overhead")
+    print(len(coded), "bytes compressed", sep="\t")
+    print(f"{100 * (len(coded) / minimum_bytes - 1):.2f}%\tadaptive coding overhead")
 
     return coded
 
@@ -204,7 +193,7 @@ def get_size(data):
     if bss_size > 2**32:  # We're probably dealing with a non-image
         bss_size = 0
 
-    print("BSS size:", bss_size)
+    print(bss_size, "extra bytes of BSS", sep="\t")
 
     return len(data) + bss_size
 
@@ -224,7 +213,7 @@ if __name__ == "__main__":
         lzss_model = bake_lzss_model(data)
         encoded = encode(lzss_model, full_size, model_type)
         print(
-            f"Final compression ratio: {100 * len(encoded) / len(data) :.2f}% ({model_type.__name__})"
+            f"{100 * len(encoded) / len(data) :.2f}%\tcompression ratio ({model_type.__name__})"
         )
         decoded = decode(encoded, model_type)
         if decoded != data:
