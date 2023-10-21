@@ -131,6 +131,16 @@ section .text
         mov sil, al
 
         .copy_loop: ; By now the upper 32 bits of rsi are the offset, and the lower 32 bits are the length
+        mov rbx, rsi
+        shr rbx, 32
+        neg rbx
+        mov esi, esi
+
+        .next_byte:
+        mov al, [rdi + rbx]
+        stosb
+        dec rsi
+        jnz .next_byte
 
         jmp .advance
 

@@ -168,7 +168,8 @@ def decode(encoded, model_type):
     for _ in range(n_commands):
         bit = decoder.decode_incremental(command_model, 1)[0]
         if bit == 0:
-            decompressed += bytes(decoder.decode_incremental(literal_model, 1))
+            literal = bytes(decoder.decode_incremental(literal_model, 1))
+            decompressed += literal
         else:
             offset = decoder.decode_incremental(offset_model, 1)
             if offset[0] & 0x80 != 0:
