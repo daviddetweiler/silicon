@@ -71,19 +71,25 @@ section .text
         mov r8, 4 ; 4 symbols
         call decode
 
+        mov [rsp + 8 * 4], r11
+        mov [rsp + 8 * 5], r10
+
         mov rcx, image_base
         mov edx, eax
         bswap edx
-        int3
         call allocate
         mov rdi, rax ; rdi = decompression buffer address
+
+        mov r11, [rsp + 8 * 4]
+        mov r10, [rsp + 8 * 5]
 
     prepare_lzss_unpack:
         mov rcx, r15
         mov rdx, 256
         mov r8, 4
         call decode
-        mov r14, rax ; r14 = command count
+        mov r14d, eax ; r14 = command count
+        bswap r14d
 
     load:
         int3 ; TODO: remove me
@@ -159,6 +165,7 @@ section .text
         test rbx, rax ; check if we have 8 frozen bits at the top
         jnz .shifting_done
         shl r12, 8 ; renormalize
+        not r12b ; set all ones in the lower 8 bits
         shl r13, 8
         shl r11, 8
         mov rax, bitstream
@@ -171,7 +178,6 @@ section .text
         jnz .next_symbol
         
         mov rax, qword [rsp] ; rax = decoded symbols
-        int3
         add rsp, 8
         ret
 
