@@ -55,6 +55,8 @@ section .text
         xor r11, r11 ; r11 = arithmetic decoder 64-bit window
         xor r10, r10 ; r10 = bitstream unconsumed byte index
 
+        not r12 ; set all ones
+
         .next_init:
         shl r11, 8
         mov rax, bitstream
@@ -70,7 +72,9 @@ section .text
         call decode
 
         mov rcx, image_base
-        mov rdx, rax
+        mov edx, eax
+        bswap edx
+        int3
         call allocate
         mov rdi, rax ; rdi = decompression buffer address
 
@@ -82,7 +86,7 @@ section .text
         mov r14, rax ; r14 = command count
 
     load:
-        int3
+        int3 ; TODO: remove me
         mov rcx, GetModuleHandleA
         mov rdx, GetProcAddress
         mov rax, image_base
@@ -108,9 +112,67 @@ section .text
         jnz .next_pvalue
         ret
 
-    ; This will perform the arithmetic decode and return the symbols in rax, the first symbol nearest the LSB, so that
-    ; little-endian values are already in the correct order.
+    ; This will perform the arithmetic decode and return the symbols in rax.
+    ; WARNING the unwritten bits of rax are undefined, so mask them off before using.
+    ; WARNING the symbols are written in reverse order, so you must reverse them before using.
+    ; rcx = model address
+    ; rdx = model alphabet size
+    ; r8 = number of symbols to decode
+    ; High register pressure here, r15-r10 in use, as is rdi, rcx, r8, rdx
     decode:
+        sub rsp, 8
+
+        mov rbp, rdx ; rbp = model alphabet size
+
+        .next_symbol:
+        mov rbx, r12
+        sub rbx, r13 ; rbx = interval width
+
+        xor r9, r9 ; r9 = trial symbol
+
+        .next_subinterval:
+        mov rdx, [rcx + r9 * 8] ; rdx = symbol frequency
+        xor rax, rax
+        div qword [rcx - 8] ; rax = symbol probability
+        xor rdx, rdx
+        mul rbx ; rdx = subinterval width
+
+        add rdx, r13 ; rdx = subinterval lower bound
+        cmp rdx, r11 ; range check
+        jb .advance_subinterval
+        mov r12, rdx ; update upper bound
+        mov byte [rsp + r8 - 1], r9b ; store symbol
+        inc qword [rcx + r9 * 8] ; update model
+        inc qword [rcx - 8] ; update model
+        jmp .renormalize
+
+        .advance_subinterval:
+        mov r13, rdx ; update lower bound
+        inc r9
+        cmp r9, rbp
+        jne .next_subinterval
+
+        .renormalize:
+        mov rbx, r12
+        xor rbx, r13 ; any clear bits are the "frozen" bits
+        mov rax, ((1 << 8) - 1) << (64 - 8)
+        test rbx, rax ; check if we have 8 frozen bits at the top
+        jnz .shifting_done
+        shl r12, 8 ; renormalize
+        shl r13, 8
+        shl r11, 8
+        mov rax, bitstream
+        mov r11b, [rax + r10]
+        inc r10
+        jmp .renormalize
+
+        .shifting_done:
+        dec r8
+        jnz .next_symbol
+        
+        mov rax, qword [rsp] ; rax = decoded symbols
+        int3
+        add rsp, 8
         ret
 
     bitstream:
