@@ -137,6 +137,7 @@ def encode(lzss, allocation_size):
 
     return coded
 
+
 def decode(encoded):
     decoder = ac.Decoder(encoded)
     command_model = ac.uniform_model(2)
@@ -144,8 +145,12 @@ def decode(encoded):
     offset_model = ac.uniform_model(256)
     length_model = ac.uniform_model(256)
 
-    allocation_size = int.from_bytes(bytes(decoder.decode_incremental(literal_model, 4)), "little")
-    n_commands = int.from_bytes(bytes(decoder.decode_incremental(literal_model, 4)), "little")
+    allocation_size = int.from_bytes(
+        bytes(decoder.decode_incremental(literal_model, 4)), "little"
+    )
+    n_commands = int.from_bytes(
+        bytes(decoder.decode_incremental(literal_model, 4)), "little"
+    )
 
     commands = []
     literals = b""
@@ -161,13 +166,17 @@ def decode(encoded):
             if offset_fb[0] & 0x80 == 0:
                 offsets += bytes(offset_fb)
             else:
-                offsets += bytes(offset_fb + decoder.decode_incremental(offset_model, 1))
+                offsets += bytes(
+                    offset_fb + decoder.decode_incremental(offset_model, 1)
+                )
 
             length_fb = decoder.decode_incremental(length_model, 1)
             if length_fb[0] & 0x80 == 0:
                 lengths += bytes(length_fb)
             else:
-                lengths += bytes(length_fb + decoder.decode_incremental(length_model, 1))
+                lengths += bytes(
+                    length_fb + decoder.decode_incremental(length_model, 1)
+                )
 
     lzss = commands, (literals, offsets, lengths)
     print(f"Recovered {len(literals)} bytes of literals")
@@ -175,6 +184,44 @@ def decode(encoded):
     print(f"Recovered {len(lengths)} bytes of lengths")
 
     return lzss, allocation_size
+
+
+def decode_15bit(data):
+    leader = data[0]
+    if leader < 0x80:
+        return leader, 1
+    else:
+        hi = leader & 0x7F
+        lo = data[1]
+        return (hi << 8) | lo, 2
+
+
+def lzss_decompress(lzss):
+    bits, (literals, offsets, lengths) = lzss
+    a, b, c = 0, 0, 0
+
+    data = b""
+    for bit in bits:
+        if bit == 0:
+            data += literals[a : a + 1]
+            a += 1
+        else:
+            offset, l = decode_15bit(offsets[b:])
+            b += l
+            length, l = decode_15bit(lengths[c:])
+            c += l
+            if offset > length:
+                data += data[-offset : -(offset - length)]
+            else:
+                while length > 0:
+                    if offset <= length:
+                        data += data[-offset:]
+                    else:
+                        data += data[-offset : -(offset - length)]
+
+                    length -= offset
+
+    return data
 
 
 if __name__ == "__main__":
@@ -189,7 +236,9 @@ if __name__ == "__main__":
     encoded = encode(lzss, len(data))
     print("Final compression ratio:", len(encoded) / len(data))
 
-    decode(encoded)
+    lzss, allocation_size = decode(encoded)
+    round_trip = lzss_decompress(lzss)
+    assert round_trip == data
 
     with open(sys.argv[2], "wb") as f:
         f.write(encoded)
