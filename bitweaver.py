@@ -148,6 +148,7 @@ if __name__ == "__main__":
 
     lzss = lzss_compress(data)
     encoded = encode(lzss, len(data))
+    print("Final compression ratio:", len(encoded) / len(data))
 
     with open(sys.argv[2], "wb") as f:
         f.write(encoded)
