@@ -170,6 +170,59 @@ class Encoder:
         return self.encoded
 
 
+class Decoder:
+    def __init__(self, encoded):
+        self.bitgroups = [byte for byte in encoded]
+        self.a = 0
+        self.b = (1 << 64) - 1
+        self.window = 0
+        self.i = 0
+
+    def decode_incremental(self, model, expected_length):
+        total, histogram = model
+        n_symbols = len(histogram)
+        decoded = b""
+        while self.i < 8:
+            self.window = shl(self.window, 8) | (
+                self.bitgroups[self.i] if self.i < len(self.bitgroups) else 0
+            )
+
+            self.i += 1
+
+        while len(decoded) < expected_length:
+            probabilities = [divide(histogram[i], total) for i in range(n_symbols)]
+            interval_width = subtract(self.b, self.a)
+            byte = None
+            for j in range(n_symbols):
+                subinterval_width = multiply(interval_width, probabilities[j])
+                next_a = add(self.a, subinterval_width)
+                if next_a > self.window:
+                    self.b = next_a
+                    byte = j
+                    break
+
+                self.a = next_a
+
+            while (self.a ^ self.b) & UPPER8 == 0:
+                # 8 bits have been locked in
+                self.a = shl(self.a, 8)
+                self.b = shl(self.b, 8)
+                self.b |= (1 << 8) - 1
+                self.window = shl(self.window, 8) | (
+                    self.bitgroups[self.i] if self.i < len(self.bitgroups) else 0
+                )
+                self.i += 1
+
+            decoded += bytes([byte])
+            histogram[byte] += 1
+            total += 1
+
+        model[0] = total
+        model[1] = histogram
+
+        return decoded
+
+
 def uniform_model(n_symbols):
     return [n_symbols, [1] * n_symbols]
 
@@ -189,6 +242,16 @@ if __name__ == "__main__":
     ac = encoder.finalize()
     round_trip = decode(uniform_model(256), ac, len(data), data)
     assert round_trip == data
+
+    decoder = Decoder(ac)
+    decode_model = uniform_model(256)
+    other_round_trip = decoder.decode_incremental(decode_model, len(data) // 2)
+    other_round_trip += decoder.decode_incremental(
+        decode_model, len(data) - len(data) // 2
+    )
+
+    assert round_trip == other_round_trip
+
     print("Compressed size:", len(ac))
     print("Compression ratio:", len(ac) / len(data))
     with open(sys.argv[2], "wb") as f:
