@@ -25,11 +25,15 @@ def lzss_compress(data):
             window_base = max(0, i - window)
             window_data = data[window_base : i + j - 1]
             m = window_data.rfind(data[i : i + j])
-            if m == -1 or i + j > len(data) or j >= window:
+            if m == -1 or i + j > len(data):
                 break
-            else:
-                longest_match = i - (window_base + m), j
-                j += 1
+
+            o, l = i - (window_base + m), j
+            if o >= 2**15 or l >= 2**15:
+                break
+
+            longest_match = o, l
+            j += 1
 
         if longest_match is not None:
             offset, length = longest_match
