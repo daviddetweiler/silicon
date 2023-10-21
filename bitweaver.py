@@ -13,13 +13,13 @@ def encode_15bit(n):
         return (0x80 | hi).to_bytes(1, "little") + lo.to_bytes(1, "little")
 
 
-def lzss_compress(data):
+def bake_lzss_model(data):
     window = 2**15
     i = 0
     bits = []
     coded = [b"", b"", b""]
     while i < len(data):
-        j = 3  # At least 4 bytes are needed to lzss_compress a match, so we match only 5 bytes or more.
+        j = 3  # At least 2 bytes are needed to encode a match, so we match only 3 bytes or more.
         longest_match = None
         while True:
             window_base = max(0, i - window)
@@ -63,53 +63,53 @@ def entropy(symbols):
 
     total = sum(histogram.values())
     probabilities = [histogram[symbol] / total for symbol in histogram]
+
     return sum(-p * math.log2(p) for p in probabilities)
 
 
-def encode(lzss, allocation_size):
-    print(len(lzss[0]), "bits")
-    print(len(lzss[1][0]), "bytes of literals")
-    print(len(lzss[1][1]), "bytes of offsets")
-    print(len(lzss[1][2]), "bytes of lengths")
-    print(
-        len(lzss[1][0])
-        + len(lzss[1][1])
-        + len(lzss[1][2])
-        + math.ceil(len(lzss[0]) / 8),
-        "bytes total",
-    )
+def encode(lzss_model, allocation_size):
+    commands, (literals, offsets, lengths) = lzss_model
 
-    command_entropy_limit = entropy(lzss[0]) / 1  # 1 bit per command
-    literal_entropy_limit = entropy(lzss[1][0]) / 8  # 8 bits per byte
-    offset_entropy_limit = entropy(lzss[1][1]) / 8  # 8 bits per byte
-    length_entropy_limit = entropy(lzss[1][2]) / 8  # 8 bits per byte
+    commands_size = len(commands)
+    commands_bytes = math.ceil(commands_size / 8)
+    literals_size = len(literals)
+    offsets_size = len(offsets)
+    lengths_size = len(lengths)
+    total_bytes = literals_size + offsets_size + lengths_size + commands_bytes
 
-    print(
-        f"{command_entropy_limit:.4f} bits per command minimum ({command_entropy_limit * len(lzss[0]) / 8:.0f} bytes)"
-    )
+    print(commands_size, "bits")
+    print(literals_size, "bytes of literals")
+    print(offsets_size, "bytes of offsets")
+    print(lengths_size, "bytes of lengths")
+    print(total_bytes, "bytes total")
 
-    print(
-        f"{literal_entropy_limit:.4f} bytes per literal minimum ({literal_entropy_limit * len(lzss[1][0]):.0f} bytes)"
-    )
+    command_entropy_limit = entropy(commands) / 1  # 1 bit per command
+    literal_entropy_limit = entropy(literals) / 8  # 8 bits per byte
+    offset_entropy_limit = entropy(offsets) / 8  # 8 bits per byte
+    length_entropy_limit = entropy(lengths) / 8  # 8 bits per byte
 
     print(
-        f"{offset_entropy_limit:.4f} bytes per offset minimum ({offset_entropy_limit * len(lzss[1][1]):.0f} bytes)"
+        f"{command_entropy_limit:.4f} bits per command minimum ({command_entropy_limit * commands_bytes:.0f} bytes)"
     )
 
     print(
-        f"{length_entropy_limit:.4f} bytes per length minimum ({length_entropy_limit * len(lzss[1][2]):.0f} bytes)"
+        f"{literal_entropy_limit:.4f} bytes per literal minimum ({literal_entropy_limit * literals_size:.0f} bytes)"
+    )
+
+    print(
+        f"{offset_entropy_limit:.4f} bytes per offset minimum ({offset_entropy_limit * offsets_size:.0f} bytes)"
+    )
+
+    print(
+        f"{length_entropy_limit:.4f} bytes per length minimum ({length_entropy_limit * lengths_size:.0f} bytes)"
     )
 
     encoder = ac.Encoder()
-    command_model = ac.uniform_model(2)
-    literal_model = ac.uniform_model(256)
-    offset_model = ac.uniform_model(256)
-    length_model = ac.uniform_model(256)
+    command_model = ac.GlobalAdaptiveModel(2)
+    literal_model = ac.GlobalAdaptiveModel(256)
+    offset_model = ac.GlobalAdaptiveModel(256)
+    length_model = ac.GlobalAdaptiveModel(256)
 
-    commands = lzss[0]
-    literals = lzss[1][0]
-    offsets = lzss[1][1]
-    lengths = lzss[1][2]
     a, b, c = 0, 0, 0
     encoder.encode_incremental(literal_model, allocation_size.to_bytes(4, "little"))
     encoder.encode_incremental(literal_model, len(commands).to_bytes(4, "little"))
@@ -137,111 +137,76 @@ def encode(lzss, allocation_size):
     assert b == len(offsets)
     assert c == len(lengths)
     coded = encoder.finalize()
-    print(len(coded), "bytes")
+    print(len(coded), "bytes compressed")
 
     return coded
-
-
-def decode(encoded):
-    decoder = ac.Decoder(encoded)
-    command_model = ac.uniform_model(2)
-    literal_model = ac.uniform_model(256)
-    offset_model = ac.uniform_model(256)
-    length_model = ac.uniform_model(256)
-
-    allocation_size = int.from_bytes(
-        bytes(decoder.decode_incremental(literal_model, 4)), "little"
-    )
-    n_commands = int.from_bytes(
-        bytes(decoder.decode_incremental(literal_model, 4)), "little"
-    )
-
-    commands = []
-    literals = b""
-    offsets = b""
-    lengths = b""
-    for _ in range(n_commands):
-        bit = decoder.decode_incremental(command_model, 1)[0]
-        commands.append(bit)
-        if bit == 0:
-            literals += bytes(decoder.decode_incremental(literal_model, 1))
-        else:
-            offset_fb = decoder.decode_incremental(offset_model, 1)
-            if offset_fb[0] & 0x80 == 0:
-                offsets += bytes(offset_fb)
-            else:
-                offsets += bytes(
-                    offset_fb + decoder.decode_incremental(offset_model, 1)
-                )
-
-            length_fb = decoder.decode_incremental(length_model, 1)
-            if length_fb[0] & 0x80 == 0:
-                lengths += bytes(length_fb)
-            else:
-                lengths += bytes(
-                    length_fb + decoder.decode_incremental(length_model, 1)
-                )
-
-    lzss = commands, (literals, offsets, lengths)
-    print(f"Recovered {len(literals)} bytes of literals")
-    print(f"Recovered {len(offsets)} bytes of offsets")
-    print(f"Recovered {len(lengths)} bytes of lengths")
-
-    return lzss, allocation_size
 
 
 def decode_15bit(data):
     leader = data[0]
     if leader < 0x80:
-        return leader, 1
+        return leader
     else:
         hi = leader & 0x7F
         lo = data[1]
-        return (hi << 8) | lo, 2
+        return (hi << 8) | lo
 
 
-def lzss_decompress(lzss):
-    bits, (literals, offsets, lengths) = lzss
-    a, b, c = 0, 0, 0
+def decode(encoded):
+    decoder = ac.Decoder(encoded)
+    command_model = ac.GlobalAdaptiveModel(2)
+    literal_model = ac.GlobalAdaptiveModel(256)
+    offset_model = ac.GlobalAdaptiveModel(256)
+    length_model = ac.GlobalAdaptiveModel(256)
 
-    data = b""
-    for bit in bits:
+    _ = int.from_bytes(bytes(decoder.decode_incremental(literal_model, 4)), "little")
+    n_commands = int.from_bytes(
+        bytes(decoder.decode_incremental(literal_model, 4)), "little"
+    )
+
+    decompressed = b""
+    for _ in range(n_commands):
+        bit = decoder.decode_incremental(command_model, 1)[0]
         if bit == 0:
-            data += literals[a : a + 1]
-            a += 1
+            decompressed += bytes(decoder.decode_incremental(literal_model, 1))
         else:
-            offset, l = decode_15bit(offsets[b:])
-            b += l
-            length, l = decode_15bit(lengths[c:])
-            c += l
+            offset = decoder.decode_incremental(offset_model, 1)
+            if offset[0] & 0x80 != 0:
+                offset += decoder.decode_incremental(offset_model, 1)
+
+            length = decoder.decode_incremental(length_model, 1)
+            if length[0] & 0x80 != 0:
+                length += decoder.decode_incremental(length_model, 1)
+
+            offset = decode_15bit(offset)
+            length = decode_15bit(length)
             if offset > length:
-                data += data[-offset : -(offset - length)]
+                decompressed += decompressed[-offset : -(offset - length)]
             else:
                 while length > 0:
                     if offset <= length:
-                        data += data[-offset:]
+                        decompressed += decompressed[-offset:]
                     else:
-                        data += data[-offset : -(offset - length)]
+                        decompressed += decompressed[-offset : -(offset - length)]
 
                     length -= offset
 
-    return data
+    return decompressed
 
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
-        print("Usage: lzss.py <input> <output>")
+        print("Usage: bitweaver.py <input> <output>")
         sys.exit(1)
 
     with open(sys.argv[1], "rb") as f:
         data = f.read()
 
-    lzss = lzss_compress(data)
-    encoded = encode(lzss, len(data))
-    print("Final compression ratio:", len(encoded) / len(data))
+    lzss_model = bake_lzss_model(data)
+    encoded = encode(lzss_model, len(data))
+    print(f"Final compression ratio: {100 * len(encoded) / len(data) :.2f}%")
 
-    lzss, allocation_size = decode(encoded)
-    round_trip = lzss_decompress(lzss)
+    round_trip = decode(encoded)
     assert round_trip == data
 
     with open(sys.argv[2], "wb") as f:
