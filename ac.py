@@ -181,7 +181,7 @@ class Decoder:
     def decode_incremental(self, model, expected_length):
         total, histogram = model
         n_symbols = len(histogram)
-        decoded = b""
+        decoded = []
         while self.i < 8:
             self.window = shl(self.window, 8) | (
                 self.bitgroups[self.i] if self.i < len(self.bitgroups) else 0
@@ -213,7 +213,7 @@ class Decoder:
                 )
                 self.i += 1
 
-            decoded += bytes([byte])
+            decoded += [byte]
             histogram[byte] += 1
             total += 1
 
@@ -250,7 +250,7 @@ if __name__ == "__main__":
         decode_model, len(data) - len(data) // 2
     )
 
-    assert round_trip == other_round_trip
+    assert round_trip == bytes(other_round_trip)
 
     print("Compressed size:", len(ac))
     print("Compression ratio:", len(ac) / len(data))

@@ -137,6 +137,45 @@ def encode(lzss, allocation_size):
 
     return coded
 
+def decode(encoded):
+    decoder = ac.Decoder(encoded)
+    command_model = ac.uniform_model(2)
+    literal_model = ac.uniform_model(256)
+    offset_model = ac.uniform_model(256)
+    length_model = ac.uniform_model(256)
+
+    allocation_size = int.from_bytes(bytes(decoder.decode_incremental(literal_model, 4)), "little")
+    n_commands = int.from_bytes(bytes(decoder.decode_incremental(literal_model, 4)), "little")
+
+    commands = []
+    literals = b""
+    offsets = b""
+    lengths = b""
+    for _ in range(n_commands):
+        bit = decoder.decode_incremental(command_model, 1)[0]
+        commands.append(bit)
+        if bit == 0:
+            literals += bytes(decoder.decode_incremental(literal_model, 1))
+        else:
+            offset_fb = decoder.decode_incremental(offset_model, 1)
+            if offset_fb[0] & 0x80 == 0:
+                offsets += bytes(offset_fb)
+            else:
+                offsets += bytes(offset_fb + decoder.decode_incremental(offset_model, 1))
+
+            length_fb = decoder.decode_incremental(length_model, 1)
+            if length_fb[0] & 0x80 == 0:
+                lengths += bytes(length_fb)
+            else:
+                lengths += bytes(length_fb + decoder.decode_incremental(length_model, 1))
+
+    lzss = commands, (literals, offsets, lengths)
+    print(f"Recovered {len(literals)} bytes of literals")
+    print(f"Recovered {len(offsets)} bytes of offsets")
+    print(f"Recovered {len(lengths)} bytes of lengths")
+
+    return lzss, allocation_size
+
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
@@ -149,6 +188,8 @@ if __name__ == "__main__":
     lzss = lzss_compress(data)
     encoded = encode(lzss, len(data))
     print("Final compression ratio:", len(encoded) / len(data))
+
+    decode(encoded)
 
     with open(sys.argv[2], "wb") as f:
         f.write(encoded)
