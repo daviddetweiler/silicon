@@ -31,6 +31,7 @@ section .text
     start:
         sub rsp, 8 + 8 * 16 ; It's what the interpreter expects
 
+    init_models:
         xor rcx, rcx
         mov rdx, models_size
         call allocate
@@ -47,6 +48,38 @@ section .text
 
         mov rdx, 2
         call init_model
+
+    prepare_decoder:
+        xor r13, r13 ; r13 = arithmetic decoder lower bound
+        xor r12, r12 ; r12 = arithmetic decoder upper bound
+        xor r11, r11 ; r11 = arithmetic decoder 64-bit window
+        xor r10, r10 ; r10 = bitstream unconsumed byte index
+
+        .next_init:
+        shl r11, 8
+        mov rax, bitstream
+        mov r11b, [rax + r10]
+        inc r10
+        test r10, 7
+        jnz .next_init
+
+    prepare_decompression:
+        mov rcx, r15 ; use literals model
+        mov rdx, 256 ; 8-bit model
+        mov r8, 4 ; 4 symbols
+        call decode
+
+        mov rcx, image_base
+        mov rdx, rax
+        call allocate
+        mov rdi, rax ; rdi = decompression buffer address
+
+    prepare_lzss_unpack:
+        mov rcx, r15
+        mov rdx, 256
+        mov r8, 4
+        call decode
+        mov r14, rax ; r14 = command count
 
     load:
         int3
@@ -75,5 +108,10 @@ section .text
         jnz .next_pvalue
         ret
 
-    image:
+    ; This will perform the arithmetic decode and return the symbols in rax, the first symbol nearest the LSB, so that
+    ; little-endian values are already in the correct order.
+    decode:
+        ret
+
+    bitstream:
         %include "bw.inc"
