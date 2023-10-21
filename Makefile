@@ -19,7 +19,7 @@ bw.inc: silicon.bin.bw inc.py Makefile
     python .\inc.py silicon.bin.bw bw.inc
 
 bw.obj: bw.inc bw.asm Makefile
-    nasm -fwin64 bw.asm -o bw.obj
+    nasm -fwin64 bw.asm -o bw.obj -g
 
 silicon.exe: bw.obj Makefile
     link bw.obj kernel32.lib \
@@ -31,7 +31,8 @@ silicon.exe: bw.obj Makefile
         /ignore:4254 \
         /section:kernel,RE \
         /merge:.rdata=kernel \
-        /merge:.text=kernel
+        /merge:.text=kernel \
+        /debug
 
 silicon-debug.exe: silicon.obj Makefile
     link silicon.obj kernel32.lib \
