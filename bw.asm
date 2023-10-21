@@ -98,7 +98,7 @@ section .text
         mov sil, al
 
         test rsi, 0x80
-        jmp .get_length
+        jz .get_length
 
         xor rsi, 0x80 ; clear the flag
         shl rsi, 8
@@ -118,10 +118,10 @@ section .text
         shl rsi, 32
         mov sil, al
 
-        test rsi, 0x8
+        test rsi, 0x80
         jz .copy_loop
 
-        xor rsi, 0x8 ; clear the flag
+        xor rsi, 0x80 ; clear the flag
         shl esi, 8
 
         lea rcx, [r15 + length_model_offset]
@@ -156,10 +156,9 @@ section .text
         jnz .next_command
 
     load:
-        int3 ; TODO: remove me
         mov rcx, GetModuleHandleA
         mov rdx, GetProcAddress
-        mov rax, image_base
+        mov rax, image_base + 8
         jmp rax
 
     allocate:

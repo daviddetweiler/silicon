@@ -198,6 +198,17 @@ def decode(encoded, model_type):
     return decompressed
 
 
+def get_size(data):
+    bss_size = 0
+    bss_size = int.from_bytes(data[0:8], "little")
+    if bss_size > 2**32:  # We're probably dealing with a non-image
+        bss_size = 0
+
+    print("BSS size:", bss_size)
+
+    return len(data) + bss_size
+
+
 if __name__ == "__main__":
     if len(sys.argv) != 4 or sys.argv[1] not in ("pack", "unpack"):
         print("Usage: bitweaver.py <pack|unpack> <input> <output>")
@@ -209,8 +220,9 @@ if __name__ == "__main__":
     model_type = ac.GlobalAdaptiveModel
 
     if sys.argv[1] == "pack":
+        full_size = get_size(data)
         lzss_model = bake_lzss_model(data)
-        encoded = encode(lzss_model, len(data), model_type)
+        encoded = encode(lzss_model, full_size, model_type)
         print(
             f"Final compression ratio: {100 * len(encoded) / len(data) :.2f}% ({model_type.__name__})"
         )
