@@ -39,7 +39,9 @@ def nlog2(n):
 
 class GlobalAdaptiveModel:
     def __init__(self, n_symbols):
-        assert n_symbols > 0 and n_symbols <= 256 # 64 bits of p-value per symbol makes larger models impractical
+        assert (
+            n_symbols > 0 and n_symbols <= 256
+        )  # 64 bits of p-value per symbol makes larger models impractical
         self.total = n_symbols
         self.histogram = [1] * n_symbols
 
@@ -52,6 +54,31 @@ class GlobalAdaptiveModel:
 
     def range(self):
         return len(self.histogram)
+
+
+class AdaptiveMarkovModel:
+    def __init__(self, n_symbols):
+        assert n_symbols > 0 and n_symbols <= 256
+        self.totals = [n_symbols] * n_symbols
+        self.histograms = [[1] * n_symbols for _ in range(n_symbols)]
+        self.context = 0
+        self.fallback = GlobalAdaptiveModel(n_symbols)
+
+    def pvalue(self, symbol):
+        # At least 256 observations are required to use the model
+        if self.totals[self.context] > 512:
+            return divide(self.histograms[self.context][symbol], self.totals[self.context])
+        else:
+            return self.fallback.pvalue(symbol)
+
+    def update(self, symbol):
+        self.histograms[self.context][symbol] += 1
+        self.totals[self.context] += 1
+        self.context = symbol
+        self.fallback.update(symbol)
+
+    def range(self):
+        return len(self.histograms[self.context])
 
 
 class Encoder:

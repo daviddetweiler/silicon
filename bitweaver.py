@@ -56,18 +56,16 @@ def bake_lzss_model(data):
     return bits, coded
 
 
-def entropy(symbols):
-    histogram = {}
+def entropy(symbols, model):
     for symbol in symbols:
-        histogram[symbol] = histogram.get(symbol, 0) + 1
+        model.update(symbol)
 
-    total = sum(histogram.values())
-    probabilities = [histogram[symbol] / total for symbol in histogram]
+    probabilities = [model.pvalue(i) / 2**64 for i in range(model.range())]
 
     return sum(-p * math.log2(p) for p in probabilities)
 
 
-def encode(lzss_model, allocation_size):
+def encode(lzss_model, allocation_size, model_type):
     commands, (literals, offsets, lengths) = lzss_model
 
     commands_size = len(commands)
@@ -83,10 +81,10 @@ def encode(lzss_model, allocation_size):
     print(lengths_size, "bytes of lengths")
     print(total_bytes, "bytes total")
 
-    command_entropy_limit = entropy(commands) / 1  # 1 bit per command
-    literal_entropy_limit = entropy(literals) / 8  # 8 bits per byte
-    offset_entropy_limit = entropy(offsets) / 8  # 8 bits per byte
-    length_entropy_limit = entropy(lengths) / 8  # 8 bits per byte
+    command_entropy_limit = entropy(commands, model_type(2)) / 1  # 1 bit per command
+    literal_entropy_limit = entropy(literals, model_type(256)) / 8  # 8 bits per byte
+    offset_entropy_limit = entropy(offsets, model_type(256)) / 8  # 8 bits per byte
+    length_entropy_limit = entropy(lengths, model_type(256)) / 8  # 8 bits per byte
 
     min_command_bytes = command_entropy_limit * commands_bytes
     min_literal_bytes = literal_entropy_limit * literals_size
@@ -103,10 +101,10 @@ def encode(lzss_model, allocation_size):
     print(f"{length_entropy_limit:.4f} bytes per length minimum")
 
     encoder = ac.Encoder()
-    command_model = ac.GlobalAdaptiveModel(2)
-    literal_model = ac.GlobalAdaptiveModel(256)
-    offset_model = ac.GlobalAdaptiveModel(256)
-    length_model = ac.GlobalAdaptiveModel(256)
+    command_model = model_type(2)
+    literal_model = model_type(256)
+    offset_model = model_type(256)
+    length_model = model_type(256)
 
     a, b, c = 0, 0, 0
     encoder.encode_incremental(literal_model, allocation_size.to_bytes(4, "little"))
@@ -152,12 +150,12 @@ def decode_15bit(data):
         return (hi << 8) | lo
 
 
-def decode(encoded):
+def decode(encoded, model_type):
     decoder = ac.Decoder(encoded)
-    command_model = ac.GlobalAdaptiveModel(2)
-    literal_model = ac.GlobalAdaptiveModel(256)
-    offset_model = ac.GlobalAdaptiveModel(256)
-    length_model = ac.GlobalAdaptiveModel(256)
+    command_model = model_type(2)
+    literal_model = model_type(256)
+    offset_model = model_type(256)
+    length_model = model_type(256)
 
     _ = int.from_bytes(bytes(decoder.decode_incremental(literal_model, 4)), "little")
     n_commands = int.from_bytes(
@@ -205,11 +203,13 @@ if __name__ == "__main__":
     with open(sys.argv[2], "rb") as f:
         data = f.read()
 
+    model_type = ac.GlobalAdaptiveModel
+
     if sys.argv[1] == "pack":
         lzss_model = bake_lzss_model(data)
-        encoded = encode(lzss_model, len(data))
-        print(f"Final compression ratio: {100 * len(encoded) / len(data) :.2f}%")
-        decoded = decode(encoded)
+        encoded = encode(lzss_model, len(data), model_type)
+        print(f"Final compression ratio: {100 * len(encoded) / len(data) :.2f}% ({model_type.__name__})")
+        decoded = decode(encoded, model_type)
         if decoded != data:
             print("Stream corruption detected!")
             sys.exit(1)
@@ -217,6 +217,6 @@ if __name__ == "__main__":
         with open(sys.argv[3], "wb") as f:
             f.write(encoded)
     elif sys.argv[1] == "unpack":
-        decoded = decode(data)
+        decoded = decode(data, model_type)
         with open(sys.argv[3], "wb") as f:
             f.write(decoded)
