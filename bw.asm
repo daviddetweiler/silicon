@@ -54,10 +54,7 @@ section .text
         jnz .next_init
 
     prepare_decompression:
-        mov rcx, r15 ; use literals model
-        mov rdx, 256 ; 8-bit model
-        mov r8, 4 ; 4 symbols
-        call decode
+        call decode_literal_dword
 
         mov [rsp + 8 * 4], r11
         mov [rsp + 8 * 5], r10
@@ -72,10 +69,7 @@ section .text
         mov r10, [rsp + 8 * 5]
 
     prepare_lzss_unpack:
-        mov rcx, r15
-        mov rdx, 256
-        mov r8, 4
-        call decode
+        call decode_literal_dword
         mov r14d, eax ; r14 = command count
         bswap r14d
 
@@ -90,10 +84,7 @@ section .text
         jz .literal
 
         .copy_command:
-        lea rcx, [r15 + offset_model_offset]
-        mov rdx, 256
-        mov r8, 1
-        call decode
+        call decode_offset_byte
         xor rsi, rsi
         mov sil, al
 
@@ -103,17 +94,11 @@ section .text
         xor rsi, 0x80 ; clear the flag
         shl rsi, 8
 
-        lea rcx, [r15 + offset_model_offset]
-        mov rdx, 256
-        mov r8, 1
-        call decode
+        call decode_offset_byte
         mov sil, al
 
         .get_length:
-        lea rcx, [r15 + length_model_offset]
-        mov rdx, 256
-        mov r8, 1
-        call decode
+        call decode_length_byte
 
         shl rsi, 32
         mov sil, al
@@ -124,10 +109,7 @@ section .text
         xor rsi, 0x80 ; clear the flag
         shl esi, 8
 
-        lea rcx, [r15 + length_model_offset]
-        mov rdx, 256
-        mov r8, 1
-        call decode
+        call decode_length_byte
         mov sil, al
 
         .copy_loop: ; By now the upper 32 bits of rsi are the offset, and the lower 32 bits are the length
@@ -145,10 +127,7 @@ section .text
         jmp .advance
 
         .literal:
-        lea rcx, [r15 + literal_model_offset]
-        mov rdx, 256
-        mov r8, 1
-        call decode
+        call decode_literal_byte
         stosb
 
         .advance:
@@ -242,6 +221,34 @@ section .text
         
         mov rax, qword [rsp] ; rax = decoded symbols
         add rsp, 8
+        ret
+
+    decode_length_byte:
+        lea rcx, [r15 + length_model_offset]
+        mov rdx, 256
+        mov r8, 1
+        call decode
+        ret
+
+    decode_offset_byte:
+        lea rcx, [r15 + offset_model_offset]
+        mov rdx, 256
+        mov r8, 1
+        call decode
+        ret
+
+    decode_literal_byte:
+        lea rcx, [r15 + literal_model_offset]
+        mov rdx, 256
+        mov r8, 1
+        call decode
+        ret
+
+    decode_literal_dword:
+        lea rcx, [r15 + literal_model_offset]
+        mov rdx, 256
+        mov r8, 4
+        call decode
         ret
 
     bitstream:
