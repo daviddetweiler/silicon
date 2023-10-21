@@ -88,21 +88,19 @@ def encode(lzss_model, allocation_size):
     offset_entropy_limit = entropy(offsets) / 8  # 8 bits per byte
     length_entropy_limit = entropy(lengths) / 8  # 8 bits per byte
 
-    print(
-        f"{command_entropy_limit:.4f} bits per command minimum ({command_entropy_limit * commands_bytes:.0f} bytes)"
+    min_command_bytes = command_entropy_limit * commands_bytes
+    min_literal_bytes = literal_entropy_limit * literals_size
+    min_offset_bytes = offset_entropy_limit * offsets_size
+    min_length_bytes = length_entropy_limit * lengths_size
+
+    minimum_bytes = (
+        min_command_bytes + min_literal_bytes + min_offset_bytes + min_length_bytes
     )
 
-    print(
-        f"{literal_entropy_limit:.4f} bytes per literal minimum ({literal_entropy_limit * literals_size:.0f} bytes)"
-    )
-
-    print(
-        f"{offset_entropy_limit:.4f} bytes per offset minimum ({offset_entropy_limit * offsets_size:.0f} bytes)"
-    )
-
-    print(
-        f"{length_entropy_limit:.4f} bytes per length minimum ({length_entropy_limit * lengths_size:.0f} bytes)"
-    )
+    print(f"{command_entropy_limit:.4f} bits per command minimum")
+    print(f"{literal_entropy_limit:.4f} bytes per literal minimum")
+    print(f"{offset_entropy_limit:.4f} bytes per offset minimum")
+    print(f"{length_entropy_limit:.4f} bytes per length minimum")
 
     encoder = ac.Encoder()
     command_model = ac.GlobalAdaptiveModel(2)
@@ -137,7 +135,9 @@ def encode(lzss_model, allocation_size):
     assert b == len(offsets)
     assert c == len(lengths)
     coded = encoder.finalize()
+
     print(len(coded), "bytes compressed")
+    print(f"{100 * (len(coded) / minimum_bytes - 1):.2f}% adaptive coding overhead")
 
     return coded
 
@@ -180,6 +180,9 @@ def decode(encoded):
 
             offset = decode_15bit(offset)
             length = decode_15bit(length)
+
+            # This is necessary to do this even kind of efficiently in python, but the assembly language version can
+            # just use byte-by-byte copies.
             if offset > length:
                 decompressed += decompressed[-offset : -(offset - length)]
             else:
@@ -195,19 +198,25 @@ def decode(encoded):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        print("Usage: bitweaver.py <input> <output>")
+    if len(sys.argv) != 4 or sys.argv[1] not in ("pack", "unpack"):
+        print("Usage: bitweaver.py <pack|unpack> <input> <output>")
         sys.exit(1)
 
-    with open(sys.argv[1], "rb") as f:
+    with open(sys.argv[2], "rb") as f:
         data = f.read()
 
-    lzss_model = bake_lzss_model(data)
-    encoded = encode(lzss_model, len(data))
-    print(f"Final compression ratio: {100 * len(encoded) / len(data) :.2f}%")
+    if sys.argv[1] == "pack":
+        lzss_model = bake_lzss_model(data)
+        encoded = encode(lzss_model, len(data))
+        print(f"Final compression ratio: {100 * len(encoded) / len(data) :.2f}%")
+        decoded = decode(encoded)
+        if decoded != data:
+            print("Stream corruption detected!")
+            sys.exit(1)
 
-    round_trip = decode(encoded)
-    assert round_trip == data
-
-    with open(sys.argv[2], "wb") as f:
-        f.write(encoded)
+        with open(sys.argv[3], "wb") as f:
+            f.write(encoded)
+    elif sys.argv[1] == "unpack":
+        decoded = decode(data)
+        with open(sys.argv[3], "wb") as f:
+            f.write(decoded)
