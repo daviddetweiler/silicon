@@ -56,13 +56,15 @@ def bake_lzss_model(data):
     return bits, coded
 
 
-def entropy(symbols, model):
+def entropy(symbols):
+    histogram = {}
     for symbol in symbols:
-        model.update(symbol)
+        histogram[symbol] = histogram.get(symbol, 0) + 1
 
-    probabilities = [model.pvalue(i) / 2**64 for i in range(model.range())]
+    total = sum(histogram.values())
+    p_values = [count / total for count in histogram.values()]
 
-    return sum(-p * math.log2(p) for p in probabilities)
+    return sum(-p * math.log2(p) for p in p_values)
 
 
 def encode(lzss_model, allocation_size, model_type):
@@ -81,10 +83,10 @@ def encode(lzss_model, allocation_size, model_type):
     print(lengths_size, "bytes of lengths")
     print(total_bytes, "bytes total")
 
-    command_entropy_limit = entropy(commands, model_type(2)) / 1  # 1 bit per command
-    literal_entropy_limit = entropy(literals, model_type(256)) / 8  # 8 bits per byte
-    offset_entropy_limit = entropy(offsets, model_type(256)) / 8  # 8 bits per byte
-    length_entropy_limit = entropy(lengths, model_type(256)) / 8  # 8 bits per byte
+    command_entropy_limit = entropy(commands) / 1  # 1 bit per command
+    literal_entropy_limit = entropy(literals) / 8  # 8 bits per byte
+    offset_entropy_limit = entropy(offsets) / 8  # 8 bits per byte
+    length_entropy_limit = entropy(lengths) / 8  # 8 bits per byte
 
     min_command_bytes = command_entropy_limit * commands_bytes
     min_literal_bytes = literal_entropy_limit * literals_size
@@ -208,7 +210,9 @@ if __name__ == "__main__":
     if sys.argv[1] == "pack":
         lzss_model = bake_lzss_model(data)
         encoded = encode(lzss_model, len(data), model_type)
-        print(f"Final compression ratio: {100 * len(encoded) / len(data) :.2f}% ({model_type.__name__})")
+        print(
+            f"Final compression ratio: {100 * len(encoded) / len(data) :.2f}% ({model_type.__name__})"
+        )
         decoded = decode(encoded, model_type)
         if decoded != data:
             print("Stream corruption detected!")
