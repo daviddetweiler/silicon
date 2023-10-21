@@ -15,6 +15,9 @@ silicon.obj: silicon.asm Makefile
 silicon.bin.lzss: silicon.bin lzss.py Makefile
     python .\lzss.py silicon.bin silicon.bin.lzss
 
+silicon.bin.bw: silicon.bin bitweaver.py Makefile
+    python .\bitweaver.py silicon.bin silicon.bin.bw
+
 lzss.inc: silicon.bin.lzss inc.py Makefile
     python .\inc.py silicon.bin.lzss lzss.inc
 
@@ -33,8 +36,8 @@ hf.bin: hf.asm hf.inc Makefile
 hf.bin.xsh32 seed.inc: hf.bin xsh32.py Makefile
     python .\xsh32.py hf.bin hf.bin.xsh32 seed.inc
 
-xsh32.inc: hf.bin.xsh32 inc.py Makefile
-    python .\inc.py hf.bin.xsh32 xsh32.inc
+xsh32.inc: silicon.bin.bw inc.py Makefile
+    python .\inc.py silicon.bin.bw xsh32.inc
 
 xsh32.obj: xsh32.asm xsh32.inc seed.inc Makefile
     nasm -fwin64 xsh32.asm
@@ -67,7 +70,7 @@ silicon-debug.exe: silicon.obj Makefile
         /debug
 
 clean: Makefile
-    del *.obj *.exe *.pdb *.ilk *.zip *.bin *.log *.inc README.txt *.hf *.lzss *.xsh32
+    del *.obj *.exe *.pdb *.ilk *.zip *.bin *.log *.inc README.txt *.hf *.lzss *.xsh32 *.bw
 
 zip: silicon.zip Makefile
 
