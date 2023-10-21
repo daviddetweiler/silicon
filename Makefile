@@ -12,45 +12,24 @@ silicon.obj: silicon.asm Makefile
     pwsh -c "nasm -fwin64 silicon.asm -Dgit_version=""$$(git describe --dirty --tags)"" \
         -o silicon.obj -g -Dstandalone"
 
-silicon.bin.lzss: silicon.bin lzss.py Makefile
-    python .\lzss.py silicon.bin silicon.bin.lzss
-
 silicon.bin.bw: silicon.bin bitweaver.py Makefile
-    python .\bitweaver.py silicon.bin silicon.bin.bw
+    python .\bitweaver.py pack silicon.bin silicon.bin.bw
 
-lzss.inc: silicon.bin.lzss inc.py Makefile
-    python .\inc.py silicon.bin.lzss lzss.inc
+bw.inc: silicon.bin.bw inc.py Makefile
+    python .\inc.py silicon.bin.bw bw.inc
 
-lzss.bin: lzss.asm lzss.inc Makefile
-    nasm -fbin lzss.asm -o lzss.bin
+bw.obj: bw.inc bw.asm Makefile
+    nasm -fwin64 bw.asm -o bw.obj
 
-lzss.bin.hf: lzss.bin hf.py Makefile
-    python .\hf.py lzss.bin lzss.bin.hf
-
-hf.inc: lzss.bin.hf inc.py Makefile
-    python .\inc.py lzss.bin.hf hf.inc
-
-hf.bin: hf.asm hf.inc Makefile
-    nasm -fbin hf.asm -o hf.bin
-
-hf.bin.xsh32 seed.inc: hf.bin xsh32.py Makefile
-    python .\xsh32.py hf.bin hf.bin.xsh32 seed.inc
-
-xsh32.inc: silicon.bin.bw inc.py Makefile
-    python .\inc.py silicon.bin.bw xsh32.inc
-
-xsh32.obj: xsh32.asm xsh32.inc seed.inc Makefile
-    nasm -fwin64 xsh32.asm
-
-silicon.exe: xsh32.obj Makefile
-    link xsh32.obj kernel32.lib \
+silicon.exe: bw.obj Makefile
+    link bw.obj kernel32.lib \
         /out:silicon.exe \
         /subsystem:console \
         /entry:start \
         /nologo \
         /fixed \
         /ignore:4254 \
-        /section:kernel,RWE \
+        /section:kernel,RE \
         /merge:.rdata=kernel \
         /merge:.text=kernel
 
