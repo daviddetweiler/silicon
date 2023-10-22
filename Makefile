@@ -4,11 +4,11 @@ build: silicon.exe Makefile
 
 debug-build: silicon-debug.exe Makefile
 
-silicon.bin: silicon.asm Makefile
+silicon.bin: silicon.asm core.inc Makefile
     pwsh -c "nasm -fbin silicon.asm -Dgit_version=""$$(git describe --dirty --tags)"" \
         -o silicon.bin"
 
-silicon.obj: silicon.asm Makefile
+silicon.obj: silicon.asm core.inc Makefile
     pwsh -c "nasm -fwin64 silicon.asm -Dgit_version=""$$(git describe --dirty --tags)"" \
         -o silicon.obj -g -Dstandalone"
 
@@ -18,8 +18,11 @@ silicon.bin.bw: silicon.bin bitweaver.py Makefile
 bw.inc: silicon.bin.bw inc.py Makefile
     python .\inc.py silicon.bin.bw bw.inc
 
-bw.obj: bw.inc bw.asm Makefile
-    nasm -fwin64 bw.asm -o bw.obj
+core.inc: core.si inc.py Makefile
+    python .\inc.py core.si core.inc
+
+bw.obj: bw.inc bw.asm core.inc Makefile
+    nasm -fwin64 bw.asm -o bw.obj -g
 
 silicon.exe: bw.obj Makefile
     link bw.obj kernel32.lib \
@@ -31,7 +34,7 @@ silicon.exe: bw.obj Makefile
         /ignore:4254 \
         /section:kernel,RE \
         /merge:.rdata=kernel \
-        /merge:.text=kernel
+        /merge:.text=kernel /debug
 
 silicon-debug.exe: silicon.obj Makefile
     link silicon.obj kernel32.lib \

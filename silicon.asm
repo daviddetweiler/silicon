@@ -2230,6 +2230,12 @@ section .rdata
 		name VirtualFree
 	%endif
 
+	core_lib:
+		%include "core.inc"
+		db 0
+
+	align 8
+
 section .bss
 	align 8
 	%ifndef standalone
