@@ -72,7 +72,7 @@ section .text
 
     prepare_lzss_unpack:
         call decode_literal_dword
-        mov r14d, eax ; r14 = command count
+        mov r14d, eax ; r14 = expected bytes to unpack
 
     lzss_unpack:
         .next_command:
@@ -118,6 +118,7 @@ section .text
         shr rbx, 32
         neg rbx
         mov esi, esi
+        sub r14, rsi
 
         .next_byte:
         mov al, [rdi + rbx]
@@ -129,10 +130,11 @@ section .text
 
         .literal:
         call decode_literal_byte
+        dec r14
         stosb
 
         .advance:
-        dec r14
+        test r14, r14
         jnz .next_command
 
     load:

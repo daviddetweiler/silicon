@@ -19,12 +19,13 @@ def bake_lzss_model(data):
     bits = []
     coded = [b"", b"", b""]
     while i < len(data):
-        j = 3  # At least 2 bytes are needed to encode a match, so we match only 3 bytes or more.
+        # At least 2 bytes are needed to encode a match, so we match only 3 bytes or more.
+        j = 3
         longest_match = None
         while True:
             window_base = max(0, i - window)
-            window_data = data[window_base : i + j - 1]
-            m = window_data.rfind(data[i : i + j])
+            window_data = data[window_base: i + j - 1]
+            m = window_data.rfind(data[i: i + j])
             if m == -1 or i + j > len(data):
                 break
 
@@ -56,77 +57,59 @@ def bake_lzss_model(data):
     return bits, coded
 
 
-def encode(lzss_model, allocation_size, model_type):
-    commands, (literals, offsets, lengths) = lzss_model
-
-    commands_size = len(commands)
-    commands_bytes = math.ceil(commands_size / 8)
-    literals_size = len(literals)
-    offsets_size = len(offsets)
-    lengths_size = len(lengths)
-    total_bytes = literals_size + offsets_size + lengths_size + commands_bytes
-
-    print(commands_size, "bits", sep="\t")
-    print(literals_size, "bytes of literals", sep="\t")
-    print(offsets_size, "bytes of offsets", sep="\t")
-    print(lengths_size, "bytes of lengths", sep="\t")
-    print(total_bytes, "bytes total", sep="\t")
-
-    command_entropy_limit = ac.entropy(commands) / 1  # 1 bit per command
-    literal_entropy_limit = ac.entropy(literals) / 8  # 8 bits per byte
-    offset_entropy_limit = ac.entropy(offsets) / 8  # 8 bits per byte
-    length_entropy_limit = ac.entropy(lengths) / 8  # 8 bits per byte
-
-    min_command_bytes = command_entropy_limit * commands_bytes
-    min_literal_bytes = literal_entropy_limit * literals_size
-    min_offset_bytes = offset_entropy_limit * offsets_size
-    min_length_bytes = length_entropy_limit * lengths_size
-
-    minimum_bytes = (
-        min_command_bytes + min_literal_bytes + min_offset_bytes + min_length_bytes
-    )
-
-    print(f"{command_entropy_limit:.4f}\tbits per command minimum")
-    print(f"{literal_entropy_limit:.4f}\tbytes per literal minimum")
-    print(f"{offset_entropy_limit:.4f}\tbytes per offset minimum")
-    print(f"{length_entropy_limit:.4f}\tbytes per length minimum")
-
+def encode(data, allocation_size):
     encoder = ac.Encoder()
-    command_model = model_type(2)
-    literal_model = model_type(256)
-    offset_model = model_type(256)
-    length_model = model_type(256)
+    command_model = ac.GlobalAdaptiveModel(2)
+    literal_model = ac.GlobalAdaptiveModel(256)
+    offset_model = ac.GlobalAdaptiveModel(256)
+    length_model = ac.GlobalAdaptiveModel(256)
 
-    a, b, c = 0, 0, 0
-    encoder.encode_incremental(literal_model, allocation_size.to_bytes(4, "little"))
-    encoder.encode_incremental(literal_model, len(commands).to_bytes(4, "little"))
-    for bit in commands:
-        encoder.encode_incremental(command_model, [bit])
-        if bit == 0:
-            encoder.encode_incremental(literal_model, literals[a : a + 1])
-            a += 1
+    expected_bytes = len(data)
+    encoder.encode_incremental(
+        literal_model, allocation_size.to_bytes(4, "little"))
+    encoder.encode_incremental(
+        literal_model, expected_bytes.to_bytes(4, "little"))
+
+    window = 2**15 - 1
+    i = 0
+    while i < len(data):
+        # At least 2 bytes are needed to encode a match, so we match only 3 bytes or more.
+        j = 3
+        longest_match = None
+        while True:
+            if i + j > len(data):
+                break
+
+            window_base = max(0, i - window)
+            window_data = data[window_base: i + j - 1]
+            m = window_data.rfind(data[i: i + j])
+            if m == -1:
+                break
+
+            o, l = i - (window_base + m), j
+            longest_match = o, l
+            j += 1
+
+        if longest_match is not None:
+            offset, length = longest_match
+            offset_code = encode_15bit(offset)
+            length_code = encode_15bit(length)
+            if len(offset_code) + len(length_code) < length:
+                encoder.encode_incremental(command_model, [1])
+                encoder.encode_incremental(offset_model, offset_code)
+                encoder.encode_incremental(length_model, length_code)
+                i += length
+            else:
+                encoder.encode_incremental(command_model, [0])
+                encoder.encode_incremental(literal_model, data[i: i + 1])
+                i += 1
         else:
-            if offsets[b] & 0x80 == 0:
-                encoder.encode_incremental(offset_model, offsets[b : b + 1])
-                b += 1
-            else:
-                encoder.encode_incremental(offset_model, offsets[b : b + 2])
-                b += 2
+            encoder.encode_incremental(command_model, [0])
+            encoder.encode_incremental(literal_model, data[i: i + 1])
+            i += 1
 
-            if lengths[c] & 0x80 == 0:
-                encoder.encode_incremental(length_model, lengths[c : c + 1])
-                c += 1
-            else:
-                encoder.encode_incremental(length_model, lengths[c : c + 2])
-                c += 2
-
-    assert a == len(literals)
-    assert b == len(offsets)
-    assert c == len(lengths)
     coded = encoder.finalize()
-
     print(len(coded), "bytes compressed", sep="\t")
-    print(f"{100 * (len(coded) / minimum_bytes - 1):.2f}%\tadaptive coding overhead")
 
     return coded
 
@@ -141,20 +124,21 @@ def decode_15bit(data):
         return (hi << 8) | lo
 
 
-def decode(encoded, model_type):
+def decode(encoded):
     decoder = ac.Decoder(encoded)
-    command_model = model_type(2)
-    literal_model = model_type(256)
-    offset_model = model_type(256)
-    length_model = model_type(256)
+    command_model = ac.GlobalAdaptiveModel(2)
+    literal_model = ac.GlobalAdaptiveModel(256)
+    offset_model = ac.GlobalAdaptiveModel(256)
+    length_model = ac.GlobalAdaptiveModel(256)
 
-    _ = int.from_bytes(bytes(decoder.decode_incremental(literal_model, 4)), "little")
-    n_commands = int.from_bytes(
+    _ = int.from_bytes(
+        bytes(decoder.decode_incremental(literal_model, 4)), "little")
+    expected_bytes = int.from_bytes(
         bytes(decoder.decode_incremental(literal_model, 4)), "little"
     )
 
     decompressed = b""
-    for _ in range(n_commands):
+    while len(decompressed) < expected_bytes:
         bit = decoder.decode_incremental(command_model, 1)[0]
         if bit == 0:
             literal = bytes(decoder.decode_incremental(literal_model, 1))
@@ -174,13 +158,14 @@ def decode(encoded, model_type):
             # This is necessary to do this even kind of efficiently in python, but the assembly language version can
             # just use byte-by-byte copies.
             if offset > length:
-                decompressed += decompressed[-offset : -(offset - length)]
+                decompressed += decompressed[-offset: -(offset - length)]
             else:
                 while length > 0:
                     if offset <= length:
                         decompressed += decompressed[-offset:]
                     else:
-                        decompressed += decompressed[-offset : -(offset - length)]
+                        decompressed += decompressed[-offset: -
+                                                     (offset - length)]
 
                     length -= offset
 
@@ -206,16 +191,11 @@ if __name__ == "__main__":
     with open(sys.argv[2], "rb") as f:
         data = f.read()
 
-    model_type = ac.GlobalAdaptiveModel
-
     if sys.argv[1] == "pack":
         full_size = get_size(data)
-        lzss_model = bake_lzss_model(data)
-        encoded = encode(lzss_model, full_size, model_type)
-        print(
-            f"{100 * len(encoded) / len(data) :.2f}%\tcompression ratio ({model_type.__name__})"
-        )
-        decoded = decode(encoded, model_type)
+        encoded = encode(data, full_size)
+        print(f"{100 * len(encoded) / len(data) :.2f}%\tcompression ratio")
+        decoded = decode(encoded)
         if decoded != data:
             print("Stream corruption detected!")
             sys.exit(1)
@@ -223,6 +203,6 @@ if __name__ == "__main__":
         with open(sys.argv[3], "wb") as f:
             f.write(encoded)
     elif sys.argv[1] == "unpack":
-        decoded = decode(data, model_type)
+        decoded = decode(data)
         with open(sys.argv[3], "wb") as f:
             f.write(decoded)
