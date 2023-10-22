@@ -15,6 +15,9 @@ extern GetProcAddress
 %define control_model_offset 3 * (8 + 256 * 8)
 %define models_size 3 * (8 + 256 * 8) + (8 + 2 * 8)
 
+; Maybe worth exploring the markov-chain control bit predictor now, with the large file sizes? Could even fit in 8
+; KiBs...
+
 section .text
     start:
         sub rsp, 8 + 8 * 16 ; It's what the interpreter expects

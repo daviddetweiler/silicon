@@ -28,6 +28,8 @@ core.inc: core.si inc.py Makefile
 bw.obj: bw.inc bw.asm core.inc Makefile
     nasm -fwin64 bw.asm -o bw.obj
 
+bitweaver.py: ac.py Makefile
+
 silicon.exe: bw.obj Makefile
     link bw.obj kernel32.lib \
         /out:silicon.exe \
