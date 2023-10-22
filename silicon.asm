@@ -1013,13 +1013,13 @@ section .rdata
 		jump_to interpret
 
 		.source_ended:
-		da zero
-		da am_initing
-		da store
 		da is_nested_source
 		da push_not
 		branch_to .exit
 		da pop_source_context
+		da zero
+		da am_initing
+		da store
 		jump_to interpret
 
 		.exit:
@@ -1097,19 +1097,9 @@ section .rdata
 
 	; ( -- )
 	thread load_init_library
-		; TODO: Error checking??? See also our unchecked usage of ReadFile/WriteFile
-		da init_library_name
-		da drop
-		da open_file
-		da copy
-		branch_to .found
-		da status_no_init_library
-		da print_line
-		da drop
-		da return
-
-		.found:
-		da set_up_preloaded_source
+		da literal
+		da core_lib
+		da set_up_source_text
 		da all_ones
 		da am_initing
 		da store
@@ -1121,7 +1111,11 @@ section .rdata
 		da load_source_file
 		da swap
 		da close_handle
+		da set_up_source_text
+		da return
 
+	; ( buffer -- )
+	thread set_up_source_text
 		da push_source_context
 
 		da copy
@@ -2060,11 +2054,17 @@ section .rdata
 
 	; ( -- )
 	thread pop_source_context
+		da am_initing
+		da load
+		branch_to .not_init
+
 		da preloaded_source
 		da load
 		da free_pages
 		da push_is_zero
 		maybe break
+
+		.not_init:
 		da source_context
 		da copy
 		da load
@@ -2194,7 +2194,6 @@ section .rdata
 	string status_bad_init, yellow(`Fault during init script\nPress enter to exit...\n`)
 	string status_nested_def, red(`Cannot define new words while another is still being defined\n`) ; soft fault
 	string newline, `\n`
-	string init_library_name, `init.si`
 	string negative, `-`
 
 	declare "seq-clear"
