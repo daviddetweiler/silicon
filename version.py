@@ -1,8 +1,8 @@
 import sys
 
 if __name__ == "__main__":
-    if len(sys.argv) != 4:
-        print("Usage: python3 version.py <actual> <expected> <inc>")
+    if len(sys.argv) != 3:
+        print("Usage: python3 version.py <actual> <expected>")
         sys.exit(1)
 
     with open(sys.argv[1], "r") as f:
@@ -21,6 +21,3 @@ if __name__ == "__main__":
 
     with open(sys.argv[2], "w") as f:
         f.write(actual)
-
-    with open(sys.argv[3], "w") as f:
-        f.write(f'%define git_version "{actual}"\n')

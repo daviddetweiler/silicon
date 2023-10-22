@@ -6,13 +6,13 @@ debug-build: version silicon-debug.exe Makefile
 
 version: version.py Makefile
     pwsh -c "git describe --dirty --tags > actual.version"
-    python .\version.py actual.version expected.version version.inc
+    python .\version.py actual.version expected.version
 
-silicon.bin: silicon.asm core.inc version.inc Makefile
+silicon.bin: silicon.asm core.inc expected.version Makefile
     pwsh -c "nasm -fbin silicon.asm -Dgit_version=""$$(git describe --dirty --tags)"" \
         -o silicon.bin"
 
-silicon.obj: silicon.asm core.inc Makefile
+silicon.obj: silicon.asm core.inc expected.version Makefile
     pwsh -c "nasm -fwin64 silicon.asm -Dgit_version=""$$(git describe --dirty --tags)"" \
         -o silicon.obj -g -Dstandalone"
 
