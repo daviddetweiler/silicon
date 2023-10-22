@@ -8,6 +8,7 @@ if __name__ == "__main__":
     with open(sys.argv[1], "r") as f:
         actual = f.read()
 
+    expected = ""
     try:
         with open(sys.argv[2], "r") as f:
             expected = f.read()

@@ -26,7 +26,7 @@ core.inc: core.si inc.py Makefile
     python .\inc.py core.si core.inc
 
 bw.obj: bw.inc bw.asm core.inc Makefile
-    nasm -fwin64 bw.asm -o bw.obj -g
+    nasm -fwin64 bw.asm -o bw.obj
 
 silicon.exe: bw.obj Makefile
     link bw.obj kernel32.lib \
@@ -38,7 +38,7 @@ silicon.exe: bw.obj Makefile
         /ignore:4254 \
         /section:kernel,RE \
         /merge:.rdata=kernel \
-        /merge:.text=kernel /debug
+        /merge:.text=kernel
 
 silicon-debug.exe: silicon.obj Makefile
     link silicon.obj kernel32.lib \
@@ -58,11 +58,11 @@ silicon-debug.exe: silicon.obj Makefile
 clean: Makefile
     del *.obj *.exe *.pdb *.ilk *.zip *.bin *.log *.inc README.txt *.hf *.lzss *.xsh32 *.bw
 
-zip: silicon.zip Makefile
+zip: build silicon.zip Makefile
 
-silicon.zip: silicon.exe Makefile
+silicon.zip: Makefile
     echo Verify the hash of silicon.exe using this powershell command > README.txt
     echo Get-FileHash -Algorithm SHA256 silicon.exe >> README.txt
     echo. >> README.txt
     pwsh -c "(Get-FileHash -Algorithm SHA256 silicon.exe).Hash >> README.txt"
-    pwsh -c "Compress-Archive -Force -Path silicon.exe,README.txt,init.si -DestinationPath silicon.zip"
+    pwsh -c "Compress-Archive -Force -Path silicon.exe,README.txt -DestinationPath silicon.zip"
