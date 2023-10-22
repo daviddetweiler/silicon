@@ -16,3 +16,4 @@ __pycache__/
 *.xsh32
 *.ac
 *.bw
+*.version

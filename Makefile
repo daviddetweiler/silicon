@@ -1,10 +1,14 @@
 all: build debug-build zip Makefile
 
-build: silicon.exe Makefile
+build: version silicon.exe Makefile
 
-debug-build: silicon-debug.exe Makefile
+debug-build: version silicon-debug.exe Makefile
 
-silicon.bin: silicon.asm core.inc Makefile
+version: version.py Makefile
+    pwsh -c "git describe --dirty --tags > actual.version"
+    python .\version.py actual.version expected.version version.inc
+
+silicon.bin: silicon.asm core.inc version.inc Makefile
     pwsh -c "nasm -fbin silicon.asm -Dgit_version=""$$(git describe --dirty --tags)"" \
         -o silicon.bin"
 
