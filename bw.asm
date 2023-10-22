@@ -64,7 +64,6 @@ section .text
 
         mov rcx, image_base
         mov edx, eax
-        bswap edx
         call allocate
         mov rdi, rax ; rdi = decompression buffer address
 
@@ -74,7 +73,6 @@ section .text
     prepare_lzss_unpack:
         call decode_literal_dword
         mov r14d, eax ; r14 = command count
-        bswap r14d
 
     lzss_unpack:
         .next_command:
@@ -252,6 +250,7 @@ section .text
         mov rdx, 256
         mov r8, 4
         call decode
+        bswap eax
         ret
 
     bitstream:
