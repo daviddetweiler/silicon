@@ -2120,6 +2120,15 @@ section .rdata
 		da set_up_preloaded_source
 		da return
 
+	; ( -- string length )
+	declare "core-lib-src"
+	thread core_lib_src
+		da literal
+		da core_lib
+		da literal
+		dq core_lib_end - core_lib
+		da return
+
 	declare "0"
 	constant zero, 0
 
@@ -2186,12 +2195,11 @@ section .rdata
 	string status_unknown, red(`Unknown word: `) ; soft fault
 	string status_stacks_unset, yellow(`Stacks were not cleared, or have underflowed\nPress enter to exit...\n`)
 	string status_word_too_long, red(`Word is too long for dictionary entry\n`) ; soft fault
-	string status_no_init_library, yellow(`No init library was loaded\n`)
 	string status_source_not_loaded, red(`Source file could not be read into memory\n`) ; soft fault
 	string status_script_not_found, red(`Script not found: `) ; soft fault
 	string status_no_word, red(`Input was cancelled before word was named\n`) ; soft fault
 	string status_abort, yellow(`Aborted and restarted\n`)
-	string status_bad_init, yellow(`Fault during init script\nPress enter to exit...\n`)
+	string status_bad_init, yellow(`Fault during core lib load\nPress enter to exit...\n`)
 	string status_nested_def, red(`Cannot define new words while another is still being defined\n`) ; soft fault
 	string newline, `\n`
 	string negative, `-`
@@ -2231,6 +2239,8 @@ section .rdata
 
 	core_lib:
 		%include "core.inc"
+	
+	core_lib_end:
 		db 0
 
 	align 8
