@@ -58,7 +58,7 @@ silicon-debug.exe: silicon.obj Makefile
         /debug
 
 clean: Makefile
-    del *.obj *.exe *.pdb *.ilk *.zip *.bin *.log *.inc README.txt *.hf *.lzss *.xsh32 *.bw
+    del *.obj *.exe *.pdb *.ilk *.zip *.bin *.log *.inc README.txt *.hf *.lzss *.xsh32 *.bw *.version
 
 zip: build silicon.zip Makefile
 
