@@ -1973,7 +1973,7 @@ section .rdata
 		da store
 		da return
 
-	; The context stack should be bounds-checked; `include` should report if recursion depth has been exceeded
+	; The context stack should be bounds-checked; `execute` should report if recursion depth has been exceeded
 
 	; ( -- ptr-line-size )
 	declare "line-size"
@@ -2096,8 +2096,8 @@ section .rdata
 	; ( string length -- )
 	;
 	; A good candidate to be moved to init.si
-	declare "include"
-	thread include
+	declare "execute"
+	thread execute
 		da copy_pair
 		da stash
 		da stash

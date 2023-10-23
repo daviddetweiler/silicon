@@ -76,13 +76,7 @@ class AdaptiveMarkovModel:
         self.fallback = GlobalAdaptiveModel(n_symbols)
 
     def pvalue(self, symbol):
-        # At least 256 observations are required to use the model
-        if self.totals[self.context] > 512:
-            return divide(
-                self.histograms[self.context][symbol], self.totals[self.context]
-            )
-        else:
-            return self.fallback.pvalue(symbol)
+        return divide(self.histograms[self.context][symbol], self.totals[self.context])
 
     def update(self, symbol):
         self.histograms[self.context][symbol] += 1

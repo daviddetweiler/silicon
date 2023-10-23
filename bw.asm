@@ -18,8 +18,9 @@ extern GetProcAddress
 %define length_model_offset model_offset(2)
 %define alt_offset_model_offset model_offset(3)
 %define alt_length_model_offset model_offset(4)
-%define control_model_offset model_offset(5)
-%define models_size control_model_offset + model2_size
+%define control0_model_offset model_offset(5)
+%define control1_model_offset model_offset(5) + model2_size
+%define models_size control1_model_offset + model2_size
 %define model256_count 5
 
 ; Maybe worth exploring the markov-chain control bit predictor now, with the large file sizes? Could even fit in 8
@@ -46,6 +47,12 @@ section .text
 
         mov rdx, 2
         call init_model
+
+        add rcx, model2_size
+        mov rdx, 2
+        call init_model
+
+        mov rsi, control0_model_offset
 
     prepare_decoder:
         xor r13, r13 ; r13 = arithmetic decoder lower bound
@@ -82,7 +89,7 @@ section .text
 
     lzss_unpack:
         .next_command:
-        lea rcx, [r15 + control_model_offset]
+        lea rcx, [r15 + rsi]
         mov rdx, 2
         mov r8, 1
         call decode
@@ -136,6 +143,7 @@ section .text
         dec rsi
         jnz .next_byte
 
+        mov rsi, control1_model_offset
         jmp .advance
 
         .literal:
@@ -143,6 +151,8 @@ section .text
         call decode_byte
         dec r14
         stosb
+
+        mov rsi, control0_model_offset
 
         .advance:
         test r14, r14

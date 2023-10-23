@@ -15,7 +15,7 @@ def encode_15bit(n):
 
 def encode(data, allocation_size):
     encoder = ac.Encoder()
-    command_model = ac.GlobalAdaptiveModel(2)
+    command_model = ac.AdaptiveMarkovModel(2)
     literal_model = ac.GlobalAdaptiveModel(256)
     offset_model = ac.GlobalAdaptiveModel(256)
     length_model = ac.GlobalAdaptiveModel(256)
@@ -88,7 +88,7 @@ def decode_15bit(data):
 
 def decode(encoded):
     decoder = ac.Decoder(encoded)
-    command_model = ac.GlobalAdaptiveModel(2)
+    command_model = ac.AdaptiveMarkovModel(2)
     literal_model = ac.GlobalAdaptiveModel(256)
     offset_model = ac.GlobalAdaptiveModel(256)
     length_model = ac.GlobalAdaptiveModel(256)
