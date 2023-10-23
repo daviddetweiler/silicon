@@ -40,7 +40,7 @@ section .text
         .next_model:
         mov rdx, 256
         call init_model
-        add rcx, 8 * 256 + 8
+        add rcx, model256_size
         dec rax
         jnz .next_model
 
@@ -253,3 +253,5 @@ section .text
 
     bitstream:
         %include "bw.inc"
+
+    db '\0\0\0\0\0\0\0\0' ; You do not want garbage data entering the bitstream near the end
