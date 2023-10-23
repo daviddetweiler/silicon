@@ -13,62 +13,18 @@ def encode_15bit(n):
         return (0x80 | hi).to_bytes(1, "little") + lo.to_bytes(1, "little")
 
 
-def bake_lzss_model(data):
-    window = 2**15
-    i = 0
-    bits = []
-    coded = [b"", b"", b""]
-    while i < len(data):
-        # At least 2 bytes are needed to encode a match, so we match only 3 bytes or more.
-        j = 3
-        longest_match = None
-        while True:
-            window_base = max(0, i - window)
-            window_data = data[window_base: i + j - 1]
-            m = window_data.rfind(data[i: i + j])
-            if m == -1 or i + j > len(data):
-                break
-
-            o, l = i - (window_base + m), j
-            if o >= 2**15 or l >= 2**15:
-                break
-
-            longest_match = o, l
-            j += 1
-
-        if longest_match is not None:
-            offset, length = longest_match
-            offset_code = encode_15bit(offset)
-            length_code = encode_15bit(length)
-            if len(offset_code) + len(length_code) < length:
-                coded[1] += offset_code
-                coded[2] += length_code
-                bits.append(1)
-                i += length
-            else:
-                coded[0] += data[i].to_bytes(1, "little")
-                bits.append(0)
-                i += 1
-        else:
-            coded[0] += data[i].to_bytes(1, "little")
-            bits.append(0)
-            i += 1
-
-    return bits, coded
-
-
 def encode(data, allocation_size):
     encoder = ac.Encoder()
     command_model = ac.GlobalAdaptiveModel(2)
     literal_model = ac.GlobalAdaptiveModel(256)
     offset_model = ac.GlobalAdaptiveModel(256)
     length_model = ac.GlobalAdaptiveModel(256)
+    alt_offset_model = ac.GlobalAdaptiveModel(256)
+    alt_length_model = ac.GlobalAdaptiveModel(256)
 
     expected_bytes = len(data)
-    encoder.encode_incremental(
-        literal_model, allocation_size.to_bytes(4, "little"))
-    encoder.encode_incremental(
-        literal_model, expected_bytes.to_bytes(4, "little"))
+    encoder.encode_incremental(literal_model, allocation_size.to_bytes(4, "little"))
+    encoder.encode_incremental(literal_model, expected_bytes.to_bytes(4, "little"))
 
     window = 2**15 - 1
     i = 0
@@ -81,8 +37,8 @@ def encode(data, allocation_size):
                 break
 
             window_base = max(0, i - window)
-            window_data = data[window_base: i + j - 1]
-            m = window_data.rfind(data[i: i + j])
+            window_data = data[window_base : i + j - 1]
+            m = window_data.rfind(data[i : i + j])
             if m == -1:
                 break
 
@@ -96,16 +52,22 @@ def encode(data, allocation_size):
             length_code = encode_15bit(length)
             if len(offset_code) + len(length_code) < length:
                 encoder.encode_incremental(command_model, [1])
-                encoder.encode_incremental(offset_model, offset_code)
-                encoder.encode_incremental(length_model, length_code)
+                encoder.encode_incremental(offset_model, offset_code[:1])
+                if len(offset_code) > 1:
+                    encoder.encode_incremental(alt_offset_model, offset_code[1:])
+
+                encoder.encode_incremental(length_model, length_code[:1])
+                if len(length_code) > 1:
+                    encoder.encode_incremental(alt_length_model, length_code[1:])
+
                 i += length
             else:
                 encoder.encode_incremental(command_model, [0])
-                encoder.encode_incremental(literal_model, data[i: i + 1])
+                encoder.encode_incremental(literal_model, data[i : i + 1])
                 i += 1
         else:
             encoder.encode_incremental(command_model, [0])
-            encoder.encode_incremental(literal_model, data[i: i + 1])
+            encoder.encode_incremental(literal_model, data[i : i + 1])
             i += 1
 
     coded = encoder.finalize()
@@ -130,9 +92,10 @@ def decode(encoded):
     literal_model = ac.GlobalAdaptiveModel(256)
     offset_model = ac.GlobalAdaptiveModel(256)
     length_model = ac.GlobalAdaptiveModel(256)
+    alt_offset_model = ac.GlobalAdaptiveModel(256)
+    alt_length_model = ac.GlobalAdaptiveModel(256)
 
-    _ = int.from_bytes(
-        bytes(decoder.decode_incremental(literal_model, 4)), "little")
+    _ = int.from_bytes(bytes(decoder.decode_incremental(literal_model, 4)), "little")
     expected_bytes = int.from_bytes(
         bytes(decoder.decode_incremental(literal_model, 4)), "little"
     )
@@ -146,11 +109,11 @@ def decode(encoded):
         else:
             offset = decoder.decode_incremental(offset_model, 1)
             if offset[0] & 0x80 != 0:
-                offset += decoder.decode_incremental(offset_model, 1)
+                offset += decoder.decode_incremental(alt_offset_model, 1)
 
             length = decoder.decode_incremental(length_model, 1)
             if length[0] & 0x80 != 0:
-                length += decoder.decode_incremental(length_model, 1)
+                length += decoder.decode_incremental(alt_length_model, 1)
 
             offset = decode_15bit(offset)
             length = decode_15bit(length)
@@ -158,14 +121,13 @@ def decode(encoded):
             # This is necessary to do this even kind of efficiently in python, but the assembly language version can
             # just use byte-by-byte copies.
             if offset > length:
-                decompressed += decompressed[-offset: -(offset - length)]
+                decompressed += decompressed[-offset : -(offset - length)]
             else:
                 while length > 0:
                     if offset <= length:
                         decompressed += decompressed[-offset:]
                     else:
-                        decompressed += decompressed[-offset: -
-                                                     (offset - length)]
+                        decompressed += decompressed[-offset : -(offset - length)]
 
                     length -= offset
 

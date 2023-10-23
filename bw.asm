@@ -102,7 +102,7 @@ section .text
         xor rsi, 0x80 ; clear the flag
         shl rsi, 8
 
-        call decode_offset_byte
+        call decode_offset_alt_byte
         mov sil, al
 
         .get_length:
@@ -117,7 +117,7 @@ section .text
         xor rsi, 0x80 ; clear the flag
         shl esi, 8
 
-        call decode_length_byte
+        call decode_length_alt_byte
         mov sil, al
 
         .copy_loop: ; By now the upper 32 bits of rsi are the offset, and the lower 32 bits are the length
@@ -260,6 +260,20 @@ section .text
         mov r8, 4
         call decode
         bswap eax
+        ret
+
+    decode_length_alt_byte:
+        lea rcx, [r15 + alt_length_model_offset]
+        mov rdx, 256
+        mov r8, 1
+        call decode
+        ret
+
+    decode_offset_alt_byte:
+        lea rcx, [r15 + alt_offset_model_offset]
+        mov rdx, 256
+        mov r8, 1
+        call decode
         ret
 
     bitstream:
