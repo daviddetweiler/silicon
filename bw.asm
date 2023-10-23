@@ -119,7 +119,7 @@ section .text
         xor rsi, 0x80 ; clear the flag
         shl esi, 8
 
-        lea rcx, [r15 + alt_offset_model_offset]
+        lea rcx, [r15 + alt_length_model_offset]
         call decode_byte
         mov sil, al
 
