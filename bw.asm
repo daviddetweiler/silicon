@@ -9,11 +9,18 @@ extern GetProcAddress
 
 %define image_base 0x2000000000
 
-%define literal_model_offset 0
-%define offset_model_offset (8 + 256 * 8)
-%define length_model_offset 2 * (8 + 256 * 8)
-%define control_model_offset 3 * (8 + 256 * 8)
-%define models_size 3 * (8 + 256 * 8) + (8 + 2 * 8)
+%define model256_size (8 + 256 * 8)
+%define model2_size (8 + 2 * 8)
+%define model_offset(i) (i * model256_size)
+
+%define literal_model_offset model_offset(0)
+%define offset_model_offset model_offset(1)
+%define length_model_offset model_offset(2)
+%define alt_offset_model_offset model_offset(3)
+%define alt_length_model_offset model_offset(4)
+%define control_model_offset model_offset(5)
+%define models_size control_model_offset + model2_size
+%define model256_count 5
 
 ; Maybe worth exploring the markov-chain control bit predictor now, with the large file sizes? Could even fit in 8
 ; KiBs...
@@ -28,7 +35,7 @@ section .text
         call allocate
         lea r15, [rax + 8] ; r15 = models address
 
-        mov rax, 3
+        mov rax, model256_count
         mov rcx, r15
         .next_model:
         mov rdx, 256
