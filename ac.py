@@ -102,6 +102,73 @@ class HowardVitterModel:
         return 2
 
 
+class HowardVitterTreeModel:
+    def __init__(self, n_symbols):
+        assert n_symbols == 256
+        bit8_models = [(HowardVitterModel(2), (None, None)) for _ in range(128)]
+        bit7_models = [
+            (HowardVitterModel(2), (bit8_models[2 * i], bit8_models[2 * i + 1]))
+            for i in range(64)
+        ]
+        bit6_models = [
+            (HowardVitterModel(2), (bit7_models[2 * i], bit7_models[2 * i + 1]))
+            for i in range(32)
+        ]
+        bit5_models = [
+            (HowardVitterModel(2), (bit6_models[2 * i], bit6_models[2 * i + 1]))
+            for i in range(16)
+        ]
+        bit4_models = [
+            (HowardVitterModel(2), (bit5_models[2 * i], bit5_models[2 * i + 1]))
+            for i in range(8)
+        ]
+        bit3_models = [
+            (HowardVitterModel(2), (bit4_models[2 * i], bit4_models[2 * i + 1]))
+            for i in range(4)
+        ]
+        bit2_models = [
+            (HowardVitterModel(2), (bit3_models[2 * i], bit3_models[2 * i + 1]))
+            for i in range(2)
+        ]
+        bit1_model = (HowardVitterModel(2), (bit2_models[0], bit2_models[1]))
+
+        self.tree = bit1_model
+
+    def pvalue(self, symbol):
+        bits = []
+        for i in range(8):
+            bits.append(symbol & 1)
+            symbol >>= 1
+
+        bits.reverse()
+
+        model = self.tree
+        p = subtract(0, 1)  # Max probability
+        for bit in bits:
+            predictor, branches = model
+            p = multiply(p, predictor.pvalue(bit))
+            model = branches[bit]
+
+        return p if p > 256 else 256 # FIXME: hacky and also just a guess
+
+    def update(self, symbol):
+        bits = []
+        for i in range(8):
+            bits.append(symbol & 1)
+            symbol >>= 1
+
+        bits.reverse()
+
+        model = self.tree
+        for bit in bits:
+            predictor, branches = model
+            predictor.update(bit)
+            model = branches[bit]
+
+    def range(self):
+        return 256
+
+
 class Encoder:
     def __init__(self) -> None:
         self.a = 0
@@ -112,7 +179,12 @@ class Encoder:
         for symbol in data:
             interval_width = subtract(self.b, self.a)
             for i in range(model.range()):
-                subinterval_width = multiply(interval_width, model.pvalue(i))
+                p = model.pvalue(i)
+                subinterval_width = multiply(interval_width, p)
+                if subinterval_width == 0:
+                    print("Zero-width subinterval!")
+                    sys.exit(1)
+
                 if symbol == i:
                     self.b = add(self.a, subinterval_width)
                     break
