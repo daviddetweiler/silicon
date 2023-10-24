@@ -2,6 +2,7 @@ import sys
 import math
 
 UPPER8 = ((1 << 8) - 1) << (64 - 8)
+TAIL8 = UPPER8 >> 8
 BITS64 = (1 << 64) - 1
 
 
@@ -149,7 +150,7 @@ class HowardVitterTreeModel:
             p = multiply(p, predictor.pvalue(bit))
             model = branches[bit]
 
-        return p if p > 256 else 256 # FIXME: hacky and also just a guess
+        return p if p > 256 else 256  # FIXME: hacky and also just a guess
 
     def update(self, symbol):
         bits = []
@@ -198,6 +199,17 @@ class Encoder:
                 self.a = shl(self.a, 8)
                 self.b = shl(self.b, 8)
                 self.b |= (1 << 8) - 1
+
+            a_top = shr(self.a, 64 - 8)
+            b_top = shr(self.b, 64 - 8)
+            if b_top - a_top == 1:
+                a_tail = shr(self.a & TAIL8, 48)
+                b_tail = shr(self.b & TAIL8, 48)
+                if a_tail == 0xFF and b_tail == 0x00:
+                    # How to understand this check:
+                    # Think of the interval (0.799..., 0.8000...) in decimal.
+                    # The interval may still shrink arbitrarily without ever actually locking in any digits
+                    print("Near-convergence detected!", subtract(self.b, self.a))
 
             model.update(symbol)
 
