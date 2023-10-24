@@ -15,7 +15,7 @@ def encode_15bit(n):
 
 def encode(data, allocation_size):
     encoder = ac.Encoder()
-    command_model = ac.AdaptiveMarkovModel(2)
+    command_model = ac.HowardVitterModel(2)
     literal_model = ac.GlobalAdaptiveModel(256)
     offset_model = ac.GlobalAdaptiveModel(256)
     length_model = ac.GlobalAdaptiveModel(256)
@@ -23,8 +23,8 @@ def encode(data, allocation_size):
     alt_length_model = ac.GlobalAdaptiveModel(256)
 
     expected_bytes = len(data)
-    encoder.encode_incremental(literal_model, allocation_size.to_bytes(4, "little"))
-    encoder.encode_incremental(literal_model, expected_bytes.to_bytes(4, "little"))
+    encoder.encode(literal_model, allocation_size.to_bytes(4, "little"))
+    encoder.encode(literal_model, expected_bytes.to_bytes(4, "little"))
 
     window = 2**15 - 1
     i = 0
@@ -51,26 +51,26 @@ def encode(data, allocation_size):
             offset_code = encode_15bit(offset)
             length_code = encode_15bit(length)
             if len(offset_code) + len(length_code) < length:
-                encoder.encode_incremental(command_model, [1])
-                encoder.encode_incremental(offset_model, offset_code[:1])
+                encoder.encode(command_model, [1])
+                encoder.encode(offset_model, offset_code[:1])
                 if len(offset_code) > 1:
-                    encoder.encode_incremental(alt_offset_model, offset_code[1:])
+                    encoder.encode(alt_offset_model, offset_code[1:])
 
-                encoder.encode_incremental(length_model, length_code[:1])
+                encoder.encode(length_model, length_code[:1])
                 if len(length_code) > 1:
-                    encoder.encode_incremental(alt_length_model, length_code[1:])
+                    encoder.encode(alt_length_model, length_code[1:])
 
                 i += length
             else:
-                encoder.encode_incremental(command_model, [0])
-                encoder.encode_incremental(literal_model, data[i : i + 1])
+                encoder.encode(command_model, [0])
+                encoder.encode(literal_model, data[i : i + 1])
                 i += 1
         else:
-            encoder.encode_incremental(command_model, [0])
-            encoder.encode_incremental(literal_model, data[i : i + 1])
+            encoder.encode(command_model, [0])
+            encoder.encode(literal_model, data[i : i + 1])
             i += 1
 
-    coded = encoder.finalize()
+    coded = encoder.end_stream()
     print(len(coded), "bytes compressed", sep="\t")
 
     return coded
@@ -88,32 +88,32 @@ def decode_15bit(data):
 
 def decode(encoded):
     decoder = ac.Decoder(encoded)
-    command_model = ac.AdaptiveMarkovModel(2)
+    command_model = ac.HowardVitterModel(2)
     literal_model = ac.GlobalAdaptiveModel(256)
     offset_model = ac.GlobalAdaptiveModel(256)
     length_model = ac.GlobalAdaptiveModel(256)
     alt_offset_model = ac.GlobalAdaptiveModel(256)
     alt_length_model = ac.GlobalAdaptiveModel(256)
 
-    _ = int.from_bytes(bytes(decoder.decode_incremental(literal_model, 4)), "little")
+    _ = int.from_bytes(bytes(decoder.decode(literal_model, 4)), "little")
     expected_bytes = int.from_bytes(
-        bytes(decoder.decode_incremental(literal_model, 4)), "little"
+        bytes(decoder.decode(literal_model, 4)), "little"
     )
 
     decompressed = b""
     while len(decompressed) < expected_bytes:
-        bit = decoder.decode_incremental(command_model, 1)[0]
+        bit = decoder.decode(command_model, 1)[0]
         if bit == 0:
-            literal = bytes(decoder.decode_incremental(literal_model, 1))
+            literal = bytes(decoder.decode(literal_model, 1))
             decompressed += literal
         else:
-            offset = decoder.decode_incremental(offset_model, 1)
+            offset = decoder.decode(offset_model, 1)
             if offset[0] & 0x80 != 0:
-                offset += decoder.decode_incremental(alt_offset_model, 1)
+                offset += decoder.decode(alt_offset_model, 1)
 
-            length = decoder.decode_incremental(length_model, 1)
+            length = decoder.decode(length_model, 1)
             if length[0] & 0x80 != 0:
-                length += decoder.decode_incremental(alt_length_model, 1)
+                length += decoder.decode(alt_length_model, 1)
 
             offset = decode_15bit(offset)
             length = decode_15bit(length)

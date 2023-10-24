@@ -69,23 +69,37 @@ class GlobalAdaptiveModel:
 
 class AdaptiveMarkovModel:
     def __init__(self, n_symbols):
-        assert n_symbols > 0 and n_symbols <= 256
-        self.totals = [n_symbols] * n_symbols
-        self.histograms = [[1] * n_symbols for _ in range(n_symbols)]
+        self.context_models = [GlobalAdaptiveModel(n_symbols) for _ in range(n_symbols)]
         self.context = 0
-        self.fallback = GlobalAdaptiveModel(n_symbols)
 
     def pvalue(self, symbol):
-        return divide(self.histograms[self.context][symbol], self.totals[self.context])
+        return self.context_models[self.context].pvalue(symbol)
 
     def update(self, symbol):
-        self.histograms[self.context][symbol] += 1
-        self.totals[self.context] += 1
+        self.context_models[self.context].update(symbol)
         self.context = symbol
-        self.fallback.update(symbol)
 
     def range(self):
-        return len(self.histograms[self.context])
+        return self.context_models[self.context].range()
+
+
+class HowardVitterModel:
+    def __init__(self, n_symbols):
+        assert n_symbols == 2  # For debugging atm
+        self.p_for_1 = divide(1, n_symbols)
+        self.f = subtract(0, divide(1, 32))
+
+    def pvalue(self, symbol):
+        return self.p_for_1 if symbol == 1 else subtract(0, self.p_for_1)
+
+    def update(self, symbol):
+        if symbol == 0:
+            self.p_for_1 = multiply(self.p_for_1, self.f)
+        else:
+            self.p_for_1 = add(multiply(self.p_for_1, self.f), subtract(0, self.f))
+
+    def range(self):
+        return 2
 
 
 class Encoder:
@@ -94,12 +108,12 @@ class Encoder:
         self.b = (1 << 64) - 1
         self.encoded = b""
 
-    def encode_incremental(self, model, data):
-        for byte in data:
+    def encode(self, model, data):
+        for symbol in data:
             interval_width = subtract(self.b, self.a)
             for i in range(model.range()):
                 subinterval_width = multiply(interval_width, model.pvalue(i))
-                if byte == i:
+                if symbol == i:
                     self.b = add(self.a, subinterval_width)
                     break
                 else:
@@ -113,9 +127,9 @@ class Encoder:
                 self.b = shl(self.b, 8)
                 self.b |= (1 << 8) - 1
 
-            model.update(byte)
+            model.update(symbol)
 
-    def finalize(self):
+    def end_stream(self):
         self.a = add(self.a, 1 << (64 - 8))  # The decoder semantics use open intervals
         to_code = shr(self.a, (64 - 8))
         self.encoded += to_code.to_bytes(1, "little")
@@ -124,13 +138,13 @@ class Encoder:
 
 class Decoder:
     def __init__(self, encoded):
-        self.bitgroups = [byte for byte in encoded]
+        self.bitgroups = [symbol for symbol in encoded]
         self.a = 0
         self.b = (1 << 64) - 1
         self.window = 0
         self.i = 0
 
-    def decode_incremental(self, model, expected_length):
+    def decode(self, model, expected_length):
         decoded = []
         while self.i < 8:
             self.window = shl(self.window, 8) | (
@@ -141,13 +155,13 @@ class Decoder:
 
         while len(decoded) < expected_length:
             interval_width = subtract(self.b, self.a)
-            byte = None
+            symbol = None
             for j in range(model.range()):
                 subinterval_width = multiply(interval_width, model.pvalue(j))
                 next_a = add(self.a, subinterval_width)
                 if next_a > self.window:
                     self.b = next_a
-                    byte = j
+                    symbol = j
                     break
 
                 self.a = next_a
@@ -162,8 +176,8 @@ class Decoder:
                 )
                 self.i += 1
 
-            decoded += [byte]
-            model.update(byte)
+            decoded += [symbol]
+            model.update(symbol)
 
         return decoded
 
@@ -178,16 +192,16 @@ if __name__ == "__main__":
 
     if sys.argv[1] == "pack":
         e = entropy(data)
-        print(f"{e:.2f}\tbits of entropy per byte")
+        print(f"{e:.2f}\tbits of entropy per symbol")
         print(f"{100 * e / 8 :.2f}%\toptimal compression ratio")
         min_size = math.ceil((e / 8) * len(data))
 
         encoder = Encoder()
-        encoder.encode_incremental(GlobalAdaptiveModel(256), data)
-        encoded = encoder.finalize()
+        encoder.encode(GlobalAdaptiveModel(256), data)
+        encoded = encoder.end_stream()
 
         decoder = Decoder(encoded)
-        decoded = decoder.decode_incremental(GlobalAdaptiveModel(256), len(data))
+        decoded = decoder.decode(GlobalAdaptiveModel(256), len(data))
         if decoded != list(data):
             print("Stream corruption detected!")
             sys.exit(1)
@@ -201,6 +215,6 @@ if __name__ == "__main__":
             f.write(encoded)
     elif sys.argv[1] == "unpack":
         decoder = Decoder(data)
-        decoded = decoder.decode_incremental(GlobalAdaptiveModel(256), len(data))
+        decoded = decoder.decode(GlobalAdaptiveModel(256), len(data))
         with open(sys.argv[3], "wb") as f:
             f.write(decoded)
