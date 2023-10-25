@@ -88,19 +88,6 @@ MAGIC = 64 - 6
 LBOUND = shl(1, MAGIC)
 UBOUND = subtract(0, LBOUND)
 
-assert multiply(
-    LBOUND,
-    multiply(
-        LBOUND,
-        multiply(
-            LBOUND,
-            multiply(
-                LBOUND, multiply(LBOUND, multiply(LBOUND, multiply(LBOUND, LBOUND)))
-            ),
-        ),
-    ),
-) >= (1 << (64 - 48))
-
 # TODO: check precision guarantees (0x4cfffff..., 0x4d01000000...) seems to me the smallest possible interval width
 # (2^48 + 1)
 
@@ -162,36 +149,20 @@ class HowardVitterTreeModel:
         self.tree = bit1_model
 
     def pvalue(self, symbol):
-        bits = []
-        for i in range(8):
-            bits.append(symbol & 1)
-            symbol >>= 1
-
-        bits.reverse()
-
         model = self.tree
         p = subtract(0, 1)  # Max probability
-        for bit in bits:
+        for i in range(8):
+            bit = (symbol >> (7 - i)) & 1
             predictor, branches = model
             p = multiply(p, predictor.pvalue(bit))
             model = branches[bit]
 
-        # NOTE: It's possible that clamping, and the fact that it breaks P(any) = 1, is what probably causes the edge
-        # case we've seen where the window suddenly jumps out of the interval we were just in.
-        # return p if p > 256 else 256  # FIXME: hacky and also just a guess
-
         return p
 
     def update(self, symbol):
-        bits = []
-        for i in range(8):
-            bits.append(symbol & 1)
-            symbol >>= 1
-
-        bits.reverse()
-
         model = self.tree
-        for bit in bits:
+        for i in range(8):
+            bit = (symbol >> (7 - i)) & 1
             predictor, branches = model
             predictor.update(bit)
             model = branches[bit]
@@ -335,7 +306,7 @@ class Decoder:
                         self.b = shl(self.b, 8)
                         self.b &= ~UPPER8
                         self.b |= shl(b_top, 64 - 8)
-                        
+
                         self.b |= (1 << 8) - 1
 
                         window_top = shr(self.window, 64 - 8)

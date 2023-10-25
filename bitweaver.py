@@ -24,6 +24,8 @@ CONFIGS = {
     "default": DEFAULT_CONFIG,
 }
 
+CONFIG = CONFIGS["default"]
+
 def encode_15bit(n):
     assert 0 <= n < 2**15
     if n < 0x80:
@@ -34,14 +36,14 @@ def encode_15bit(n):
         return (0x80 | hi).to_bytes(1, "little") + lo.to_bytes(1, "little")
 
 
-def encode(data, allocation_size, config="default"):
+def encode(data, allocation_size):
     encoder = ac.Encoder()
-    command_model = CONFIGS[config]["control"](2)
-    literal_model = CONFIGS[config]["literal"](256)
-    offset_model = CONFIGS[config]["offset"](256)
-    length_model = CONFIGS[config]["length"](256)
-    alt_offset_model = CONFIGS[config]["alt_offset"](256)
-    alt_length_model = CONFIGS[config]["alt_length"](256)
+    command_model = CONFIG["control"](2)
+    literal_model = CONFIG["literal"](256)
+    offset_model = CONFIG["offset"](256)
+    length_model = CONFIG["length"](256)
+    alt_offset_model = CONFIG["alt_offset"](256)
+    alt_length_model = CONFIG["alt_length"](256)
 
     expected_bytes = len(data)
     encoder.encode(literal_model, allocation_size.to_bytes(4, "little"))
@@ -107,14 +109,14 @@ def decode_15bit(data):
         return (hi << 8) | lo
 
 
-def decode(encoded, config="default"):
+def decode(encoded):
     decoder = ac.Decoder(encoded)
-    command_model = CONFIGS[config]["control"](2)
-    literal_model = CONFIGS[config]["literal"](256)
-    offset_model = CONFIGS[config]["offset"](256)
-    length_model = CONFIGS[config]["length"](256)
-    alt_offset_model = CONFIGS[config]["alt_offset"](256)
-    alt_length_model = CONFIGS[config]["alt_length"](256)
+    command_model = CONFIG["control"](2)
+    literal_model = CONFIG["literal"](256)
+    offset_model = CONFIG["offset"](256)
+    length_model = CONFIG["length"](256)
+    alt_offset_model = CONFIG["alt_offset"](256)
+    alt_length_model = CONFIG["alt_length"](256)
 
     _ = int.from_bytes(bytes(decoder.decode(literal_model, 4)), "little")
     expected_bytes = int.from_bytes(

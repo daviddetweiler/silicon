@@ -312,4 +312,4 @@ section .text
     bitstream:
         %include "bw.inc"
 
-    db '\0\0\0\0\0\0\0\0' ; You do not want garbage data entering the bitstream near the end
+    db `\0\0\0\0\0\0\0\0` ; You do not want garbage data entering the bitstream near the end
