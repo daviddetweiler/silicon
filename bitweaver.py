@@ -14,7 +14,7 @@ def encode_15bit(n):
 
 def encode(data, allocation_size):
     encoder = ac.ConvergenceEncoder()
-    command_model = ac.HowardVitterModel(2)
+    command_model = ac.HowardVitterModel(2) 
     literal_model = ac.HowardVitterTreeModel(256)
     offset_model = ac.GlobalAdaptiveModel(256)
     length_model = ac.GlobalAdaptiveModel(256)
@@ -85,7 +85,7 @@ def decode_15bit(data):
         return (hi << 8) | lo
 
 
-def decode(encoded):
+def decode(encoded, reference):
     decoder = ac.ConvergenceDecoder(encoded)
     command_model = ac.HowardVitterModel(2)
     literal_model = ac.HowardVitterTreeModel(256)
@@ -100,6 +100,7 @@ def decode(encoded):
     )
 
     decompressed = b""
+    step = 0
     while len(decompressed) < expected_bytes:
         bit = decoder.decode(command_model, 1)[0]
         if bit == 0:
@@ -130,6 +131,8 @@ def decode(encoded):
 
                     length -= offset
 
+        step += 1
+
     return decompressed
 
 
@@ -156,7 +159,7 @@ if __name__ == "__main__":
         full_size = get_size(data)
         encoded = encode(data, full_size)
         print(f"{100 * len(encoded) / len(data) :.2f}%\tcompression ratio")
-        decoded = decode(encoded)
+        decoded = decode(encoded, data)
         if decoded != data:
             print("Stream corruption detected!")
             sys.exit(1)

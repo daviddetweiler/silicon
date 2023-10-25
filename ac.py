@@ -84,6 +84,27 @@ class AdaptiveMarkovModel:
         return self.context_models[self.context].range()
 
 
+MAGIC = 64 - 6
+LBOUND = shl(1, MAGIC)
+UBOUND = subtract(0, LBOUND)
+
+assert multiply(
+    LBOUND,
+    multiply(
+        LBOUND,
+        multiply(
+            LBOUND,
+            multiply(
+                LBOUND, multiply(LBOUND, multiply(LBOUND, multiply(LBOUND, LBOUND)))
+            ),
+        ),
+    ),
+) >= (1 << (64 - 48))
+
+# TODO: check precision guarantees (0x4cfffff..., 0x4d01000000...) seems to me the smallest possible interval width
+# (2^48 + 1)
+
+
 class HowardVitterModel:
     def __init__(self, n_symbols):
         assert n_symbols == 2  # For debugging atm
@@ -98,6 +119,11 @@ class HowardVitterModel:
             self.p_for_1 = multiply(self.p_for_1, self.f)
         else:
             self.p_for_1 = add(multiply(self.p_for_1, self.f), subtract(0, self.f))
+
+        if self.p_for_1 < LBOUND:
+            self.p_for_1 = LBOUND
+        elif self.p_for_1 > UBOUND:
+            self.p_for_1 = UBOUND
 
     def range(self):
         return 2
@@ -150,7 +176,11 @@ class HowardVitterTreeModel:
             p = multiply(p, predictor.pvalue(bit))
             model = branches[bit]
 
-        return p if p > 256 else 256  # FIXME: hacky and also just a guess
+        # NOTE: It's possible that clamping, and the fact that it breaks P(any) = 1, is what probably causes the edge
+        # case we've seen where the window suddenly jumps out of the interval we were just in.
+        # return p if p > 256 else 256  # FIXME: hacky and also just a guess
+
+        return p
 
     def update(self, symbol):
         bits = []
@@ -182,12 +212,21 @@ class ConvergenceEncoder:
         for byte in data:
             interval_width = subtract(self.b, self.a)
             for i in range(model.range()):
-                subinterval_width = multiply(interval_width, model.pvalue(i))
+                p = model.pvalue(i)
+                subinterval_width = multiply(interval_width, p)
+                if subinterval_width == 0:
+                    print("Zero-width interval")
+
+                new_a = add(self.a, subinterval_width)
                 if byte == i:
-                    self.b = add(self.a, subinterval_width)
+                    if new_a > self.b:
+                        print("Invariant broken")
+                        sys.exit(1)
+
+                    self.b = new_a
                     break
                 else:
-                    self.a = add(self.a, subinterval_width)
+                    self.a = new_a
 
             while (self.a ^ self.b) & UPPER8 == 0:
                 # 8 bits have been locked in
