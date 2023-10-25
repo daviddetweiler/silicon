@@ -13,7 +13,7 @@ def encode_15bit(n):
 
 
 def encode(data, allocation_size):
-    encoder = ac.Encoder()
+    encoder = ac.ConvergenceEncoder()
     command_model = ac.HowardVitterModel(2)
     literal_model = ac.HowardVitterTreeModel(256)
     offset_model = ac.GlobalAdaptiveModel(256)
@@ -86,7 +86,7 @@ def decode_15bit(data):
 
 
 def decode(encoded):
-    decoder = ac.Decoder(encoded)
+    decoder = ac.ConvergenceDecoder(encoded)
     command_model = ac.HowardVitterModel(2)
     literal_model = ac.HowardVitterTreeModel(256)
     offset_model = ac.GlobalAdaptiveModel(256)

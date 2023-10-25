@@ -170,23 +170,20 @@ class HowardVitterTreeModel:
         return 256
 
 
-class Encoder:
+class ConvergenceEncoder:
     def __init__(self) -> None:
         self.a = 0
         self.b = (1 << 64) - 1
         self.encoded = b""
+        self.pending = 0
+        self.leader = 0
 
     def encode(self, model, data):
-        for symbol in data:
+        for byte in data:
             interval_width = subtract(self.b, self.a)
             for i in range(model.range()):
-                p = model.pvalue(i)
-                subinterval_width = multiply(interval_width, p)
-                if subinterval_width == 0:
-                    print("Zero-width subinterval!")
-                    sys.exit(1)
-
-                if symbol == i:
+                subinterval_width = multiply(interval_width, model.pvalue(i))
+                if byte == i:
                     self.b = add(self.a, subinterval_width)
                     break
                 else:
@@ -194,35 +191,57 @@ class Encoder:
 
             while (self.a ^ self.b) & UPPER8 == 0:
                 # 8 bits have been locked in
+                flush_pending = self.pending > 0
                 to_code = shr(self.a, 64 - 8)
                 self.encoded += to_code.to_bytes(1, "little")
                 self.a = shl(self.a, 8)
                 self.b = shl(self.b, 8)
                 self.b |= (1 << 8) - 1
+                if flush_pending:
+                    filler = 0xFF if to_code == self.leader else 0x00
+                    self.encoded += filler.to_bytes(1, "little") * self.pending
+                    self.pending = 0
+
+            model.update(byte)
 
             a_top = shr(self.a, 64 - 8)
             b_top = shr(self.b, 64 - 8)
             if b_top - a_top == 1:
-                a_tail = shr(self.a & TAIL8, 48)
-                b_tail = shr(self.b & TAIL8, 48)
-                if a_tail == 0xFF and b_tail == 0x00:
-                    # How to understand this check:
-                    # Think of the interval (0.799..., 0.8000...) in decimal.
-                    # The interval may still shrink arbitrarily without ever actually locking in any digits
-                    print("Near-convergence detected!", subtract(self.b, self.a))
-
-            model.update(symbol)
+                while True:
+                    a_tail = shr(self.a & TAIL8, 48)
+                    b_tail = shr(self.b & TAIL8, 48)
+                    if a_tail == 0xFF and b_tail == 0x00:
+                        self.leader = a_top
+                        # How to understand this check:
+                        # Think of the interval (0.799..., 0.8000...) in decimal.
+                        # The interval may still shrink arbitrarily without ever actually locking in any digits
+                        self.a = shl(self.a, 8)
+                        self.b = shl(self.b, 8)
+                        self.b |= (1 << 8) - 1
+                        self.pending += 1
+                        self.a &= ~UPPER8
+                        self.b &= ~UPPER8
+                        self.a |= shl(a_top, 64 - 8)
+                        self.b |= shl(b_top, 64 - 8)
+                    else:
+                        break
 
     def end_stream(self):
+        flush_pending = self.pending > 0
         self.a = add(self.a, 1 << (64 - 8))  # The decoder semantics use open intervals
         to_code = shr(self.a, (64 - 8))
         self.encoded += to_code.to_bytes(1, "little")
+        if flush_pending:
+            filler = 0xFF if to_code == self.leader else 0x00
+            self.encoded += filler.to_bytes(1, "little") * self.pending
+            self.pending = 0
+
         return self.encoded
 
 
-class Decoder:
+class ConvergenceDecoder:
     def __init__(self, encoded):
-        self.bitgroups = [symbol for symbol in encoded]
+        self.bitgroups = [byte for byte in encoded]
         self.a = 0
         self.b = (1 << 64) - 1
         self.window = 0
@@ -239,13 +258,13 @@ class Decoder:
 
         while len(decoded) < expected_length:
             interval_width = subtract(self.b, self.a)
-            symbol = None
+            byte = None
             for j in range(model.range()):
                 subinterval_width = multiply(interval_width, model.pvalue(j))
                 next_a = add(self.a, subinterval_width)
                 if next_a > self.window:
                     self.b = next_a
-                    symbol = j
+                    byte = j
                     break
 
                 self.a = next_a
@@ -255,15 +274,44 @@ class Decoder:
                 self.a = shl(self.a, 8)
                 self.b = shl(self.b, 8)
                 self.b |= (1 << 8) - 1
-                self.window = shl(self.window, 8) | (
-                    self.bitgroups[self.i] if self.i < len(self.bitgroups) else 0
-                )
-                self.i += 1
+                self.shift_window()
 
-            decoded += [symbol]
-            model.update(symbol)
+            decoded += [byte]
+            model.update(byte)
+
+            a_top = shr(self.a, 64 - 8)
+            b_top = shr(self.b, 64 - 8)
+            if b_top - a_top == 1:
+                while True:
+                    a_tail = shr(self.a & TAIL8, 48)
+                    b_tail = shr(self.b & TAIL8, 48)
+                    if a_tail == 0xFF and b_tail == 0x00:
+                        # How to understand this check:
+                        # Think of the interval (0.799..., 0.8000...) in decimal.
+                        # The interval may still shrink arbitrarily without ever actually locking in any digits
+                        self.a = shl(self.a, 8)
+                        self.b = shl(self.b, 8)
+                        self.b |= (1 << 8) - 1
+                        self.a &= ~UPPER8
+                        self.b &= ~UPPER8
+                        self.a |= shl(a_top, 64 - 8)
+                        self.b |= shl(b_top, 64 - 8)
+
+                        window_top = shr(self.window, 64 - 8)
+                        self.shift_window()
+                        self.window &= ~UPPER8
+                        self.window |= shl(window_top, 64 - 8)
+                    else:
+                        break
 
         return decoded
+
+    def shift_window(self):
+        self.window = shl(self.window, 8) | (
+            self.bitgroups[self.i] if self.i < len(self.bitgroups) else 0
+        )
+
+        self.i += 1
 
 
 if __name__ == "__main__":
@@ -280,11 +328,11 @@ if __name__ == "__main__":
         print(f"{100 * e / 8 :.2f}%\toptimal compression ratio")
         min_size = math.ceil((e / 8) * len(data))
 
-        encoder = Encoder()
+        encoder = ConvergenceEncoder()
         encoder.encode(GlobalAdaptiveModel(256), data)
         encoded = encoder.end_stream()
 
-        decoder = Decoder(encoded)
+        decoder = ConvergenceDecoder(encoded)
         decoded = decoder.decode(GlobalAdaptiveModel(256), len(data))
         if decoded != list(data):
             print("Stream corruption detected!")
@@ -298,7 +346,7 @@ if __name__ == "__main__":
         with open(sys.argv[3], "wb") as f:
             f.write(encoded)
     elif sys.argv[1] == "unpack":
-        decoder = Decoder(data)
+        decoder = ConvergenceDecoder(data)
         decoded = decoder.decode(GlobalAdaptiveModel(256), len(data))
         with open(sys.argv[3], "wb") as f:
             f.write(decoded)
