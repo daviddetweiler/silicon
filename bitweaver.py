@@ -1,6 +1,28 @@
 import sys
 import ac
 
+HV_CONFIG = {
+    "control": ac.HowardVitterModel,
+    "literal": ac.HowardVitterTreeModel,
+    "offset": ac.HowardVitterTreeModel,
+    "length": ac.HowardVitterTreeModel,
+    "alt_offset": ac.HowardVitterTreeModel,
+    "alt_length": ac.HowardVitterTreeModel,
+}
+
+DEFAULT_CONFIG = {
+    "control": ac.AdaptiveMarkovModel,
+    "literal": ac.GlobalAdaptiveModel,
+    "offset": ac.GlobalAdaptiveModel,
+    "length": ac.GlobalAdaptiveModel,
+    "alt_offset": ac.GlobalAdaptiveModel,
+    "alt_length": ac.GlobalAdaptiveModel,
+}
+
+CONFIGS = {
+    "hv": HV_CONFIG,
+    "default": DEFAULT_CONFIG,
+}
 
 def encode_15bit(n):
     assert 0 <= n < 2**15
@@ -12,14 +34,14 @@ def encode_15bit(n):
         return (0x80 | hi).to_bytes(1, "little") + lo.to_bytes(1, "little")
 
 
-def encode(data, allocation_size):
+def encode(data, allocation_size, config="default"):
     encoder = ac.ConvergenceEncoder()
-    command_model = ac.HowardVitterModel(2) 
-    literal_model = ac.HowardVitterTreeModel(256)
-    offset_model = ac.HowardVitterTreeModel(256)
-    length_model = ac.HowardVitterTreeModel(256)
-    alt_offset_model = ac.HowardVitterTreeModel(256)
-    alt_length_model = ac.HowardVitterTreeModel(256)
+    command_model = CONFIGS[config]["control"](2)
+    literal_model = CONFIGS[config]["literal"](256)
+    offset_model = CONFIGS[config]["offset"](256)
+    length_model = CONFIGS[config]["length"](256)
+    alt_offset_model = CONFIGS[config]["alt_offset"](256)
+    alt_length_model = CONFIGS[config]["alt_length"](256)
 
     expected_bytes = len(data)
     encoder.encode(literal_model, allocation_size.to_bytes(4, "little"))
@@ -85,14 +107,14 @@ def decode_15bit(data):
         return (hi << 8) | lo
 
 
-def decode(encoded, reference):
+def decode(encoded, config="default"):
     decoder = ac.ConvergenceDecoder(encoded)
-    command_model = ac.HowardVitterModel(2)
-    literal_model = ac.HowardVitterTreeModel(256)
-    offset_model = ac.HowardVitterTreeModel(256)
-    length_model = ac.HowardVitterTreeModel(256)
-    alt_offset_model = ac.HowardVitterTreeModel(256)
-    alt_length_model = ac.HowardVitterTreeModel(256)
+    command_model = CONFIGS[config]["control"](2)
+    literal_model = CONFIGS[config]["literal"](256)
+    offset_model = CONFIGS[config]["offset"](256)
+    length_model = CONFIGS[config]["length"](256)
+    alt_offset_model = CONFIGS[config]["alt_offset"](256)
+    alt_length_model = CONFIGS[config]["alt_length"](256)
 
     _ = int.from_bytes(bytes(decoder.decode(literal_model, 4)), "little")
     expected_bytes = int.from_bytes(
@@ -159,7 +181,7 @@ if __name__ == "__main__":
         full_size = get_size(data)
         encoded = encode(data, full_size)
         print(f"{100 * len(encoded) / len(data) :.2f}%\tcompression ratio")
-        decoded = decode(encoded, data)
+        decoded = decode(encoded)
         if decoded != data:
             print("Stream corruption detected!")
             sys.exit(1)
