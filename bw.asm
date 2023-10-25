@@ -257,33 +257,21 @@ section .text
         shr rbx, 64 - 16
         cmp al, 0xff
         jne .adjusted
-        cmp bl, 0x00
+        test bl, bl
         jne .adjusted
 
-        mov rbx, r13
-        mov rax, upper8
-        and rbx, rax
-        shl r13, 8
-        mov rax, ~upper8
-        and r13, rax
-        or r13, rbx
+        mov r9, r13
+        call strange_shift
+        mov r13, r9
 
-        mov rbx, r12
-        mov rax, upper8
-        and rbx, rax
-        shl r12, 8
-        mov rax, ~upper8
-        and r12, rax
-        or r12, rbx
-        mov r12b, 0xff
+        mov r9, r12
+        call strange_shift
+        mov r12, r9
+        not r12b
 
-        mov rbx, r11
-        mov rax, upper8
-        and rbx, rax
-        shl r11, 8
-        mov rax, ~upper8
-        and r11, rax
-        or r11, rbx
+        mov r9, r11
+        call strange_shift
+        mov r11, r9
 
         mov rax, bitstream
         mov r11b, [rax + r10]
@@ -310,6 +298,15 @@ section .text
         mov r8, 4
         call decode
         bswap eax
+        ret
+
+    strange_shift:
+        mov rbx, r9
+        mov rax, upper8
+        and rbx, rax
+        shl r9, 8
+        andn r9, rax, r9
+        or r9, rbx
         ret
 
     bitstream:
