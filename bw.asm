@@ -23,6 +23,8 @@ extern GetProcAddress
 %define models_size control1_model_offset + model2_size
 %define model256_count 5
 
+%define upper8 (((1 << 8) - 1) << (64 - 8))
+
 ; Maybe worth exploring the markov-chain control bit predictor now, with the large file sizes? Could even fit in 8
 ; KiBs...
 
@@ -229,7 +231,7 @@ section .text
         xor rbx, r13 ; any clear bits are the "frozen" bits
         mov rax, ((1 << 8) - 1) << (64 - 8)
         test rbx, rax ; check if we have 8 frozen bits at the top
-        jnz .shifting_done
+        jnz .adjust_convergence
         shl r12, 8 ; renormalize
         not r12b ; set all ones in the lower 8 bits
         shl r13, 8
@@ -239,7 +241,56 @@ section .text
         inc r10
         jmp .renormalize
 
-        .shifting_done:
+        .adjust_convergence:
+        mov rax, r13
+        mov rbx, r12
+        shr rax, 64 - 8
+        shr rbx, 64 - 8 
+        sub rbx, rax
+        cmp rbx, 1
+        jne .adjusted
+
+        .next_adjustment:
+        mov rax, r13
+        mov rbx, r12
+        shr rax, 64 - 16
+        shr rbx, 64 - 16
+        cmp al, 0xff
+        jne .adjusted
+        cmp bl, 0x00
+        jne .adjusted
+
+        mov rbx, r13
+        mov rax, upper8
+        and rbx, rax
+        shl r13, 8
+        mov rax, ~upper8
+        and r13, rax
+        or r13, rbx
+
+        mov rbx, r12
+        mov rax, upper8
+        and rbx, rax
+        shl r12, 8
+        mov rax, ~upper8
+        and r12, rax
+        or r12, rbx
+        mov r12b, 0xff
+
+        mov rbx, r11
+        mov rax, upper8
+        and rbx, rax
+        shl r11, 8
+        mov rax, ~upper8
+        and r11, rax
+        or r11, rbx
+
+        mov rax, bitstream
+        mov r11b, [rax + r10]
+        inc r10
+        jmp .next_adjustment
+
+        .adjusted:
         dec r8
         jnz .next_symbol
 

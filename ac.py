@@ -200,7 +200,7 @@ class HowardVitterTreeModel:
         return 256
 
 
-class ConvergenceEncoder:
+class Encoder:
     def __init__(self) -> None:
         self.a = 0
         self.b = (1 << 64) - 1
@@ -278,7 +278,7 @@ class ConvergenceEncoder:
         return self.encoded
 
 
-class ConvergenceDecoder:
+class Decoder:
     def __init__(self, encoded):
         self.bitgroups = [byte for byte in encoded]
         self.a = 0
@@ -329,12 +329,14 @@ class ConvergenceDecoder:
                         # Think of the interval (0.799..., 0.8000...) in decimal.
                         # The interval may still shrink arbitrarily without ever actually locking in any digits
                         self.a = shl(self.a, 8)
-                        self.b = shl(self.b, 8)
-                        self.b |= (1 << 8) - 1
                         self.a &= ~UPPER8
-                        self.b &= ~UPPER8
                         self.a |= shl(a_top, 64 - 8)
+
+                        self.b = shl(self.b, 8)
+                        self.b &= ~UPPER8
                         self.b |= shl(b_top, 64 - 8)
+                        
+                        self.b |= (1 << 8) - 1
 
                         window_top = shr(self.window, 64 - 8)
                         self.shift_window()
@@ -367,11 +369,11 @@ if __name__ == "__main__":
         print(f"{100 * e / 8 :.2f}%\toptimal compression ratio")
         min_size = math.ceil((e / 8) * len(data))
 
-        encoder = ConvergenceEncoder()
+        encoder = Encoder()
         encoder.encode(GlobalAdaptiveModel(256), data)
         encoded = encoder.end_stream()
 
-        decoder = ConvergenceDecoder(encoded)
+        decoder = Decoder(encoded)
         decoded = decoder.decode(GlobalAdaptiveModel(256), len(data))
         if decoded != list(data):
             print("Stream corruption detected!")
@@ -385,7 +387,7 @@ if __name__ == "__main__":
         with open(sys.argv[3], "wb") as f:
             f.write(encoded)
     elif sys.argv[1] == "unpack":
-        decoder = ConvergenceDecoder(data)
+        decoder = Decoder(data)
         decoded = decoder.decode(GlobalAdaptiveModel(256), len(data))
         with open(sys.argv[3], "wb") as f:
             f.write(decoded)

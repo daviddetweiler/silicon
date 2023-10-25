@@ -35,7 +35,7 @@ def encode_15bit(n):
 
 
 def encode(data, allocation_size, config="default"):
-    encoder = ac.ConvergenceEncoder()
+    encoder = ac.Encoder()
     command_model = CONFIGS[config]["control"](2)
     literal_model = CONFIGS[config]["literal"](256)
     offset_model = CONFIGS[config]["offset"](256)
@@ -108,7 +108,7 @@ def decode_15bit(data):
 
 
 def decode(encoded, config="default"):
-    decoder = ac.ConvergenceDecoder(encoded)
+    decoder = ac.Decoder(encoded)
     command_model = CONFIGS[config]["control"](2)
     literal_model = CONFIGS[config]["literal"](256)
     offset_model = CONFIGS[config]["offset"](256)
