@@ -24,6 +24,7 @@ extern GetProcAddress
 %define model256_count 5
 
 %define upper8 (((1 << 8) - 1) << (64 - 8))
+%define flag_extra_byte 0x80
 
 ; Maybe worth exploring the markov-chain control bit predictor now, with the large file sizes? Could even fit in 8
 ; KiBs...
@@ -105,10 +106,10 @@ section .text
         xor rsi, rsi
         mov sil, al
 
-        test rsi, 0x80
+        test rsi, flag_extra_byte
         jz .get_length
 
-        xor rsi, 0x80 ; clear the flag
+        xor rsi, flag_extra_byte ; clear the flag
         shl rsi, 8
 
         lea rcx, [r15 + alt_offset_model_offset]
@@ -122,10 +123,10 @@ section .text
         shl rsi, 32
         mov sil, al
 
-        test rsi, 0x80
+        test rsi, flag_extra_byte
         jz .copy_loop
 
-        xor rsi, 0x80 ; clear the flag
+        xor rsi, flag_extra_byte ; clear the flag
         shl esi, 8
 
         lea rcx, [r15 + alt_length_model_offset]
@@ -229,7 +230,7 @@ section .text
         .renormalize:
         mov rbx, r12
         xor rbx, r13 ; any clear bits are the "frozen" bits
-        mov rax, ((1 << 8) - 1) << (64 - 8)
+        mov rax, upper8
         test rbx, rax ; check if we have 8 frozen bits at the top
         jnz .adjust_convergence
         shl r12, 8 ; renormalize

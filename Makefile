@@ -1,38 +1,44 @@
+BW=.\tools\bitweaver.py
+AC=.\tools\ac.py
+INC=.\tools\inc.py
+VERSION=.\tools\version.py
+OUT=.\out
+
 all: build debug-build zip Makefile
 
-build: version silicon.exe Makefile
+build: version $(OUT)\silicon.exe Makefile
 
-debug-build: version silicon-debug.exe Makefile
+debug-build: version $(OUT)\silicon-debug.exe Makefile
 
-version: version.py Makefile
-    pwsh -c "git describe --dirty --tags > actual.version"
-    python .\version.py actual.version expected.version
+version: $(VERSION) Makefile
+    pwsh -c "git describe --dirty --tags > $(OUT)\actual.version"
+    python $(VERSION) $(OUT)\actual.version $(OUT)\expected.version
 
-silicon.bin: silicon.asm core.inc expected.version Makefile
-    pwsh -c "nasm -fbin silicon.asm -Dgit_version=""$$(git describe --dirty --tags)"" \
-        -o silicon.bin"
+$(OUT)\silicon.bin: silicon.asm $(OUT)\core.inc $(OUT)\expected.version Makefile
+    pwsh -c "nasm -I $(OUT) -fbin silicon.asm -Dgit_version=""$$(git describe --dirty --tags)"" \
+        -o $(OUT)\silicon.bin"
 
-silicon.obj: silicon.asm core.inc expected.version Makefile
-    pwsh -c "nasm -fwin64 silicon.asm -Dgit_version=""$$(git describe --dirty --tags)"" \
-        -o silicon.obj -g -Dstandalone"
+$(OUT)\silicon.obj: silicon.asm $(OUT)\core.inc $(OUT)\expected.version Makefile
+    pwsh -c "nasm -I $(OUT) -fwin64 silicon.asm -Dgit_version=""$$(git describe --dirty --tags)"" \
+        -o $(OUT)\silicon.obj -g -Dstandalone"
 
-silicon.bin.bw: silicon.bin bitweaver.py Makefile
-    python .\bitweaver.py pack silicon.bin silicon.bin.bw
+$(OUT)\silicon.bin.bw: $(OUT)\silicon.bin $(BW) Makefile
+    python $(BW) pack $(OUT)\silicon.bin $(OUT)\silicon.bin.bw
 
-bw.inc: silicon.bin.bw inc.py Makefile
-    python .\inc.py silicon.bin.bw bw.inc
+$(OUT)\bw.inc: $(OUT)\silicon.bin.bw $(INC) Makefile
+    python $(INC) $(OUT)\silicon.bin.bw $(OUT)\bw.inc
 
-core.inc: core.si inc.py Makefile
-    python .\inc.py core.si core.inc
+$(OUT)\core.inc: scripts\core.si $(INC) Makefile
+    python $(INC) scripts\core.si $(OUT)\core.inc
 
-bw.obj: bw.inc bw.asm core.inc Makefile
-    nasm -fwin64 bw.asm -o bw.obj
+$(OUT)\bw.obj: $(OUT)\bw.inc bw.asm $(OUT)\core.inc Makefile
+    nasm -I $(OUT) -fwin64 bw.asm -o $(OUT)\bw.obj
 
-bitweaver.py: ac.py Makefile
+$(BW): $(AC) Makefile
 
-silicon.exe: bw.obj Makefile
-    link bw.obj kernel32.lib \
-        /out:silicon.exe \
+$(OUT)\silicon.exe: $(OUT)\bw.obj Makefile
+    link $(OUT)\bw.obj kernel32.lib \
+        /out:$(OUT)\silicon.exe \
         /subsystem:console \
         /entry:start \
         /nologo \
@@ -42,9 +48,9 @@ silicon.exe: bw.obj Makefile
         /merge:.rdata=kernel \
         /merge:.text=kernel
 
-silicon-debug.exe: silicon.obj Makefile
-    link silicon.obj kernel32.lib \
-        /out:silicon-debug.exe \
+$(OUT)\silicon-debug.exe: $(OUT)\silicon.obj Makefile
+    link $(OUT)\silicon.obj kernel32.lib \
+        /out:$(OUT)\silicon-debug.exe \
         /subsystem:console \
         /entry:start \
         /nologo \
@@ -58,13 +64,16 @@ silicon-debug.exe: silicon.obj Makefile
         /debug
 
 clean: Makefile
-    del *.obj *.exe *.pdb *.ilk *.zip *.bin *.log *.inc README.txt *.hf *.lzss *.xsh32 *.bw *.version
+    cd .\out\ && del *.obj *.exe *.pdb *.ilk *.zip *.bin *.log *.inc README.txt *.bw *.version
 
-zip: build silicon.zip Makefile
+zip: build $(OUT)\silicon.zip Makefile
 
-silicon.zip: Makefile
+$(OUT)\silicon.zip: Makefile
     echo Verify the hash of silicon.exe using this powershell command > README.txt
-    echo Get-FileHash -Algorithm SHA256 silicon.exe >> README.txt
+    echo Get-FileHash -Algorithm SHA256 $(OUT)\silicon.exe >> $(OUT)\README.txt
     echo. >> README.txt
-    pwsh -c "(Get-FileHash -Algorithm SHA256 silicon.exe).Hash >> README.txt"
-    pwsh -c "Compress-Archive -Force -Path silicon.exe,README.txt -DestinationPath silicon.zip"
+    pwsh -c "cd $(OUT); (Get-FileHash -Algorithm SHA256 silicon.exe).Hash >> README.txt"
+    pwsh -c "cd $(OUT); Compress-Archive -Force -Path silicon.exe,README.txt -DestinationPath silicon.zip"
+
+run: build Makefile
+    pwsh -c "wt -F $$(Resolve-Path $(OUT)\silicon.exe)"
