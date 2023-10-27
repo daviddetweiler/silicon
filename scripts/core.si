@@ -388,25 +388,31 @@ char: ) const: char-rparen
 
 \ --
 fn: (
-	current-word load-pair +	\ Pointer to the rest of the buffer
-	while
-		copy in-line-bounds?
-		over load-byte char-rparen ~=
-		&
-	do
-		1 +
-	end-while
+	while true do
+		current-word load-pair +	\ Pointer to the rest of the buffer
+		while
+			copy in-line-bounds?
+			over load-byte char-rparen ~=
+			&
+		do
+			1 +
+		end-while
 
-	\ By this point we only have a pointer on the stack, which either points to the end of the line, or the `"`
-	copy in-line-bounds?
-	if
-		current-word load - 1 +			\ Length of the skipped portion
-		current-word store-2nd			\ Store the length; the next accept-word will start at the end of the comment
-	else
-		\ If we didn't find the closing `)` before the end of the line, we need to discard the string
-		drop
-		flush-line
-	end-if
-end-fn
+		\ By this point we only have a pointer on the stack, which either points to the end of the line, or the `"`
+		copy in-line-bounds?
+		if
+			current-word load - 1 +		\ Length of the skipped portion
+			current-word store-2nd		\ Store the length; the next accept-word will start at the end of the comment
+			return
+		else
+			\ If we didn't find the closing `)` before the end of the line, we need to discard the string
+			drop
+			accept-line
+			if
+				return
+			end-if
+		end-if
+	end-while
+end-fn immediate
 
 checkpoint: core-dict
