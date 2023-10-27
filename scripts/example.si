@@ -1,25 +1,28 @@
-\ --
 fn: :
+	( -- )
+
 	fn:
 end-fn
 
-\ --
-\
 \ The use of `assemble-word:` here is needed, since `end-fn` was tagged `immediate` and would be immediately executed if
 \ directly referenced, instead of being assembled in, as intended.
 fn: ;
+	( -- )
+
 	assemble-word: end-fn
 end-fn immediate
 
-\ condition --
 : v?
+	( condition -- )
+
 	if
 		version
 	end-if
 ;
 
-\ --
 fn: test
+	( -- )
+
 	10
 	while
 		copy 0 >=
@@ -31,8 +34,9 @@ fn: test
 	drop
 end-fn
 
-\ depth --
 fn: recursion-test
+	( depth -- )
+
 	copy 0~=
 	if
 		copy print-# nl
