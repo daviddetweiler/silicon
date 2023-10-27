@@ -26,7 +26,8 @@ CONFIGS = {
 
 CONFIG = CONFIGS["default"]
 
-def encode_15bit(n):
+
+def encode_15bit(n: int) -> bytes:
     assert 0 <= n < 2**15
     if n < 0x80:
         return n.to_bytes(1, "little")
@@ -36,7 +37,7 @@ def encode_15bit(n):
         return (0x80 | hi).to_bytes(1, "little") + lo.to_bytes(1, "little")
 
 
-def encode(data, allocation_size):
+def encode(data: bytes, allocation_size: int) -> bytes:
     encoder = ac.Encoder()
     command_model = CONFIG["control"](2)
     literal_model = CONFIG["literal"](256)
@@ -60,8 +61,8 @@ def encode(data, allocation_size):
                 break
 
             window_base = max(0, i - window)
-            window_data = data[window_base : i + j - 1]
-            m = window_data.rfind(data[i : i + j])
+            window_data = data[window_base: i + j - 1]
+            m = window_data.rfind(data[i: i + j])
             if m == -1:
                 break
 
@@ -86,11 +87,11 @@ def encode(data, allocation_size):
                 i += length
             else:
                 encoder.encode(command_model, [0])
-                encoder.encode(literal_model, data[i : i + 1])
+                encoder.encode(literal_model, data[i: i + 1])
                 i += 1
         else:
             encoder.encode(command_model, [0])
-            encoder.encode(literal_model, data[i : i + 1])
+            encoder.encode(literal_model, data[i: i + 1])
             i += 1
 
     coded = encoder.end_stream()
@@ -99,7 +100,7 @@ def encode(data, allocation_size):
     return coded
 
 
-def decode_15bit(data):
+def decode_15bit(data: bytes) -> int:
     leader = data[0]
     if leader < 0x80:
         return leader
@@ -109,7 +110,7 @@ def decode_15bit(data):
         return (hi << 8) | lo
 
 
-def decode(encoded):
+def decode(encoded: bytes) -> bytes:
     decoder = ac.Decoder(encoded)
     command_model = CONFIG["control"](2)
     literal_model = CONFIG["literal"](256)
@@ -124,7 +125,6 @@ def decode(encoded):
     )
 
     decompressed = b""
-    step = 0
     while len(decompressed) < expected_bytes:
         bit = decoder.decode(command_model, 1)[0]
         if bit == 0:
@@ -145,22 +145,21 @@ def decode(encoded):
             # This is necessary to do this even kind of efficiently in python, but the assembly language version can
             # just use byte-by-byte copies.
             if offset > length:
-                decompressed += decompressed[-offset : -(offset - length)]
+                decompressed += decompressed[-offset: -(offset - length)]
             else:
                 while length > 0:
                     if offset <= length:
                         decompressed += decompressed[-offset:]
                     else:
-                        decompressed += decompressed[-offset : -(offset - length)]
+                        decompressed += decompressed[-offset: -
+                                                     (offset - length)]
 
                     length -= offset
-
-        step += 1
 
     return decompressed
 
 
-def get_size(data):
+def get_size(data: bytes) -> int:
     bss_size = 0
     bss_size = int.from_bytes(data[0:8], "little")
     if bss_size > 2**32:  # We're probably dealing with a non-image
@@ -171,15 +170,83 @@ def get_size(data):
     return len(data) + bss_size
 
 
+def info(data: bytes) -> None:
+    decoder = ac.Decoder(data)
+    command_model = CONFIG["control"](2)
+    literal_model = CONFIG["literal"](256)
+    offset_model = CONFIG["offset"](256)
+    length_model = CONFIG["length"](256)
+    alt_offset_model = CONFIG["alt_offset"](256)
+    alt_length_model = CONFIG["alt_length"](256)
+
+    allocation_size = int.from_bytes(
+        bytes(decoder.decode(literal_model, 4)), "little")
+
+    expected_bytes = int.from_bytes(
+        bytes(decoder.decode(literal_model, 4)), "little")
+
+    print(allocation_size, "bytes allocated", sep="\t")
+    print(expected_bytes, "bytes expected", sep="\t")
+
+    bytes_counted = 0
+    control_bit_count = 0
+    literal_byte_count = 0
+    offset_byte_count = 0
+    length_byte_count = 0
+    pair_count = 0
+    extended_offset_count = 0
+    extended_length_count = 0
+    while bytes_counted < expected_bytes:
+        bit = decoder.decode(command_model, 1)[0]
+        control_bit_count += 1
+        if bit == 0:
+            decoder.decode(literal_model, 1)
+            literal_byte_count += 1
+            bytes_counted += 1
+        else:
+            pair_count += 1
+            b = decoder.decode(offset_model, 1)
+            offset_byte_count += 1
+            if b[0] & 0x80 != 0:
+                decoder.decode(alt_offset_model, 1)
+                offset_byte_count += 1
+                extended_offset_count += 1
+
+            b = decoder.decode(length_model, 1)
+            length_byte_count += 1
+            if b[0] & 0x80 != 0:
+                b += decoder.decode(alt_length_model, 1)
+                length_byte_count += 1
+                extended_length_count += 1
+
+            bytes_counted += decode_15bit(b)
+
+    print(control_bit_count, "control bits", sep="\t")
+    print(literal_byte_count, "literal bytes", sep="\t")
+    print(offset_byte_count, "offset bytes", sep="\t")
+    print(extended_offset_count, "extended offsets", sep="\t")
+    print(length_byte_count, "length bytes", sep="\t")
+    print(extended_length_count, "extended lengths", sep="\t")
+    print(pair_count, "offset-length pairs", sep="\t")
+
+
 if __name__ == "__main__":
-    if len(sys.argv) != 4 or sys.argv[1] not in ("pack", "unpack"):
+    if sys.argv[1] not in ("pack", "unpack", "info"):
+        print("Usage: bitweaver.py <pack|unpack|info> [...]")
+        sys.exit(1)
+
+    command = sys.argv[1]
+    if command in ("pack", "unpack") and len(sys.argv) != 4:
         print("Usage: bitweaver.py <pack|unpack> <input> <output>")
+        sys.exit(1)
+    elif command == "info" and len(sys.argv) != 3:
+        print("Usage: bitweaver.py info <input>")
         sys.exit(1)
 
     with open(sys.argv[2], "rb") as f:
         data = f.read()
 
-    if sys.argv[1] == "pack":
+    if command == "pack":
         full_size = get_size(data)
         encoded = encode(data, full_size)
         print(f"{100 * len(encoded) / len(data) :.2f}%\tcompression ratio")
@@ -190,7 +257,9 @@ if __name__ == "__main__":
 
         with open(sys.argv[3], "wb") as f:
             f.write(encoded)
-    elif sys.argv[1] == "unpack":
+    elif command == "unpack":
         decoded = decode(data)
         with open(sys.argv[3], "wb") as f:
             f.write(decoded)
+    elif command == "info":
+        info(data)
