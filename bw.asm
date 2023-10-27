@@ -127,7 +127,7 @@ section .text
         jz .copy_loop
 
         xor rsi, flag_extra_byte ; clear the flag
-        shl esi, 8
+        shl si, 8
 
         lea rcx, [r15 + alt_length_model_offset]
         call decode_byte
