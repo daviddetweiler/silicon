@@ -1,61 +1,63 @@
-create: assemble-word: dictionary store immediate
+create: assemble: dictionary store immediate
 assemble-invoke-thread
-get-word: get-word: assemble
-get-word: assemble assemble
-assemble-return
+find: find: assemble
+find: assemble assemble
+find: return assemble
 
 create: \ dictionary store immediate
 assemble-invoke-thread
-assemble-word: flush-line
-assemble-return
+assemble: flush-line
+assemble: return
 
 \ `define:` acts to create a new word at the tip of the dictionary, with subsequent `assemble` instructions
 \ appending to its definition
 create: define: dictionary store
 assemble-invoke-thread
-assemble-word: create:
-assemble-word: dictionary
-assemble-word: store
-assemble-return
+assemble: create:
+assemble: dictionary
+assemble: store
+assemble: return
 
 define: [ immediate
 assemble-invoke-thread
-assemble-word: 0						\ `assemble-word: 0` only works because `0` is in the dictionary
-assemble-word: is-assembling
-assemble-word: store
-assemble-return
+assemble: 0						\ `assemble: 0` only works because `0` is in the dictionary
+assemble: is-assembling
+assemble: store
+assemble: return
 
 define: ]
 assemble-invoke-thread
 assemble-literal -1 assemble
-assemble-word: is-assembling
-assemble-word: store
-assemble-return
+assemble: is-assembling
+assemble: store
+assemble: return
 
 \ `end-fn` terminates the current definition with a `return`, and disables assembly mode in the interpreter
 
 define: end-fn immediate
 assemble-invoke-thread
-assemble-word: current-definition
-assemble-word: load
-assemble-word: dictionary
-assemble-word: store
-assemble-word: 0
-assemble-word: current-definition
-assemble-word: store
-assemble-word: assemble-return
-assemble-word: [
-assemble-return
+assemble: current-definition
+assemble: load
+assemble: dictionary
+assemble: store
+assemble: 0
+assemble: current-definition
+assemble: store
+assemble-literal
+assemble: return
+assemble: assemble
+assemble: [
+assemble: return
 
 \ `fn:` defines a new word, specifies it as a thread, and enables assembly mode in the interpreter
 define: fn:
 assemble-invoke-thread
-assemble-word: ]
-assemble-word: create:
-assemble-word: current-definition
-assemble-word: store
-assemble-word: assemble-invoke-thread
-assemble-return
+assemble: ]
+assemble: create:
+assemble: current-definition
+assemble: store
+assemble: assemble-invoke-thread
+assemble: return
 
 \ value --
 \
@@ -105,7 +107,7 @@ fn: while assembly-ptr end-fn immediate
 \ -- patch-addr
 \
 \ As discussed with `while`, the responsibility of `do` is to begin the underlying `if`-block guarding the loop body
-fn: do assemble-word: if end-fn immediate
+fn: do assemble: if end-fn immediate
 
 \ target patch-addr --
 \
@@ -119,7 +121,7 @@ fn: end-while
 	assembly-ptr cell-size +
 	- assemble
 
-	assemble-word: end-if
+	assemble: end-if
 end-fn immediate
 
 \ --
@@ -136,7 +138,7 @@ end-fn immediate
 fn: else
 	assemble-jump
 	assembly-ptr 0 assemble
-	swap assemble-word: end-if
+	swap assemble: end-if
 end-fn immediate
 
 \ ptr -- in-bounds?
@@ -381,7 +383,7 @@ end-fn
 fn: checkpoint:
 	fn:
 	current-definition load assemble-literal assemble
-	assemble-word: end-fn
+	assemble: end-fn
 end-fn
 
 char: ) const: char-rparen

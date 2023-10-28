@@ -4,12 +4,12 @@ fn: :
 	fn:
 end-fn
 
-\ The use of `assemble-word:` here is needed, since `end-fn` was tagged `immediate` and would be immediately executed if
+\ The use of `assemble:` here is required, since `end-fn` was tagged `immediate` and would be immediately executed if
 \ directly referenced, instead of being assembled in, as intended.
 fn: ;
 	( -- )
 
-	assemble-word: end-fn
+	assemble: end-fn
 end-fn immediate
 
 : v?

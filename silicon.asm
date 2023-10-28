@@ -970,7 +970,7 @@ section .rdata
 		da set_data_stack
 		da init_handles
 		da init_assembler
-		da init_source_context
+		da init_source_context_stack
 		da init_current_word
 		da init_dictionary
 		da init_arena
@@ -1013,7 +1013,7 @@ section .rdata
 		jump_to interpret
 
 		.source_ended:
-		da is_nested_source
+		da source_is_nested
 		da push_not
 		branch_to .exit
 		da pop_source_context
@@ -1047,7 +1047,7 @@ section .rdata
 	; ( -- )
 	declare "soft-fault"
 	thread soft_fault
-		da is_nested_source
+		da source_is_nested
 		maybe hard_fault
 		da flush_line
 
@@ -1119,16 +1119,16 @@ section .rdata
 		da push_source_context
 
 		da copy
-		da preloaded_source
+		da source_full_text
 		da store
 
 		da copy
 		da zero
-		da current_word
+		da source_current_word
 		da store_pair
 
 		da copy
-		da line_start
+		da source_line_start
 		da store
 
 		da set_line_size
@@ -1265,7 +1265,7 @@ section .rdata
 		da literal
 		dq 2
 		da push_subtract
-		da line_size
+		da source_line_size
 		da store
 		da return
 
@@ -1273,13 +1273,13 @@ section .rdata
 	thread accept_line_interactive
 		da init_current_word
 		da term_buffer
-		da line_start
+		da source_line_start
 		da store
 
 		.again:
 		da term_read_line
 
-		da line_size
+		da source_line_size
 		da load
 
 		da copy
@@ -1320,7 +1320,7 @@ section .rdata
 	; ( -- overfull? )
 	thread term_is_overfull
 		da term_buffer
-		da line_size
+		da source_line_size
 		da load
 		da one
 		da push_add
@@ -1338,10 +1338,10 @@ section .rdata
 		da push_add
 		da copy
 
-		da line_start
+		da source_line_start
 		da load
 		da push_subtract
-		da line_size
+		da source_line_size
 		da load
 		da push_is_eq
 		branch_to .refill
@@ -1358,7 +1358,7 @@ section .rdata
 		da push_subtract
 		da nip
 
-		da current_word
+		da source_current_word
 		da store_pair
 		da zero
 		da return
@@ -1376,9 +1376,9 @@ section .rdata
 	; ( -- exit? )
 	declare "accept-line"
 	thread accept_line
-		da preloaded_source
+		da source_full_text
 		da load
-		predicated accept_line_preloaded, accept_line_interactive
+		predicated accept_line_source_text, accept_line_interactive
 		da return
 
 	; ( a b address -- )
@@ -1407,7 +1407,7 @@ section .rdata
 
 	; ( -- word length )
 	thread get_current_word
-		da current_word
+		da source_current_word
 		da load_pair
 		da return
 
@@ -1415,7 +1415,7 @@ section .rdata
 	thread init_current_word
 		da term_buffer
 		da zero
-		da current_word
+		da source_current_word
 		da store_pair
 		da return
 
@@ -1512,14 +1512,6 @@ section .rdata
 	thread assemble_invoke_thread
 		da literal
 		da invoke_thread
-		da assemble
-		da return
-
-	; ( -- )
-	declare "assemble-return"
-	thread assemble_return
-		da literal
-		da return
 		da assemble
 		da return
 
@@ -1632,19 +1624,26 @@ section .rdata
 		da return
 
 	; ( -- )
+	;
+	; The input layer of the interpreter is structured around having a current line of source text, stored at
+	; `source_line_ptr`, and a current word within that line, stored at `source_current_word`. Line reads (or "refills")
+	; are automatically triggered whenever `accept_word` reaches the end of the current line. Now, `accept_word` figures
+	; out where to start reading from by adding the current word length to the current word pointer (essentially
+	; skipping just past the current word), so the simplest way to "flush" the rest of the current line is to fudge the
+	; current word length so that the result of that addition points to the end of the line.
 	declare "flush-line"
 	thread flush_line
 		da get_current_word
 		da drop
 		da copy
-		da line_start
+		da source_line_start
 		da load
 		da push_subtract
-		da line_size
+		da source_line_size
 		da load
 		da swap
 		da push_subtract
-		da current_word
+		da source_current_word
 		da store_pair
 		da return
 
@@ -1893,8 +1892,8 @@ section .rdata
 		da return
 
 	; ( -- word? )
-	declare "get-word:"
-	thread get_word
+	declare "find:"
+	thread find_next_word
 		da accept_word
 		branch_to .cancelled
 		da get_current_word
@@ -1907,7 +1906,7 @@ section .rdata
 		da return
 
 	; ( -- exit? )
-	thread accept_line_preloaded
+	thread accept_line_source_text
 		da get_current_word
 		da push_add
 
@@ -1930,17 +1929,20 @@ section .rdata
 
 		da copy
 		da zero
-		da current_word
+		da source_current_word
 		da store_pair
 
 		da copy
-		da line_start
+		da source_line_start
 		da store
 		da set_line_size
 		da zero
 		da return
 
 	; ( line-ptr -- )
+	;
+	; For terminal input, ReadFile() already reports the length of the line due to the console-specific behavior around
+	; newlines, but for in-memory source files, we have to count bytes ourselves.
 	thread set_line_size
 		da copy
 
@@ -1962,7 +1964,7 @@ section .rdata
 		.found_line_end:
 		da swap
 		da push_subtract
-		da line_size
+		da source_line_size
 		da store
 		da return
 
@@ -1970,13 +1972,13 @@ section .rdata
 
 	; ( -- ptr-line-size )
 	declare "line-size"
-	thread line_size
+	thread source_line_size
 		da source_context
 		da load
 		da return
 
 	; ( -- ptr-preloaded-source )
-	thread preloaded_source
+	thread source_full_text
 		da source_context
 		da load
 		da cell_size
@@ -1985,7 +1987,7 @@ section .rdata
 
 	; ( -- ptr-word-pair )
 	declare "current-word"
-	thread current_word
+	thread source_current_word
 		da source_context
 		da load
 		da literal
@@ -1995,7 +1997,7 @@ section .rdata
 
 	; ( -- ptr-line-start )
 	declare "line-start"
-	thread line_start
+	thread source_line_start
 		da source_context
 		da load
 		da literal
@@ -2004,7 +2006,7 @@ section .rdata
 		da return
 
 	; ( -- )
-	thread init_source_context
+	thread init_source_context_stack
 		da source_context_stack
 		da source_context
 		da store
@@ -2012,22 +2014,25 @@ section .rdata
 		da return
 
 	; ( -- )
+	;
+	; You'd be surprised at the kind of bugs that crop up if source contexts are not explicitly zeroed; a symptom of
+	; over-reliance on the zeroing behavior of BSS sections.
 	thread clear_source_context
 		da zero
-		da line_size
+		da source_line_size
 		da store
 
 		da zero
-		da preloaded_source
+		da source_full_text
 		da store
 
 		da zero
 		da zero
-		da current_word
+		da source_current_word
 		da store_pair
 
 		da zero
-		da line_start
+		da source_line_start
 		da store
 
 		da return
@@ -2051,7 +2056,7 @@ section .rdata
 		da load
 		branch_to .not_init
 
-		da preloaded_source
+		da source_full_text
 		da load
 		da free_pages
 		da push_is_zero
@@ -2069,7 +2074,7 @@ section .rdata
 		da return
 
 	; ( -- nested? )
-	thread is_nested_source
+	thread source_is_nested
 		da source_context
 		da load
 		da source_context_stack
@@ -2088,7 +2093,11 @@ section .rdata
 
 	; ( string length -- )
 	;
-	; A good candidate to be moved to init.si
+	; A good candidate to be moved to init.si. `execute` is how we do raw interpretation of an on-disk script; the
+	; high-level flow is that the file is opened, read into memory, null-terminated, then pushed onto the source context
+	; stack. As soon as `execute` returns to the interpreter (note that this means it will behave very strangely within
+	; a definition), the interpreter will continue reading from the in-memory source. When it reaches EOF, it pops the
+	; source context, restoring the original one, with the rest of the line after the `execute` still intact.
 	declare "execute"
 	thread execute
 		da copy_pair
