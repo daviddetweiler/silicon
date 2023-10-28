@@ -363,7 +363,7 @@ section .text
 
 	; ( a b -- (a - b) )
 	declare "-"
-	code push_subtract
+	code stack_sub
 		mov rax, [dp]
 		add dp, 8
 		sub [dp], rax
@@ -385,7 +385,7 @@ section .text
 
 	; ( a -- (a < 0) )
 	declare "0>"
-	code push_is_negative
+	code stack_lt0
 		cmp qword [dp], 0
 		jl .all_ones
 		mov qword [dp], 0
@@ -405,7 +405,7 @@ section .text
 
 	; ( value -- (value == 0) )
 	declare "0="
-	code push_is_zero
+	code stack_eq0
 		mov rax, [dp]
 		test rax, rax
 		jz .all_ones
@@ -418,7 +418,7 @@ section .text
 
 	; ( value -- (value != 0) )
 	declare "0~="
-	code push_is_nzero
+	code stack_neq0
 		mov rax, [dp]
 		test rax, rax
 		jnz .all_ones
@@ -437,7 +437,7 @@ section .text
 
 	; ( a b -- (a + b) )
 	declare "+"
-	code push_add
+	code stack_add
 		mov rax, [dp]
 		add dp, 8
 		add [dp], rax
@@ -453,7 +453,7 @@ section .text
 
 	; ( a b -- (a != b) )
 	declare "~="
-	code push_is_neq
+	code stack_neq
 		mov rax, [dp]
 		add dp, 8
 		cmp [dp], rax
@@ -467,7 +467,7 @@ section .text
 
 	; ( a b -- (a == b) )
 	declare "="
-	code push_is_eq
+	code stack_eq
 		mov rax, [dp]
 		add dp, 8
 		cmp [dp], rax
@@ -480,8 +480,8 @@ section .text
 		next
 
 	; ( value -- )
-	declare "stash"
-	code stash
+	declare "push"
+	code stack_push
 		mov rax, [dp]
 		add dp, 8
 		sub rp, 8
@@ -489,8 +489,8 @@ section .text
 		next
 
 	; ( -- value )
-	declare "unstash"
-	code unstash
+	declare "pop"
+	code stack_pop
 		mov rax, [rp]
 		add rp, 8
 		sub dp, 8
@@ -542,13 +542,13 @@ section .text
 
 	; ( a -- ~a )
 	declare "~"
-	code push_not
+	code stack_not
 		not qword [dp]
 		next
 
 	; ( a b -- (a & b) )
 	declare "&"
-	code push_and
+	code stack_and
 		mov rax, [dp]
 		add dp, 8
 		and [dp], rax
@@ -618,7 +618,7 @@ section .text
 
 	; ( a b -- (a / b) )
 	declare "u/"
-	code push_udivide
+	code stack_udiv
 		mov rax, [dp + 8]
 		mov rbx, [dp]
 		add dp, 8
@@ -629,7 +629,7 @@ section .text
 
 	; ( a b -- (a % b) )
 	declare "u%"
-	code push_umodulo
+	code stack_umod
 		mov rax, [dp + 8]
 		mov rbx, [dp]
 		add dp, 8
@@ -640,7 +640,7 @@ section .text
 
 	; ( a b -- (a / b) )
 	declare "/"
-	code push_divide
+	code stack_div
 		mov rax, [dp + 8]
 		mov rbx, [dp]
 		add dp, 8
@@ -651,7 +651,7 @@ section .text
 
 	; ( a b -- (a % b) )
 	declare "%"
-	code push_modulo
+	code stack_mod
 		mov rax, [dp + 8]
 		mov rbx, [dp]
 		add dp, 8
@@ -662,13 +662,13 @@ section .text
 
 	; ( n -- -n )
 	declare "0-"
-	code push_negate
+	code stack_neg
 		neg qword [dp]
 		next
 
 	; ( a b -- (a >= b) )
 	declare ">="
-	code push_is_ge
+	code stack_gte
 		mov rax, [dp]
 		add dp, 8
 		cmp [dp], rax
@@ -682,7 +682,7 @@ section .text
 
 	; ( a b -- (a <= b) )
 	declare "<="
-	code push_is_le
+	code stack_lte
 		mov rax, [dp]
 		add dp, 8
 		cmp [dp], rax
@@ -696,7 +696,7 @@ section .text
 
 	; ( a b -- (a > b) )
 	declare ">"
-	code push_is_gt
+	code stack_gt
 		mov rax, [dp]
 		add dp, 8
 		cmp [dp], rax
@@ -710,7 +710,7 @@ section .text
 
 	; ( a b -- (a < b) )
 	declare "<"
-	code push_is_lt
+	code stack_lt
 		mov rax, [dp]
 		add dp, 8
 		cmp [dp], rax
@@ -724,7 +724,7 @@ section .text
 
 	; ( a b -- (a * b) )
 	declare "u*"
-	code push_umultiply
+	code stack_umul
 		mov rax, [dp]
 		add dp, 8
 		mul qword [dp]
@@ -733,7 +733,7 @@ section .text
 
 	; ( a b -- (a * b) )
 	declare "*"
-	code push_multiply
+	code stack_mul
 		mov rax, [dp]
 		add dp, 8
 		imul qword [dp]
@@ -748,7 +748,7 @@ section .text
 
 	; ( a b -- (a | b) )
 	declare "|"
-	code push_or
+	code stack_or
 		mov rax, [dp]
 		add dp, 8
 		or [dp], rax
@@ -905,8 +905,8 @@ section .text
 		next
 
 	; ( -- value )
-	declare "peek-stash"
-	code peek_stash
+	declare "peek"
+	code stack_peek
 		mov rax, [rp]
 		sub dp, 8
 		mov [dp], rax
@@ -1005,19 +1005,19 @@ section .rdata
 
 		.found:
 		da swap
-		da push_not
+		da stack_not
 		da is_assembling
 		da load
-		da push_is_nzero
-		da push_and
+		da stack_neq0
+		da stack_and
 		predicated assemble, invoke
 		jump_to interpret
 
 		.source_ended:
 		da source_is_nested
-		da push_not
+		da stack_not
 		branch_to .exit
-		da pop_source_context
+		da source_pop
 		da zero
 		da am_initing
 		da store
@@ -1032,7 +1032,7 @@ section .rdata
 		.accept_number:
 		da is_assembling
 		da load
-		da push_not
+		da stack_not
 		branch_to interpret
 		da assemble_literal
 		da assemble
@@ -1054,7 +1054,7 @@ section .rdata
 
 		da is_assembling
 		da load
-		da push_not
+		da stack_not
 		branch_to .exit
 		da current_definition
 		da load
@@ -1117,7 +1117,7 @@ section .rdata
 
 	; ( buffer -- )
 	thread set_up_source_text
-		da push_source_context
+		da source_push
 
 		da copy
 		da source_full_text
@@ -1138,48 +1138,48 @@ section .rdata
 	; ( handle -- source? )
 	thread load_source_file
 		da copy
-		da stash
+		da stack_push
 		da file_size
 		da copy
 		da all_ones
-		da push_is_neq
+		da stack_neq
 		branch_to .allocate
 		da drop
-		da unstash
+		da stack_pop
 		da drop
 		jump_to .failed
 
 		.allocate:
 		da copy
 		da one
-		da push_add
+		da stack_add
 		da allocate_pages
 		da copy
-		da push_is_nzero
+		da stack_neq0
 		branch_to .read
 		da drop_pair
-		da unstash
+		da stack_pop
 		da drop
 		jump_to .failed
 
 		.read:
 		da copy
-		da unstash
+		da stack_pop
 		da swap
-		da stash
-		da stash
+		da stack_push
+		da stack_push
 		da swap
-		da unstash
+		da stack_pop
 		da read_file
 		da nip
 		branch_to .succeeded
-		da unstash
+		da stack_pop
 		da free_pages
 		da drop
 		jump_to .failed
 
 		.succeeded:
-		da unstash
+		da stack_pop
 		da return
 
 		.failed:
@@ -1199,7 +1199,7 @@ section .rdata
 		da set_file_ptr
 		da copy
 		da all_ones
-		da push_is_eq
+		da stack_eq
 		branch_to .exit
 
 		da swap
@@ -1209,7 +1209,7 @@ section .rdata
 		da swap
 		da over
 		da all_ones
-		da push_is_neq
+		da stack_neq
 		branch_to .exit
 		da swap
 
@@ -1261,11 +1261,11 @@ section .rdata
 		da zero
 		da over
 		da term_buffer
-		da push_add
+		da stack_add
 		da store_byte
 		da literal
 		dq 2
-		da push_subtract
+		da stack_sub
 		da source_line_size
 		da store
 		da return
@@ -1284,10 +1284,10 @@ section .rdata
 		da load
 
 		da copy
-		da push_is_negative
+		da stack_lt0
 		branch_to .eof
 
-		da push_is_zero
+		da stack_eq0
 		branch_to .again
 
 		da term_is_overfull
@@ -1327,39 +1327,39 @@ section .rdata
 		da source_line_size
 		da load
 		da one
-		da push_add
-		da push_add
+		da stack_add
+		da stack_add
 		da load_byte
 		da literal
 		dq `\n`
-		da push_is_neq
+		da stack_neq
 		da return
 
 	; ( -- exit? )
 	thread accept_word
 		.again:
 		da get_current_word
-		da push_add
+		da stack_add
 		da copy
 
 		da source_line_start
 		da load
-		da push_subtract
+		da stack_sub
 		da source_line_size
 		da load
-		da push_is_eq
+		da stack_eq
 		branch_to .refill
 
 		da consume_space
 		da copy
 		da load_byte
-		da push_is_zero
+		da stack_eq0
 		branch_to .refill
 		da copy
 		da consume_word
 		da copy_pair
 		da swap
-		da push_subtract
+		da stack_sub
 		da nip
 
 		da source_current_word
@@ -1391,11 +1391,11 @@ section .rdata
 	declare "store-pair"
 	thread store_pair
 		da copy
-		da stash
+		da stack_push
 		da cell_size
-		da push_add
+		da stack_add
 		da store
-		da unstash
+		da stack_pop
 		da store
 		da return
 
@@ -1404,10 +1404,10 @@ section .rdata
 	thread load_pair
 		da copy
 		da cell_size
-		da push_add
-		da stash
+		da stack_add
+		da stack_push
 		da load
-		da unstash
+		da stack_pop
 		da load
 		da return
 
@@ -1441,7 +1441,7 @@ section .rdata
 
 		.advance:
 		da one
-		da push_add
+		da stack_add
 		jump_to .again
 
 	; ( ptr -- new-ptr )
@@ -1452,14 +1452,14 @@ section .rdata
 		da copy
 		da load_byte
 		da copy
-		da push_is_zero
+		da stack_eq0
 		branch_to .return
 		da copy
 		da is_space
 		branch_to .return
 		da drop
 		da one
-		da push_add
+		da stack_add
 		jump_to .again
 
 		.return:
@@ -1475,25 +1475,25 @@ section .rdata
 		da copy
 		da literal
 		dq ` `
-		da push_is_eq
+		da stack_eq
 		branch_to .all_ones
 
 		da copy
 		da literal
 		dq `\t`
-		da push_is_eq
+		da stack_eq
 		branch_to .all_ones
 
 		da copy
 		da literal
 		dq `\r`
-		da push_is_eq
+		da stack_eq
 		branch_to .all_ones
 
 		da copy
 		da literal
 		dq `\n`
-		da push_is_eq
+		da stack_eq
 		branch_to .all_ones
 
 		da drop
@@ -1589,9 +1589,9 @@ section .rdata
 		da return
 
 		.found:
-		da stash
+		da stack_push
 		da drop_pair
-		da unstash
+		da stack_pop
 		da copy
 		da entry_immediate
 		da swap
@@ -1602,9 +1602,9 @@ section .rdata
 	declare "entry-data-ptr"
 	thread entry_data_ptr
 		da entry_name
-		da push_add
+		da stack_add
 		da one
-		da push_add
+		da stack_add
 		da cell_align
 		da return
 
@@ -1612,12 +1612,12 @@ section .rdata
 	declare "entry-immediate?"
 	thread entry_immediate
 		da cell_size
-		da push_add
+		da stack_add
 		da load_byte
 		da literal
 		dq immediate
-		da push_and
-		da push_is_nzero
+		da stack_and
+		da stack_neq0
 		da return
 
 	; ( address -- aligned-address )
@@ -1626,14 +1626,14 @@ section .rdata
 		da copy
 		da literal
 		dq 7
-		da push_and
+		da stack_and
 		da cell_size
 		da swap
-		da push_subtract
+		da stack_sub
 		da literal
 		dq 7
-		da push_and
-		da push_add
+		da stack_and
+		da stack_add
 		da return
 
 	; ( -- )
@@ -1651,11 +1651,11 @@ section .rdata
 		da copy
 		da source_line_start
 		da load
-		da push_subtract
+		da stack_sub
 		da source_line_size
 		da load
 		da swap
-		da push_subtract
+		da stack_sub
 		da source_current_word
 		da store_pair
 		da return
@@ -1672,13 +1672,13 @@ section .rdata
 		da copy
 		da literal
 		dq '0'
-		da push_is_ge
-		da stash
+		da stack_gte
+		da stack_push
 		da literal
 		dq `9`
-		da push_is_le
-		da unstash
-		da push_and
+		da stack_lte
+		da stack_pop
+		da stack_and
 		da return
 
 	; ( string length -- n number? )
@@ -1687,7 +1687,7 @@ section .rdata
 		da parsed_number
 		da store_pair
 		da zero
-		da stash
+		da stack_push
 
 		.again:
 		da parsed_number
@@ -1695,38 +1695,38 @@ section .rdata
 		da load_byte
 		da copy
 		da is_digit
-		da push_not
+		da stack_not
 		branch_to .nan
 		da literal
 		dq '0'
-		da push_subtract
-		da unstash
+		da stack_sub
+		da stack_pop
 		da ten
-		da push_umultiply
-		da push_add
-		da stash
+		da stack_umul
+		da stack_add
+		da stack_push
 
 		da parsed_number
 		da load
 		da one
-		da push_add
+		da stack_add
 		da parsed_number
 		da load_2nd
 		da one
-		da push_subtract
+		da stack_sub
 		da copy
-		da stash
+		da stack_push
 		da parsed_number
 		da store_pair
-		da unstash
+		da stack_pop
 		branch_to .again
 
-		da unstash
+		da stack_pop
 		da all_ones
 		da return
 
 		.nan:
-		da unstash
+		da stack_pop
 		da drop
 		da zero
 		da return
@@ -1738,7 +1738,7 @@ section .rdata
 		da load_byte
 		da literal
 		dq `-`
-		da push_is_eq
+		da stack_eq
 		branch_to .negative
 		da parse_unumber
 		da return
@@ -1746,17 +1746,17 @@ section .rdata
 		.negative:
 		da copy
 		da one
-		da push_is_eq
+		da stack_eq
 		branch_to .nan
 		da one
-		da push_subtract
+		da stack_sub
 		da swap
 		da one
-		da push_add
+		da stack_add
 		da swap
 		da parse_unumber
 		da swap
-		da push_negate
+		da stack_neg
 		da swap
 		da return
 
@@ -1778,7 +1778,7 @@ section .rdata
 	thread create
 		da current_definition
 		da load
-		da push_is_zero
+		da stack_eq0
 		branch_to .ok
 		da status_nested_def
 		da print_line
@@ -1791,12 +1791,12 @@ section .rdata
 		da copy
 		da literal
 		dq 128
-		da push_is_ge
+		da stack_gte
 		branch_to .too_long
 		da cell_align_arena
 		da arena_top
 		da load
-		da stash
+		da stack_push
 		da dictionary
 		da load
 		da assemble
@@ -1806,12 +1806,12 @@ section .rdata
 		da zero
 		da assemble_byte
 		da cell_align_arena
-		da unstash
+		da stack_pop
 		da return
 
 		.too_long:
 		da drop_pair
-		da unstash
+		da stack_pop
 		da drop
 		da status_word_too_long
 		da print_line
@@ -1841,7 +1841,7 @@ section .rdata
 		da arena_top
 		da load
 		da cell_size
-		da push_add
+		da stack_add
 		da arena_top
 		da store
 		da return
@@ -1855,7 +1855,7 @@ section .rdata
 		da arena_top
 		da load
 		da one
-		da push_add
+		da stack_add
 		da arena_top
 		da store
 		da return
@@ -1864,12 +1864,12 @@ section .rdata
 	declare "assemble-blob"
 	thread assemble_blob
 		da copy
-		da stash
+		da stack_push
 		da assembly_ptr
 		da copy_blob
 		da assembly_ptr
-		da unstash
-		da push_add
+		da stack_pop
+		da stack_add
 		da arena_top
 		da store
 		da return
@@ -1887,12 +1887,12 @@ section .rdata
 		da dictionary
 		da load
 		da cell_size
-		da push_add
+		da stack_add
 		da copy
 		da load_byte
 		da literal
 		dq immediate
-		da push_or
+		da stack_or
 		da swap
 		da store_byte
 		da return
@@ -1921,7 +1921,7 @@ section .rdata
 	; ( -- exit? )
 	thread accept_line_source_text
 		da get_current_word
-		da push_add
+		da stack_add
 
 		da copy
 		da load_byte
@@ -1932,7 +1932,7 @@ section .rdata
 
 		.again:
 		da one
-		da push_add
+		da stack_add
 
 		.next_line:
 		da copy
@@ -1964,19 +1964,19 @@ section .rdata
 		da load_byte
 		da literal ; Assumes CRLF line endings :(
 		dq `\r`
-		da push_is_eq
+		da stack_eq
 		branch_to .found_line_end
 		da copy
 		da load_byte
-		da push_is_zero
+		da stack_eq0
 		branch_to .found_line_end
 		da one
-		da push_add
+		da stack_add
 		jump_to .again
 
 		.found_line_end:
 		da swap
-		da push_subtract
+		da stack_sub
 		da source_line_size
 		da store
 		da return
@@ -1995,7 +1995,7 @@ section .rdata
 		da source_context
 		da load
 		da cell_size
-		da push_add
+		da stack_add
 		da return
 
 	; ( -- ptr-word-pair )
@@ -2005,7 +2005,7 @@ section .rdata
 		da load
 		da literal
 		dq 8 * 2
-		da push_add
+		da stack_add
 		da return
 
 	; ( -- ptr-line-start )
@@ -2015,7 +2015,7 @@ section .rdata
 		da load
 		da literal
 		dq 8 * 4
-		da push_add
+		da stack_add
 		da return
 
 	; ( -- )
@@ -2023,14 +2023,14 @@ section .rdata
 		da source_context_stack
 		da source_context
 		da store
-		da clear_source_context
+		da source_clear
 		da return
 
 	; ( -- )
 	;
 	; You'd be surprised at the kind of bugs that crop up if source contexts are not explicitly zeroed; a symptom of
 	; over-reliance on the zeroing behavior of BSS sections.
-	thread clear_source_context
+	thread source_clear
 		da zero
 		da source_line_size
 		da store
@@ -2051,20 +2051,20 @@ section .rdata
 		da return
 
 	; ( -- )
-	thread push_source_context
+	thread source_push
 		da source_context
 		da copy
 		da load
 		da literal
 		dq source_context_cells * 8
-		da push_add
+		da stack_add
 		da swap
 		da store
-		da clear_source_context
+		da source_clear
 		da return
 
 	; ( -- )
-	thread pop_source_context
+	thread source_pop
 		da am_initing
 		da load
 		branch_to .not_init
@@ -2072,7 +2072,7 @@ section .rdata
 		da source_full_text
 		da load
 		da free_pages
-		da push_is_zero
+		da stack_eq0
 		maybe break
 
 		.not_init:
@@ -2081,7 +2081,7 @@ section .rdata
 		da load
 		da literal
 		dq source_context_cells * 8
-		da push_subtract
+		da stack_sub
 		da swap
 		da store
 		da return
@@ -2091,7 +2091,7 @@ section .rdata
 		da source_context
 		da load
 		da source_context_stack
-		da push_is_neq
+		da stack_neq
 		da return
 
 	; ( bytes -- )
@@ -2099,7 +2099,7 @@ section .rdata
 	thread arena_allocate
 		da arena_top
 		da load
-		da push_add
+		da stack_add
 		da arena_top
 		da store
 		da return
@@ -2114,23 +2114,23 @@ section .rdata
 	declare "execute"
 	thread execute
 		da copy_pair
-		da stash
-		da stash
+		da stack_push
+		da stack_push
 		da drop
 		da open_file
 		da copy
 		branch_to .found
 		da status_script_not_found
 		da print
-		da unstash
-		da unstash
+		da stack_pop
+		da stack_pop
 		da print_line
 		da drop
 		da soft_fault
 
 		.found:
-		da unstash
-		da unstash
+		da stack_pop
+		da stack_pop
 		da drop_pair
 		da set_up_preloaded_source
 		da return

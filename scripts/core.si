@@ -157,11 +157,11 @@ fn: char:
 	1 + 						\ Skip the initial space
 	copy in-line-bounds?
 	if
-		copy load-byte stash
+		copy load-byte push
 		1 +
 		current-word load -
 		current-word store-2nd
-		unstash
+		pop
 	else
 		drop 0 flush-line
 	end-if
@@ -171,12 +171,12 @@ end-fn
 fn: copy-string
 	copy 0~=
 	if
-		copy stash
+		copy push
 		copy assemble-byte
-		assembly-ptr stash
+		assembly-ptr push
 		assemble-blob
 		0 assemble-byte
-		unstash unstash
+		pop pop
 	else
 		drop-pair
 		\ Deep magic; I encourage you to think about it
@@ -262,19 +262,19 @@ fn: print-u#
 
 	formatted-decimal
 	formatted-decimal-size +
-	copy stash stash
+	copy push push
 
 	while
 		copy 0~=
 	do
 		copy 10 u%
-		digit-0 + unstash 1 - swap over store-byte stash
+		digit-0 + pop 1 - swap over store-byte push
 		10 u/
 	end-while
 
 	drop
-	unstash
-	unstash
+	pop
+	pop
 	over - print
 end-fn
 
@@ -313,7 +313,7 @@ fn: print-dict
 		copy 0~=
 	do
 		copy
-		copy stash entry-name unstash entry-immediate?
+		copy push entry-name pop entry-immediate?
 		predicated immediate-tag empty-tag
 		print-red print-yellow nl
 

@@ -3,12 +3,14 @@ import json
 from typing import *
 
 
-def get_words(lines: List[List[str]], kind: str) -> List[str]:
-    return [
-        line[1].strip(",")
-        for line in lines
-        if len(line) and line[0] == kind and line[1][0] != "%"
-    ]
+def get_words(lines: List[List[str]], kind: str, numbers=False) -> List[str]:
+    return sorted(
+        [
+            line[1].strip(",") if not numbers else (n, line[1].strip(","))
+            for n, line in enumerate(lines)
+            if len(line) and line[0] == kind and line[1][0] != "%"
+        ]
+    )
 
 
 if __name__ == "__main__":
@@ -26,6 +28,19 @@ if __name__ == "__main__":
     variables = get_words(lines, "variable")
     constants = get_words(lines, "constant")
     strings = get_words(lines, "string")
+    aliases = [
+        (n, line.strip('"')) for n, line in get_words(lines, "declare", numbers=True)
+    ]
+
+    dictionary = {}
+    for n, alias in aliases:
+        word = lines[n + 1]
+        if len(word) < 2:
+            continue
+        elif word[0] not in ["code", "thread", "variable", "constant", "string"]:
+            continue
+
+        dictionary[alias] = word[1].strip(",")
 
     words = {
         "code_words": code_words,
@@ -36,12 +51,18 @@ if __name__ == "__main__":
     }
 
     statistics = {
-        "code_words": len(code_words),
-        "thread_words": len(thread_words),
+        "primitives": len(code_words),
+        "threads": len(thread_words),
         "variables": len(variables),
         "constants": len(constants),
         "strings": len(strings),
+        "aliased": len(aliases),
     }
 
     statistics["total"] = sum(statistics.values())
-    json.dump({"vocabulary": words, "stats": statistics}, sys.stdout, indent=4)
+    json.dump(
+        {"vocabulary": words, "stats": statistics, "dictionary": dictionary},
+        sys.stdout,
+        indent=4,
+        sort_keys=True,
+    )
