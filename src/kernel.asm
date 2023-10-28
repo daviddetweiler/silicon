@@ -555,6 +555,7 @@ section .text
 		next
 
 	; ( condition -- )
+	declare "predicated"
 	code predicate
 		mov rax, [tp]
 		mov rbx, [tp + 8]
@@ -571,6 +572,7 @@ section .text
 		run
 
 	; ( condition -- )
+	declare "maybe"
 	code predicate_unary
 		mov rax, [tp]
 		add tp, 8

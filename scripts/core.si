@@ -314,12 +314,7 @@ fn: print-dict
 	do
 		copy
 		copy stash entry-name unstash entry-immediate?
-		if
-			immediate-tag
-		else
-			empty-tag
-		end-if
-
+		predicated immediate-tag empty-tag
 		print-red print-yellow nl
 
 		load

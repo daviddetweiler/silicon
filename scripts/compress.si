@@ -2,16 +2,6 @@
 1 var: size
 1 var: buffer
 
-s" silicon.bin" drop open-file handle store
-
-handle load file-size copy size store
-allocate-pages buffer store
-
-buffer load
-size load
-handle load
-read-file
-
 s" Succeeded" string: success
 s" Failed" string: failure
 
@@ -20,11 +10,21 @@ fn: succeeded?
     if
         success print-line
     else
-        failure print-line
+        failure print-line hard-fault
     end-if
 end-fn
 
-succeeded?
+\ FIXME: Why do we crash if the file doesn't exist?
+s" out\kernel.bin" drop open-file copy false ~= succeeded? handle store
+
+handle load file-size copy false ~= succeeded? copy size store
+allocate-pages copy 0~= succeeded? buffer store
+
+buffer load
+size load
+handle load
+read-file succeeded?
+
 size load = succeeded?
 
 handle load close-handle
