@@ -50,6 +50,8 @@ if __name__ == "__main__":
         "strings": strings,
     }
 
+    words["all"] = sum(words.values(), [])
+
     statistics = {
         "primitives": len(code_words),
         "threads": len(thread_words),

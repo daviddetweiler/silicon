@@ -168,7 +168,8 @@ global start
 	%define id_CloseHandle 6
 	%define id_VirtualAlloc 7
 	%define id_VirtualFree 8
-	%define n_imports 9
+	%define id_GetConsoleMode 9
+	%define n_imports 10
 
 	%define id(name) id_ %+ name
 	%macro get_import 1
@@ -192,6 +193,7 @@ global start
 	extern CloseHandle
 	extern VirtualAlloc
 	extern VirtualFree
+	extern GetConsoleMode
 %endif
 
 %macro call_import 1
@@ -941,41 +943,55 @@ section .text
 		mov [dp], rax
 		next
 
-	%ifndef standalone
-		code load_imports
-			mov rsi, [get_module_handle]
-			mov rdi, [get_proc_address]
+		code init_imports
+			%ifndef standalone
+				mov rsi, [get_module_handle]
+				mov rdi, [get_proc_address]
 
-			lea rcx, kernel32
-			call rsi
-			mov rbp, rax
-			get_import ExitProcess
-			get_import GetStdHandle
-			get_import WriteFile
-			get_import ReadFile
-			get_import CreateFileA
-			get_import SetFilePointer
-			get_import CloseHandle
-			get_import VirtualAlloc
-			get_import VirtualFree
+				lea rcx, kernel32
+				call rsi
+				mov rbp, rax
+				get_import ExitProcess
+				get_import GetStdHandle
+				get_import WriteFile
+				get_import ReadFile
+				get_import CreateFileA
+				get_import SetFilePointer
+				get_import CloseHandle
+				get_import VirtualAlloc
+				get_import VirtualFree
+				get_import GetConsoleMode
+			%endif
 			next
-	%endif
+
+	; ( handle -- is-console? )
+	code is_console_handle
+		mov rcx, [dp]
+		lea rdx, [rsp + 8 * 4]
+		call_import GetConsoleMode
+		xor rcx, rcx
+		test rax, rax
+		jz .failure
+		not rcx
+
+		.failure:
+		mov [dp], rcx 
+		next
 			
 section .rdata
 	align 8
 	; ( -- )
 	program:
-		%ifndef standalone
-			da load_imports
-		%endif
-		da set_return_stack
 		da set_data_stack
+		da set_return_stack
+		da init_imports
 		da init_handles
 		da init_assembler
 		da init_source_context_stack
 		da init_dictionary
 		da init_arena
-		da init_term_buffer
+		da init_terminal
+
 		da load_core_library
 
 	interpret:
@@ -1039,11 +1055,26 @@ section .rdata
 		jump_to interpret
 
 	; ( -- )
-	thread init_term_buffer
+	thread init_terminal
 		da zero
 		da term_buffer
 		da store_byte
-		da return
+
+		da stdin_handle
+		da load
+		da is_console_handle
+		da stack_not
+		da is_terminal_piped
+		da store
+
+		da is_terminal_piped
+		da load
+		da stack_not
+		maybe return
+		da status_non_interactive
+		da print_line
+		da all_ones
+		da exit_process
 
 	; ( -- )
 	declare "soft-fault"
@@ -2210,7 +2241,9 @@ section .rdata
 	variable string_b, 2
 	variable parsed_number, 2
 	variable source_context_stack, source_context_stack_depth * source_context_cells
-
+	variable is_terminal_piped, 1
+	
+	; TODO: refactor file_handle_load_content; this is kind of hacky and indicative of its overcomplexity
 	variable load_length, 1
 
 	; A short discussion on dealing with errors (the red ones): if they occur in the uppermost context, we can
@@ -2232,6 +2265,7 @@ section .rdata
 	string status_abort, yellow(`Aborted and restarted\n`)
 	string status_bad_init, yellow(`Fault during core lib load\nPress enter to exit...\n`)
 	string status_nested_def, red(`Cannot define new words while another is still being defined\n`) ; soft fault
+	string status_non_interactive, red(`Cannot accept input from non-interactive terminal\n`) ; fatal error
 	string newline, `\n`
 	string negative, `-`
 
@@ -2266,6 +2300,7 @@ section .rdata
 		name CloseHandle
 		name VirtualAlloc
 		name VirtualFree
+		name GetConsoleMode
 	%endif
 
 	core_lib:
