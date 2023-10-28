@@ -940,7 +940,7 @@ section .text
 		next
 
 	%ifndef standalone
-		code set_imports
+		code load_imports
 			mov rsi, [get_module_handle]
 			mov rdi, [get_proc_address]
 
@@ -964,18 +964,17 @@ section .rdata
 	; ( -- )
 	program:
 		%ifndef standalone
-			da set_imports
+			da load_imports
 		%endif
 		da set_return_stack
 		da set_data_stack
 		da init_handles
 		da init_assembler
 		da init_source_context_stack
-		da init_current_word
 		da init_dictionary
 		da init_arena
 		da init_term_buffer
-		da load_init_library
+		da load_core_library
 
 	interpret:
 		da should_exit
@@ -1096,7 +1095,7 @@ section .rdata
 		da exit_process
 
 	; ( -- )
-	thread load_init_library
+	thread load_core_library
 		da literal
 		da core_lib
 		da set_up_source_text
@@ -1271,7 +1270,7 @@ section .rdata
 
 	; ( -- exit? )
 	thread accept_line_interactive
-		da init_current_word
+		da reset_current_word
 		da term_buffer
 		da source_line_start
 		da store
@@ -1318,6 +1317,9 @@ section .rdata
 		da return
 
 	; ( -- overfull? )
+	;
+	; If the present line of input was longer than the buffer passed to ReadFile(), ReadFile() will notably _not_ place
+	; a terminal newline, making it trivial to check for oversized lines.
 	thread term_is_overfull
 		da term_buffer
 		da source_line_size
@@ -1374,6 +1376,8 @@ section .rdata
 		da return
 
 	; ( -- exit? )
+	;
+	; The bottom-most source context reprsents the terminal, and so is identified with a zeroed source_full_text pointer
 	declare "accept-line"
 	thread accept_line
 		da source_full_text
@@ -1412,7 +1416,10 @@ section .rdata
 		da return
 
 	; ( -- )
-	thread init_current_word
+	;
+	; At all times, source_current_word refers to the address and length of the word that was just parsed for
+	; interpretation.
+	thread reset_current_word
 		da term_buffer
 		da zero
 		da source_current_word
@@ -1420,6 +1427,8 @@ section .rdata
 		da return
 
 	; ( ptr -- new-ptr )
+	;
+	; Advances ptr past an initial run of whitespace characters
 	thread consume_space
 		.again:
 		da copy
@@ -1434,6 +1443,8 @@ section .rdata
 		jump_to .again
 
 	; ( ptr -- new-ptr )
+	;
+	; Advances ptr to the first space character after an initial run of non-space characters
 	thread consume_word
 		.again:
 		da copy
