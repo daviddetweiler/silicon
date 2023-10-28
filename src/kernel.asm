@@ -1100,23 +1100,33 @@ section .rdata
 	thread load_core_library
 		da literal
 		da core_lib
-		da set_up_source_text
+		da source_push_buffer
 		da all_ones
 		da am_initing
 		da store
 		da return
 
-	; ( handle -- )
-	thread set_up_preloaded_source
+	; ( path -- buffer? length? )
+	declare "load-file"
+	thread load_file
+		da open_file
 		da copy
-		da load_source_file
-		da swap
+		branch_to .found
+		da drop
+		da zero
+		da zero
+		da return
+
+		.found:
+		da copy
+		da stack_push
+		da file_handle_load_content
+		da stack_pop
 		da close_handle
-		da set_up_source_text
 		da return
 
 	; ( buffer -- )
-	thread set_up_source_text
+	thread source_push_buffer
 		da source_push
 
 		da copy
@@ -1135,8 +1145,8 @@ section .rdata
 		da set_line_size
 		da return
 
-	; ( handle -- source? )
-	thread load_source_file
+	; ( handle -- source? length? )
+	thread file_handle_load_content
 		da copy
 		da stack_push
 		da file_size
@@ -1150,6 +1160,9 @@ section .rdata
 		jump_to .failed
 
 		.allocate:
+		da copy
+		da load_length
+		da store
 		da copy
 		da one
 		da stack_add
@@ -1180,10 +1193,12 @@ section .rdata
 
 		.succeeded:
 		da stack_pop
+		da load_length
+		da load
 		da return
 
 		.failed:
-		da status_source_not_loaded
+		da status_file_handle_load_failure
 		da print_line
 		da soft_fault
 
@@ -2117,8 +2132,7 @@ section .rdata
 		da stack_push
 		da stack_push
 		da drop
-		da open_file
-		da copy
+		da load_file
 		branch_to .found
 		da status_script_not_found
 		da print
@@ -2132,7 +2146,7 @@ section .rdata
 		da stack_pop
 		da stack_pop
 		da drop_pair
-		da set_up_preloaded_source
+		da source_push_buffer
 		da return
 
 	; ( -- string length )
@@ -2197,6 +2211,8 @@ section .rdata
 	variable parsed_number, 2
 	variable source_context_stack, source_context_stack_depth * source_context_cells
 
+	variable load_length, 1
+
 	; A short discussion on dealing with errors (the red ones): if they occur in the uppermost context, we can
 	; differentiate between a soft fault and a hard fault. A soft fault can be a non-existent word used in assembly
 	; mode, which we could recover from by abandoning the current definition and flushing the line. A hard fault would
@@ -2210,7 +2226,7 @@ section .rdata
 	string status_unknown, red(`Unknown word: `) ; soft fault
 	string status_stacks_unset, yellow(`Stacks were not cleared, or have underflowed\nPress enter to exit...\n`)
 	string status_word_too_long, red(`Word is too long for dictionary entry\n`) ; soft fault
-	string status_source_not_loaded, red(`Source file could not be read into memory\n`) ; soft fault
+	string status_file_handle_load_failure, red(`File contents could not be read into memory\n`) ; soft fault
 	string status_script_not_found, red(`Script not found: `) ; soft fault
 	string status_no_word, red(`Input was cancelled before word was named\n`) ; soft fault
 	string status_abort, yellow(`Aborted and restarted\n`)

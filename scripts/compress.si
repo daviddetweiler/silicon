@@ -1,4 +1,3 @@
-1 var: handle
 1 var: size
 1 var: buffer
 
@@ -14,25 +13,18 @@ fn: succeeded?
     end-if
 end-fn
 
-\ FIXME: Why do we crash if the file doesn't exist?
-s" out\kernel.bin" drop open-file copy false ~= succeeded? handle store
+s" out\kernel.bin" drop load-file
+size store
+buffer store
 
-handle load file-size copy false ~= succeeded? copy size store
-allocate-pages copy 0~= succeeded? buffer store
+buffer load 0~= succeeded?
 
-buffer load
-size load
-handle load
-read-file succeeded?
-
-size load = succeeded?
-
-handle load close-handle
-
-256 var: histogram
+256 const: histogram-size
+histogram-size var: histogram
 
 \ n -- addr
 fn: hist[]
+    copy histogram-size >= if hard-fault end-if
     cell-size * histogram +
 end-fn
 
@@ -52,6 +44,7 @@ init-histogram
 
 \ n -- addr
 fn: buffer[]
+    copy size >= if hard-fault end-if
     buffer load +
 end-fn
 

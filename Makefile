@@ -23,7 +23,7 @@ $(OUT)\kernel.bin: $(SRC)\kernel.asm $(OUT)\core.inc $(OUT)\expected.version Mak
 
 $(OUT)\kernel.obj: $(SRC)\kernel.asm $(OUT)\core.inc $(OUT)\expected.version Makefile
     pwsh -c "nasm -I $(OUT) -fwin64 $(SRC)\kernel.asm -Dgit_version=""$$(git describe --dirty --tags)"" \
-        -o $(OUT)\kernel.obj -Dstandalone"
+        -o $(OUT)\kernel.obj -Dstandalone -g"
 
 $(OUT)\kernel.bin.bw: $(OUT)\kernel.bin $(BW) Makefile
     python $(BW) pack $(OUT)\kernel.bin $(OUT)\kernel.bin.bw
@@ -72,7 +72,8 @@ $(OUT)\silicon-debug.exe: $(OUT)\kernel.obj Makefile
         /section:data,RWE \
         /merge:.rdata=kernel \
         /merge:.text=kernel \
-        /merge:.bss=data
+        /merge:.bss=data \
+        /debug
 
 clean: Makefile
     del report.json

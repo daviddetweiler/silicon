@@ -1,2 +1,2 @@
-s" scripts/example.si" execute
-s" scripts/example.si" execute
+execute" scripts/example.si"
+execute" scripts/example.si"

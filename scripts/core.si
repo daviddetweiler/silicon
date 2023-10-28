@@ -224,6 +224,12 @@ fn: s"
 end-fn
 
 \ --
+fn: execute"
+	s"
+	execute
+end-fn
+
+\ --
 fn: version
 	version-string print-line
 end-fn
