@@ -19,5 +19,5 @@ jobs:
           nmake zip
       - uses: ncipollo/release-action@v1.13.0
         with:
-          artifacts: 'silicon.zip'
+          artifacts: './out/silicon.zip'
             
