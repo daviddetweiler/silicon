@@ -81,8 +81,8 @@ clean: Makefile
 zip: build $(OUT)\silicon.zip Makefile
 
 $(OUT)\silicon.zip: Makefile
-    echo Verify the hash of silicon.exe using this powershell command > README.txt
-    echo Get-FileHash -Algorithm SHA256 $(OUT)\silicon.exe >> $(OUT)\README.txt
+    echo Verify the hash of silicon.exe using this powershell command > $(OUT)\README.txt
+    echo Get-FileHash -Algorithm SHA256 silicon.exe >> $(OUT)\README.txt
     echo. >> $(OUT)\README.txt
     pwsh -c "cd $(OUT); (Get-FileHash -Algorithm SHA256 silicon.exe).Hash >> README.txt"
     pwsh -c "cd $(OUT); Compress-Archive -Force -Path silicon.exe,README.txt -DestinationPath silicon.zip"
