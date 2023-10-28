@@ -3,6 +3,7 @@ AC=.\tools\ac.py
 INC=.\tools\inc.py
 VERSION=.\tools\version.py
 ANALYZER=.\tools\analyzer.py
+XSH32=.\tools\xsh32.py
 OUT=.\out
 
 all: build debug-build zip Makefile
@@ -32,20 +33,29 @@ $(OUT)\compressed.inc: $(OUT)\kernel.bin.bw $(INC) Makefile
 $(OUT)\core.inc: scripts\core.si $(INC) Makefile
     python $(INC) scripts\core.si $(OUT)\core.inc
 
-$(OUT)\loader.obj: $(OUT)\compressed.inc loader.asm $(OUT)\core.inc Makefile
-    nasm -I $(OUT) -fwin64 loader.asm -o $(OUT)\loader.obj
+$(OUT)\loader.bin: $(OUT)\compressed.inc loader.asm $(OUT)\core.inc Makefile
+    nasm -I $(OUT) -fbin loader.asm -o $(OUT)\loader.bin
+
+$(OUT)\loader.bin.xsh32 $(OUT)\seed.inc: $(OUT)\loader.bin $(XSH32) Makefile
+    python $(XSH32) $(OUT)\loader.bin $(OUT)\loader.bin.xsh32 $(OUT)\seed.inc
+
+$(OUT)\xsh32.obj: xsh32.asm $(OUT)\xsh32.inc $(OUT)\seed.inc Makefile
+    nasm -I $(OUT) -fwin64 xsh32.asm -o $(OUT)\xsh32.obj
+
+$(OUT)\xsh32.inc: $(OUT)\loader.bin.xsh32 $(INC) Makefile
+    python $(INC) $(OUT)\loader.bin.xsh32 $(OUT)\xsh32.inc
 
 $(BW): $(AC) Makefile
 
-$(OUT)\silicon.exe: $(OUT)\loader.obj Makefile
-    link $(OUT)\loader.obj kernel32.lib \
+$(OUT)\silicon.exe: $(OUT)\xsh32.obj Makefile
+    link $(OUT)\xsh32.obj kernel32.lib \
         /out:$(OUT)\silicon.exe \
         /subsystem:console \
         /entry:start \
         /nologo \
         /fixed \
         /ignore:4254 \
-        /section:kernel,RE \
+        /section:kernel,RWE \
         /merge:.rdata=kernel \
         /merge:.text=kernel
 

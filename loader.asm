@@ -3,10 +3,6 @@ bits 64
 
 global start
 
-extern VirtualAlloc
-extern GetModuleHandleA
-extern GetProcAddress
-
 %define image_base 0x2000000000
 
 %define model256_size (8 + 256 * 8)
@@ -31,7 +27,8 @@ extern GetProcAddress
 
 section .text
     start:
-        sub rsp, 8 + 8 * 16 ; It's what the interpreter expects
+        sub rsp, 8
+        mov [stash], rcx
 
     init_models:
         xor rcx, rcx
@@ -67,7 +64,7 @@ section .text
 
         .next_init:
         shl r11, 8
-        mov rax, bitstream
+        lea rax, bitstream
         mov r11b, [rax + r10]
         inc r10
         test r10, 7
@@ -162,17 +159,16 @@ section .text
         jnz .next_command
 
     load:
-        mov rcx, GetModuleHandleA
-        mov rdx, GetProcAddress
         mov rax, image_base + 8
-        jmp rax
+        add rsp, 8
+        ret
 
     allocate:
         sub rsp, 8 + 8 * 4
 
         mov r8, 0x1000 | 0x2000 ; MEM_COMMIT | MEM_RESERVE
         mov r9, 0x40 ; PAGE_EXECUTE_READWRITE
-        call VirtualAlloc
+        call [stash]
 
         add rsp, 8 + 8 * 4
         ret
@@ -237,7 +233,7 @@ section .text
         not r12b ; set all ones in the lower 8 bits
         shl r13, 8
         shl r11, 8
-        mov rax, bitstream
+        lea rax, bitstream
         mov r11b, [rax + r10]
         inc r10
         jmp .renormalize
@@ -274,7 +270,7 @@ section .text
         call strange_shift
         mov r11, r9
 
-        mov rax, bitstream
+        lea rax, bitstream
         mov r11b, [rax + r10]
         inc r10
         jmp .next_adjustment
@@ -314,3 +310,6 @@ section .text
         %include "compressed.inc"
 
     db `\0\0\0\0\0\0\0\0` ; You do not want garbage data entering the bitstream near the end
+
+    stash:
+        dq 0
