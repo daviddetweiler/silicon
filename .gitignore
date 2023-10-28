@@ -17,3 +17,4 @@ __pycache__/
 *.ac
 *.bw
 *.version
+*.json

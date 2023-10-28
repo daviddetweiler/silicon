@@ -2,6 +2,7 @@ BW=.\tools\bitweaver.py
 AC=.\tools\ac.py
 INC=.\tools\inc.py
 VERSION=.\tools\version.py
+ANALYZER=.\tools\analyzer.py
 OUT=.\out
 
 all: build debug-build zip Makefile
@@ -77,3 +78,11 @@ $(OUT)\silicon.zip: Makefile
 
 run: build Makefile
     pwsh -c "wt -F $$(Resolve-Path $(OUT)\silicon.exe)"
+
+report: report.json Makefile
+
+report.json: $(ANALYZER) silicon.asm Makefile
+    python $(ANALYZER) silicon.asm > report.json
+
+image-info:
+    python $(BW) info $(OUT)\silicon.bin.bw

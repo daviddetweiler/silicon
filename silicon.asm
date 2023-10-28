@@ -1331,13 +1331,6 @@ section .rdata
 		da push_is_neq
 		da return
 
-	; ( -- line length )
-	thread current_line
-		da term_buffer
-		da line_size
-		da load
-		da return
-
 	; ( -- exit? )
 	thread accept_word
 		.again:
