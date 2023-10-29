@@ -810,11 +810,30 @@ section .text
 	declare "open-file"
 	code open_file
 		mov rcx, [dp]
-		mov rdx, 0x80000000
+		mov rdx, 0x80000000 ; GENERIC_READ
 		xor r8, r8
 		xor r9, r9
-		mov qword [rsp + 8 * 4], 3
-		mov qword [rsp + 8 * 5], 0x80
+		mov qword [rsp + 8 * 4], 3 ; OPEN_EXISTING
+		mov qword [rsp + 8 * 5], 0x80 ; FILE_ATTRIBUTE_NORMAL
+		mov qword [rsp + 8 * 6], r9
+		call_import CreateFileA
+		cmp rax, -1
+		jne .success
+		mov rax, 0
+
+		.success:
+		mov [dp], rax
+		next
+
+	; ( c-string -- handle )
+	declare "create-file"
+	code create_file
+		mov rcx, [dp]
+		mov rdx, 0x40000000 ; GENERIC_WRITE
+		xor r8, r8
+		xor r9, r9
+		mov qword [rsp + 8 * 4], 2 ; CREATE_ALWAYS
+		mov qword [rsp + 8 * 5], 0x80 ; FILE_ATTRIBUTE_NORMAL
 		mov qword [rsp + 8 * 6], r9
 		call_import CreateFileA
 		cmp rax, -1
@@ -991,6 +1010,7 @@ section .rdata
 		da init_dictionary
 		da init_arena
 		da init_terminal
+		da init_logging
 
 		da load_core_library
 
@@ -1116,7 +1136,7 @@ section .rdata
 		.die:
 		da status_bad_init
 		da print_line
-		da term_read_line
+		da read_line
 		da all_ones
 		da exit_process
 
@@ -1358,17 +1378,22 @@ section .rdata
 		da store
 		da return
 
+	thread read_line
+		da is_terminal_piped
+		da load
+		da stack_not
+		predicated term_read_line, pipe_read_line
+		da return
+
 	; ( -- exit? )
-	thread accept_line_interactive
+	thread accept_line_interactive_unlogged
 		da reset_current_word
 		da term_buffer
 		da source_line_start
 		da store
 
 		.again:
-		da is_terminal_piped
-		da load
-		predicated pipe_read_line, term_read_line
+		da read_line
 
 		da source_line_size
 		da load
@@ -1380,7 +1405,7 @@ section .rdata
 		da stack_eq0
 		branch_to .again
 
-		da term_is_overfull
+		da term_buffer_too_small
 		branch_to .line_overfull
 
 		da zero
@@ -1391,8 +1416,8 @@ section .rdata
 		da print_line
 
 		.flush:
-		da term_read_line
-		da term_is_overfull
+		da read_line
+		da term_buffer_too_small
 		branch_to .flush
 		jump_to .again
 
@@ -1400,6 +1425,48 @@ section .rdata
 		da drop
 		da all_ones
 		da return
+
+	; ( -- exit? )
+	thread accept_line_interactive
+		da accept_line_interactive_unlogged
+		da copy
+		maybe return
+		da source_line_start
+		da load
+		da source_line_size
+		da load
+		da literal
+		dq 2
+		da stack_add
+		da log_file_handle
+		da load
+		da write_file
+		maybe return
+		da status_log_failure
+		da print_line
+		da read_line
+		da all_ones
+		da exit_process
+
+	; ( -- )
+	thread init_logging
+		da log_name
+		da drop
+		da create_file
+		da copy
+		da all_ones
+		da stack_eq
+		branch_to .error
+		da log_file_handle
+		da store
+		da return
+
+		.error:
+		da status_log_failure
+		da print_line
+		da read_line
+		da all_ones
+		da exit_process
 
 	; ( string length -- )
 	declare "print-line"
@@ -1412,7 +1479,7 @@ section .rdata
 	;
 	; If the present line of input was longer than the buffer passed to ReadFile(), ReadFile() will notably _not_ place
 	; a terminal newline, making it trivial to check for oversized lines.
-	thread term_is_overfull
+	thread term_buffer_too_small
 		da term_buffer
 		da source_line_size
 		da load
@@ -1754,7 +1821,7 @@ section .rdata
 	thread report_leftovers
 		da status_stacks_unset
 		da print_line
-		da term_read_line
+		da read_line
 		da return
 
 	; ( char -- digit? )
@@ -2286,6 +2353,7 @@ section .rdata
 	variable parsed_number, 2
 	variable source_context_stack, source_context_stack_depth * source_context_cells
 	variable is_terminal_piped, 1
+	variable log_file_handle, 1
 	
 	; TODO: refactor file_handle_load_content; this is kind of hacky and indicative of its overcomplexity
 	variable load_length, 1
@@ -2310,8 +2378,10 @@ section .rdata
 	string status_bad_init, yellow(`Fault during core lib load\nPress enter to exit...\n`)
 	string status_nested_def, red(`Cannot define new words while another is still being defined\n`) ; soft fault
 	string status_non_interactive, red(`Cannot accept input from non-interactive terminal\n`) ; fatal error
+	string status_log_failure, red(`Log related-failure\nPress enter to exit...`) ; fatal error
 	string newline, `\n`
 	string negative, `-`
+	string log_name, `log.si`
 
 	declare "seq-clear"
 	string seq_clear, vt_clear

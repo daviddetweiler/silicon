@@ -30,3 +30,9 @@ is to add a level of indirection. Each "instruction" is now a pointer to a varia
 code pointer (so `next` needs be adjusted). `next` is modified to maintain `wp`, a register indicating the start of the
 current such structure being executed. Through `wp`, the code can access its stored arguments in the rest of the data
 structure. Now, since we can have variable-length payloads, we can inline the stored thread, replacing the pointer.
+
+Functionally, the beating heart of `Silicon` is this miniscule code fragment, repeated throughout:
+
+    mov wp, [tp]
+    add tp, 8
+    jmp [wp]
