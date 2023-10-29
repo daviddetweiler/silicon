@@ -1067,14 +1067,7 @@ section .rdata
 		da is_terminal_piped
 		da store
 
-		da is_terminal_piped
-		da load
-		da stack_not
-		maybe return
-		da status_non_interactive
-		da print_line
-		da all_ones
-		da exit_process
+		da return
 
 	; ( -- )
 	declare "soft-fault"
@@ -1295,7 +1288,7 @@ section .rdata
 		da print
 		da return
 
-	; ( -- count )
+	; ( -- )
 	thread term_read_line
 		da term_buffer
 		da literal
@@ -1316,6 +1309,55 @@ section .rdata
 		da store
 		da return
 
+	; ( -- )
+	thread pipe_read_line
+		da term_buffer
+		
+		.again:
+		da copy
+		da one
+		da stdin_handle
+		da load
+		da read_file
+		da drop
+
+		da copy
+		da stack_eq0
+		branch_to .eof
+
+		da over
+		da stack_add
+		da swap
+		da load_byte
+		da literal
+		dq `\n`
+		da stack_eq
+		branch_to .exit
+		da copy
+		da term_buffer
+		da stack_sub
+		da literal
+		dq term_buffer_size
+		da stack_lt
+		branch_to .again
+
+		.exit:
+		da term_buffer
+		da stack_sub
+		da literal
+		dq 2
+		da stack_sub
+		da source_line_size
+		da store
+		da return
+
+		.eof:
+		da drop_pair
+		da all_ones
+		da source_line_size
+		da store
+		da return
+
 	; ( -- exit? )
 	thread accept_line_interactive
 		da reset_current_word
@@ -1324,7 +1366,9 @@ section .rdata
 		da store
 
 		.again:
-		da term_read_line
+		da is_terminal_piped
+		da load
+		predicated pipe_read_line, term_read_line
 
 		da source_line_size
 		da load
