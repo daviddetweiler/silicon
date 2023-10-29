@@ -226,7 +226,7 @@ section .text
 			mov [get_module_handle], rcx
 			mov [get_proc_address], rdx
 		%endif
-		lea tp, program
+		lea tp, initialize
 		next
 
 	; ( -- )
@@ -981,7 +981,7 @@ section .text
 section .rdata
 	align 8
 	; ( -- )
-	program:
+	initialize:
 		da set_data_stack
 		da set_return_stack
 		da init_imports
@@ -1118,7 +1118,7 @@ section .rdata
 		branch_to .die
 		da status_abort
 		da print_line
-		jump_to program
+		jump_to initialize
 
 		.die:
 		da status_bad_init
