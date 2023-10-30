@@ -282,6 +282,7 @@ section .text
 		next
 
 	; ( -- value )
+	declare "literal"
 	code literal
 		mov rax, [tp]
 		add tp, 8
@@ -372,6 +373,7 @@ section .text
 		next
 
 	; ( condition -- )
+	declare "branch"
 	code branch
 		mov rax, [dp]
 		add dp, 8
@@ -432,6 +434,7 @@ section .text
 		next
 
 	; ( -- )
+	declare "jump"
 	code jump
 		mov rax, [tp]
 		lea tp, [tp + rax + 8]
@@ -2358,6 +2361,9 @@ section .rdata
 
 	declare "text-size"
 	constant text_size, end_text - begin_text
+
+	declare "raw-invoke-thread"
+	constant raw_invoke_thread, address(invoke_thread)
 
 	; Begin interpreter state variables
 

@@ -1,0 +1,85 @@
+1 var: queried-word
+
+fn: reverse-find
+    ( word -- name? length? )
+
+	queried-word store
+	dictionary load
+
+	while
+		copy 0~=
+	do
+		copy entry-data-ptr
+		queried-word load
+		= if
+			entry-name return
+		end-if
+
+		load
+	end-while
+
+	drop 0 0
+end-fn
+
+s" Quoted word not found" string: not-found
+
+fn: show-pointer
+    ( ptr-value -- )
+
+    copy reverse-find
+    copy 0~= if
+        print-yellow nl drop
+    else
+        drop-pair print-u# nl
+    end-if
+end-fn
+
+fn: show-instr
+    ( thread-ptr -- )
+
+    copy print-u# tabstop
+    load show-pointer
+end-fn
+
+find: return const: return-word
+
+s" Not a threaded word" string: not-threaded
+
+fn: disasm-raw
+    ( thread-ptr -- )
+
+    while
+        copy load return-word ~=
+    do
+        copy show-instr
+        cell-size +
+    end-while
+
+    show-instr
+end-fn
+
+\ Broken: stops at the first return
+fn: disasm-word
+    ( word -- )
+
+    copy load raw-invoke-thread ~= if
+        drop
+        not-threaded print-red nl
+        return
+    end-if
+
+    cell-size + disasm-raw
+end-fn
+
+fn: disasm:
+    ( -- )
+    find:
+
+    copy 0= if
+        not-found print-red nl
+        drop
+        return
+    end-if
+
+    disasm-word
+end-fn

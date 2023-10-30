@@ -50,7 +50,7 @@ if __name__ == "__main__":
         "strings": strings,
     }
 
-    words["all"] = sum(words.values(), [])
+    words["all"] = sorted(sum(words.values(), []))
 
     statistics = {
         "primitives": len(code_words),
