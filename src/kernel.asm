@@ -996,6 +996,22 @@ section .text
 		.failure:
 		mov [dp], rcx 
 		next
+
+	; ( value shift -- shifted )
+	declare "<<"
+	code stack_shl
+		mov rcx, [dp]
+		add dp, 8
+		shl qword [dp], cl
+		next
+
+	; ( value shift -- shifted )
+	declare ">>"
+	code stack_shr
+		mov rcx, [dp]
+		add dp, 8
+		shr qword [dp], cl
+		next
 			
 section .rdata
 	align 8
@@ -1093,6 +1109,9 @@ section .rdata
 	declare "soft-fault"
 	thread soft_fault
 		da source_is_nested
+		da is_terminal_piped
+		da load
+		da stack_or
 		maybe hard_fault
 		da flush_line
 
@@ -1126,6 +1145,10 @@ section .rdata
 	; have left the interpreter in partial, unspecified, but otherwise valid state that it must simply reset from
 	declare "hard-fault"
 	thread hard_fault
+		da is_terminal_piped
+		da load
+		branch_to .piped
+
 		da am_initing
 		da load
 		branch_to .die
@@ -1137,6 +1160,12 @@ section .rdata
 		da status_bad_init
 		da print_line
 		da read_line
+		da all_ones
+		da exit_process
+
+		.piped:
+		da status_fatal
+		da print_line
 		da all_ones
 		da exit_process
 
@@ -1450,6 +1479,12 @@ section .rdata
 
 	; ( -- )
 	thread init_logging
+		da log_file_handle ; Might be post-restart
+		da load
+		da copy
+		da stack_neq0
+		predicated close_handle, drop
+
 		da log_name
 		da drop
 		da create_file
@@ -2379,6 +2414,7 @@ section .rdata
 	string status_nested_def, red(`Cannot define new words while another is still being defined\n`) ; soft fault
 	string status_non_interactive, red(`Cannot accept input from non-interactive terminal\n`) ; fatal error
 	string status_log_failure, red(`Log related-failure\nPress enter to exit...`) ; fatal error
+	string status_fatal, red(`Hard fault during piped input\n`) ; fatal error
 	string newline, `\n`
 	string negative, `-`
 	string log_name, `log.si`

@@ -22,9 +22,6 @@ global start
 %define upper8 (((1 << 8) - 1) << (64 - 8))
 %define flag_extra_byte 0x80
 
-; Maybe worth exploring the markov-chain control bit predictor now, with the large file sizes? Could even fit in 8
-; KiBs...
-
 section .text
     start:
         sub rsp, 8

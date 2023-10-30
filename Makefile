@@ -76,7 +76,7 @@ $(OUT)\silicon-debug.exe: $(OUT)\kernel.obj Makefile
         /debug
 
 clean: Makefile
-    del report.json
+    del report.json *.log log.si
     cd .\out\ && del *.obj *.exe *.pdb *.ilk *.zip *.bin *.log *.inc README.txt *.bw *.version *.xsh32
 
 zip: build $(OUT)\silicon.zip Makefile

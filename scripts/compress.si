@@ -83,3 +83,39 @@ end-fn
 do-count
 print-histogram
 size load print-u# nl
+
+1000 copy copy * * const: billion
+1 var: entropy
+
+fn: log2
+    ( n -- log2[n] )
+
+    \ ????
+end-fn
+
+fn: compute-entropy
+    ( -- )
+    256
+    while
+        copy 0~=
+    do
+        copy
+        1 - hist[]
+
+        load billion * size load /     \ p-value
+        entropy load + entropy store
+
+        1 -
+    end-while
+
+    drop
+end-fn
+
+compute-entropy
+
+s" Entropy: " print
+
+entropy load billion u/ print-u#
+s" ." print
+
+entropy load billion u% print-u# nl

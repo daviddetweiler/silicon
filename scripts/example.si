@@ -12,11 +12,12 @@ fn: ;
 	assemble: end-fn
 end-fn immediate
 
+s" true" string: true-str
+
 : v?
 	( condition -- )
-
 	if
-		version
+		true-str print-line
 	end-if
 ;
 
