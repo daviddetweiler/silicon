@@ -253,11 +253,46 @@ fn: var:
 end-fn
 
 char: 0						const:	digit-0
+char: a						const:	digit-a
 8 4 *						const:	formatted-decimal-size
 formatted-decimal-size 8 /	var:	formatted-decimal
+s" 0x"						string:	hex-prefix
+
+1 var: use-hex
+false use-hex store
+
+fn: hex
+	\ --
+	true use-hex store
+end-fn
+
+1 var: base
+
+fn: map-digit
+	\ n -- c
+
+	use-hex load
+	if
+		copy 10 < if
+			digit-0 +
+		else
+			10 - digit-a +
+		end-if
+	else
+		digit-0 +
+	end-if
+end-fn
 
 \ n --
 fn: print-u#
+	use-hex load
+	if
+		16 base store
+		hex-prefix print
+	else
+		10 base store
+	end-if
+
 	copy 0=
 	if
 		drop
@@ -273,15 +308,17 @@ fn: print-u#
 	while
 		copy 0~=
 	do
-		copy 10 u%
-		digit-0 + pop 1 - swap over store-byte push
-		10 u/
+		copy base load u%
+		map-digit pop 1 - swap over store-byte push
+		base load u/
 	end-while
 
 	drop
 	pop
 	pop
 	over - print
+
+	false use-hex store \ By clearing each time we can do things like `hex print-#`
 end-fn
 
 s" -" string: negative

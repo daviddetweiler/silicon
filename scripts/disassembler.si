@@ -28,14 +28,14 @@ fn: show-pointer
     copy 0~= if
         print-yellow nl drop
     else
-        drop-pair print-u# nl
+        drop-pair hex print-u# nl
     end-if
 end-fn
 
 fn: show-instr
     ( thread-ptr -- )
 
-    copy print-u# tabstop
+    copy hex print-u# tabstop
     load show-pointer
 end-fn
 
