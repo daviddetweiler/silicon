@@ -418,4 +418,10 @@ fn: (
 	end-while
 end-fn immediate
 
+fn: ?
+	( -- )
+	info
+	dictionary load print-dict
+end-fn
+
 checkpoint: core-dict
