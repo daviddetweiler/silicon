@@ -52,6 +52,9 @@ if __name__ == "__main__":
 
     words["all"] = sorted(sum(words.values(), []))
 
+    unnamed = sorted([word for word in words["all"] if word not in dictionary.values()])
+    words["unnamed"] = unnamed
+
     statistics = {
         "primitives": len(code_words),
         "threads": len(thread_words),
