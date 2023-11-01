@@ -244,21 +244,25 @@ section .text
 		next
 
 	; ( code -- )
+	declare "exit-process"
 	code exit_process
 		mov rcx, [dp]
 		call_import ExitProcess
 
 	; ( -- )
+	declare "set-data-stack"
 	code set_data_stack
 		lea dp, stack_base(data_stack)
 		next
 
 	; ( -- )
+	declare "set-return-stack"
 	code set_return_stack
 		lea rp, stack_base(return_stack)
 		next
 
 	; ( -- leftovers? )
+	declare "test-stacks"
 	code test_stacks
 		lea rax, stack_base(data_stack)
 		cmp dp, rax
@@ -337,6 +341,7 @@ section .text
 		next
 
 	; ( id -- handle )
+	declare "get-std-handle"
 	code get_handle
 		mov rcx, [dp]
 		call_import GetStdHandle
@@ -576,21 +581,6 @@ section .text
 		mov wp, rax
 		run
 
-	; ( condition -- )
-	declare "maybe"
-	code predicate_unary
-		mov rax, [tp]
-		add tp, 8
-		mov rcx, [dp]
-		add dp, 8
-		test rcx, rcx
-		jz .skip
-		mov wp, rax
-		run
-
-		.skip:
-		next
-
 	; ( address -- value )
 	declare "load-2nd"
 	code load_2nd
@@ -760,6 +750,7 @@ section .text
 		next
 
 	; ( -- )
+	declare "maybe"
 	code maybe_execute
 		mov rax, [dp]
 		add dp, 8
@@ -965,28 +956,30 @@ section .text
 		mov [dp], rax
 		next
 
-		code init_imports
-			%ifndef standalone
-				mov rsi, [get_module_handle]
-				mov rdi, [get_proc_address]
+	declare "init-imports"
+	code init_imports
+		%ifndef standalone
+			mov rsi, [get_module_handle]
+			mov rdi, [get_proc_address]
 
-				lea rcx, kernel32
-				call rsi
-				mov rbp, rax
-				get_import ExitProcess
-				get_import GetStdHandle
-				get_import WriteFile
-				get_import ReadFile
-				get_import CreateFileA
-				get_import SetFilePointer
-				get_import CloseHandle
-				get_import VirtualAlloc
-				get_import VirtualFree
-				get_import GetConsoleMode
-			%endif
-			next
+			lea rcx, kernel32
+			call rsi
+			mov rbp, rax
+			get_import ExitProcess
+			get_import GetStdHandle
+			get_import WriteFile
+			get_import ReadFile
+			get_import CreateFileA
+			get_import SetFilePointer
+			get_import CloseHandle
+			get_import VirtualAlloc
+			get_import VirtualFree
+			get_import GetConsoleMode
+		%endif
+		next
 
 	; ( handle -- is-console? )
+	declare "is-console-handle"
 	code is_console_handle
 		mov rcx, [dp]
 		lea rdx, [rsp + 8 * 4]
@@ -1094,6 +1087,7 @@ section .rdata
 		jump_to interpret
 
 	; ( -- )
+	declare "init-terminal"
 	thread init_terminal
 		da zero
 		da term_buffer
@@ -1133,6 +1127,7 @@ section .rdata
 		jump_to interpret
 
 	; ( -- )
+	declare "init-assembler"
 	thread init_assembler
 		da zero
 		da copy
@@ -1173,6 +1168,7 @@ section .rdata
 		da exit_process
 
 	; ( -- )
+	declare "load-core-library"
 	thread load_core_library
 		da literal
 		da core_lib
@@ -1202,6 +1198,7 @@ section .rdata
 		da return
 
 	; ( buffer -- )
+	declare "source-push-buffer"
 	thread source_push_buffer
 		da source_push
 
@@ -1222,6 +1219,7 @@ section .rdata
 		da return
 
 	; ( handle -- source? length? )
+	declare "file-handle-load-content"
 	thread file_handle_load_content
 		da copy
 		da stack_push
@@ -1318,6 +1316,7 @@ section .rdata
 		da return
 
 	; ( -- )
+	declare "init-handles"
 	thread init_handles
 		da literal
 		dq -10
@@ -1341,6 +1340,7 @@ section .rdata
 		da return
 
 	; ( -- )
+	declare "term-read-line"
 	thread term_read_line
 		da term_buffer
 		da literal
@@ -1362,6 +1362,7 @@ section .rdata
 		da return
 
 	; ( -- )
+	declare "pipe-read-line"
 	thread pipe_read_line
 		da term_buffer
 		
@@ -1410,6 +1411,8 @@ section .rdata
 		da store
 		da return
 
+	; ( -- )
+	declare "read-line"
 	thread read_line
 		da is_terminal_piped
 		da load
@@ -1418,6 +1421,7 @@ section .rdata
 		da return
 
 	; ( -- exit? )
+	declare "accept-line-interactive-unlogged"
 	thread accept_line_interactive_unlogged
 		da reset_current_word
 		da term_buffer
@@ -1459,6 +1463,7 @@ section .rdata
 		da return
 
 	; ( -- exit? )
+	declare "accept-line-interactive"
 	thread accept_line_interactive
 		da accept_line_interactive_unlogged
 		da copy
@@ -1481,6 +1486,7 @@ section .rdata
 		da exit_process
 
 	; ( -- )
+	declare "init-logging"
 	thread init_logging
 		da log_file_handle ; Might be post-restart
 		da load
@@ -1517,6 +1523,7 @@ section .rdata
 	;
 	; If the present line of input was longer than the buffer passed to ReadFile(), ReadFile() will notably _not_ place
 	; a terminal newline, making it trivial to check for oversized lines.
+	declare "term-buffer-too-small"
 	thread term_buffer_too_small
 		da term_buffer
 		da source_line_size
@@ -1531,6 +1538,7 @@ section .rdata
 		da return
 
 	; ( -- exit? )
+	declare "accept-word"
 	thread accept_word
 		.again:
 		da get_current_word
@@ -1607,6 +1615,7 @@ section .rdata
 		da return
 
 	; ( -- word length )
+	declare "get-current-word"
 	thread get_current_word
 		da source_current_word
 		da load_pair
@@ -1616,6 +1625,7 @@ section .rdata
 	;
 	; At all times, source_current_word refers to the address and length of the word that was just parsed for
 	; interpretation.
+	declare "reset-current-word"
 	thread reset_current_word
 		da term_buffer
 		da zero
@@ -1626,6 +1636,7 @@ section .rdata
 	; ( ptr -- new-ptr )
 	;
 	; Advances ptr past an initial run of whitespace characters
+	declare "consume-space"
 	thread consume_space
 		.again:
 		da copy
@@ -1642,6 +1653,7 @@ section .rdata
 	; ( ptr -- new-ptr )
 	;
 	; Advances ptr to the first space character after an initial run of non-space characters
+	declare "consume-word"
 	thread consume_word
 		.again:
 		da copy
@@ -1666,6 +1678,7 @@ section .rdata
 	; Here's the issue: accept_word functionally implements the regex `[ \n\r\t]*([^ \n\r\t]+)?`
 	; Because of that, a whitespace-only line will just run away into eternity. As such, it needs to
 	; be contractual that accept_line will strip out empty lines.
+	declare "is-space"
 	thread is_space
 		da copy
 		da literal
@@ -1701,6 +1714,7 @@ section .rdata
 		da return
 
 	; ( -- )
+	declare "init-dictionary"
 	thread init_dictionary
 		da core_vocabulary
 		da dictionary
@@ -1856,6 +1870,7 @@ section .rdata
 		da return
 
 	; ( -- )
+	declare "report-leftovers"
 	thread report_leftovers
 		da status_stacks_unset
 		da print_line
@@ -1863,6 +1878,7 @@ section .rdata
 		da return
 
 	; ( char -- digit? )
+	declare "is-digit"
 	thread is_digit
 		da copy
 		da literal
@@ -2070,6 +2086,7 @@ section .rdata
 		da return
 
 	; ( -- )
+	declare "init-arena"
 	thread init_arena
 		da arena_base
 		da arena_top
@@ -2114,6 +2131,7 @@ section .rdata
 		da return
 
 	; ( -- exit? )
+	declare "accept-line-source-text"
 	thread accept_line_source_text
 		da get_current_word
 		da stack_add
@@ -2151,6 +2169,7 @@ section .rdata
 	;
 	; For terminal input, ReadFile() already reports the length of the line due to the console-specific behavior around
 	; newlines, but for in-memory source files, we have to count bytes ourselves.
+	declare "set-line-size"
 	thread set_line_size
 		da copy
 
@@ -2186,6 +2205,7 @@ section .rdata
 		da return
 
 	; ( -- ptr-preloaded-source )
+	declare "full-text"
 	thread source_full_text
 		da source_context
 		da load
@@ -2214,6 +2234,7 @@ section .rdata
 		da return
 
 	; ( -- )
+	declare "init-source-context-stack"
 	thread init_source_context_stack
 		da source_context_stack
 		da source_context
@@ -2225,6 +2246,7 @@ section .rdata
 	;
 	; You'd be surprised at the kind of bugs that crop up if source contexts are not explicitly zeroed; a symptom of
 	; over-reliance on the zeroing behavior of BSS sections.
+	declare "source-clear"
 	thread source_clear
 		da zero
 		da source_line_size
@@ -2246,6 +2268,7 @@ section .rdata
 		da return
 
 	; ( -- )
+	declare "source-push"
 	thread source_push
 		da source_context
 		da copy
@@ -2259,6 +2282,7 @@ section .rdata
 		da return
 
 	; ( -- )
+	declare "source-pop"
 	thread source_pop
 		da am_initing
 		da load
@@ -2282,6 +2306,7 @@ section .rdata
 		da return
 
 	; ( -- nested? )
+	declare "source-is-nested"
 	thread source_is_nested
 		da source_context
 		da load
@@ -2370,9 +2395,16 @@ section .rdata
 	declare "dictionary"
 	variable dictionary, 1
 
+	declare "arena-top"
 	variable arena_top, 1
+
+	declare "should-exit"
 	variable should_exit, 1
+
+	declare "source-context"
 	variable source_context, 1
+
+	declare "am-initing"
 	variable am_initing, 1
 
 	; End interpreter state variables
@@ -2386,17 +2418,35 @@ section .rdata
 	declare "current-definition"
 	variable current_definition, 1
 
+	declare "stdin-handle"
 	variable stdin_handle, 1
+
+	declare "stdout-handle"
 	variable stdout_handle, 1
+
+	declare "term-buffer"
 	variable term_buffer, (term_buffer_size / 8) + 1 ; +1 to ensure null-termination
+	
+	declare "string-a"
 	variable string_a, 2
+
+	declare "string-b"
 	variable string_b, 2
+
+	declare "parsed-number"
 	variable parsed_number, 2
+
+	declare "source-context-stack"
 	variable source_context_stack, source_context_stack_depth * source_context_cells
+
+	declare "is-terminal-piped"
 	variable is_terminal_piped, 1
+
+	declare "log-file-handle"
 	variable log_file_handle, 1
 	
 	; TODO: refactor file_handle_load_content; this is kind of hacky and indicative of its overcomplexity
+	declare "load-length"
 	variable load_length, 1
 
 	; A short discussion on dealing with errors (the red ones): if they occur in the uppermost context, we can
@@ -2408,21 +2458,52 @@ section .rdata
 	; should probably just exit either way. Also need to have some sort of warning message for when a fault occurs
 	; during the init script, methinks.
 
+	declare "status-overfull"
 	string status_overfull, yellow(`Line overfull\n`) ; not a fault, dealt with in terminal subsystem
+
+	declare "status-unknown"
 	string status_unknown, red(`Unknown word: `) ; soft fault
+
+	declare "status-stacks-unset"
 	string status_stacks_unset, yellow(`Stacks were not cleared, or have underflowed\nPress enter to exit...\n`)
+
+	declare "status_word_too_long"
 	string status_word_too_long, red(`Word is too long for dictionary entry\n`) ; soft fault
+
+	declare "status-file-handle-load-failure"
 	string status_file_handle_load_failure, red(`File contents could not be read into memory\n`) ; soft fault
+
+	declare "status-script-not-found"
 	string status_script_not_found, red(`Script not found: `) ; soft fault
+
+	declare "status-no-word"
 	string status_no_word, red(`Input was cancelled before word was named\n`) ; soft fault
+	
+	declare "status-abort"
 	string status_abort, yellow(`Aborted and restarted\n`)
+	
+	declare "status-bad-init"
 	string status_bad_init, yellow(`Fault during core lib load\nPress enter to exit...\n`)
+
+	declare "status-nested-def"
 	string status_nested_def, red(`Cannot define new words while another is still being defined\n`) ; soft fault
+
+	declare "status-non-interactive"
 	string status_non_interactive, red(`Cannot accept input from non-interactive terminal\n`) ; fatal error
+
+	declare "status-log-failure"
 	string status_log_failure, red(`Log related-failure\nPress enter to exit...`) ; fatal error
+	
+	declare "status-fatal"
 	string status_fatal, red(`Hard fault during piped input\n`) ; fatal error
+	
+	declare "newline-char"
 	string newline, `\n`
+
+	declare "negative"
 	string negative, `-`
+
+	declare "log-name"
 	string log_name, `log.si`
 
 	declare "seq-clear"

@@ -21,8 +21,6 @@ fn: reverse-find
 	drop 0 0
 end-fn
 
-s" Quoted word not found" string: not-found
-
 fn: show-pointer
     ( ptr-value -- )
 
@@ -43,13 +41,39 @@ end-fn
 
 find: return const: return-word
 
+s" Quoted word not found" string: not-found
+
+fn: quote:
+    ( -- )
+
+    find:
+    copy 0= if
+        not-found print-red nl
+        drop
+        soft-fault
+    end-if
+
+    assemble-literal
+    assemble
+end-fn immediate
+
 s" Not a threaded word" string: not-threaded
+
+fn: is-final
+    ( thread-ptr -- final? )
+    
+    load
+    copy return-word = push
+    copy quote: soft-fault = push
+    quote: hard-fault =
+    pop pop | |
+end-fn
 
 fn: disasm-raw
     ( thread-ptr -- )
 
     while
-        copy load return-word ~=
+        copy is-final ~
     do
         copy show-instr
         cell-size +
@@ -58,7 +82,6 @@ fn: disasm-raw
     show-instr
 end-fn
 
-\ Broken: stops at the first return
 fn: disasm-word
     ( word -- )
 
