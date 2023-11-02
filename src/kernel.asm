@@ -1011,7 +1011,11 @@ section .text
 			
 section .rdata
 	align 8
-	; ( -- )
+
+	; This is here purely to make disassembly work properly
+	declare "mock-entry"
+	thread mock_entry
+
 	initialize:
 		da set_data_stack
 		da set_return_stack

@@ -1,7 +1,7 @@
 1 var: queried-word
 
-fn: reverse-find
-    ( word -- name? length? )
+fn: reverse-find-raw
+    ( word -- entry? )
 
 	queried-word store
 	dictionary load
@@ -12,13 +12,23 @@ fn: reverse-find
 		copy entry-data-ptr
 		queried-word load
 		= if
-			entry-name return
+			return
 		end-if
 
 		load
 	end-while
 
-	drop 0 0
+	drop 0
+end-fn
+
+fn: reverse-find
+    ( word -- name? length? )
+    reverse-find-raw
+    copy 0~= if
+        entry-name
+    else
+        0
+    end-if
 end-fn
 
 fn: show-pointer
@@ -59,16 +69,15 @@ end-fn immediate
 
 s" Not a threaded word" string: not-threaded
 
+1 var: this-entry
+
 fn: is-final
     ( thread-ptr -- final? )
     
-    load
-    copy return-word = push
-    copy quote: soft-fault = push
-    quote: hard-fault =
-    pop pop | |
+    load this-entry load =
 end-fn
 
+\ DANGER: this will run straight off the end as-is if you start it in the middle of a threaded word
 fn: disasm-raw
     ( thread-ptr -- )
 
@@ -79,7 +88,7 @@ fn: disasm-raw
         cell-size +
     end-while
 
-    show-instr
+    drop
 end-fn
 
 fn: disasm-word
@@ -90,6 +99,8 @@ fn: disasm-word
         not-threaded print-red nl
         return
     end-if
+
+    copy reverse-find-raw this-entry store
 
     cell-size + disasm-raw
 end-fn
