@@ -91,6 +91,8 @@ fn: log2
     ( n -- log2[n] )
 
     \ ????
+    \ The intent here is to do a finite-precision logarithm, but I genuinely have no idea how to do that even in
+    \ principle.
 end-fn
 
 fn: compute-entropy

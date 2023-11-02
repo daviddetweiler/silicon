@@ -68,6 +68,10 @@ fn: const:
 	assemble-invoke-constant assemble
 end-fn
 
+\ And here we see an example use of `const:` to define boolean constants
+0 const: false
+-1 const: true
+
 \ -- patch-addr
 \
 \ One of the neat bits of TILs is that control flow constructs are themselves just words, and can be defined as such.
@@ -92,9 +96,17 @@ fn: end-if
 	assembly-ptr over cell-size + - swap store
 end-fn immediate
 
-\ And here we see an example use of `const:` to define boolean constants
-0 const: false
--1 const: true
+\ patch-addr -- new-patch-addr
+\
+\ This one's a bit tricky: the idea is to put an uncoditional jump at the end of the preceding if-block, end the
+\ if-block, and leaving the address of the jump offset as the new patch address. This way, when `end-if` is executed, it
+\ will patch this uncoditional jump, so that upon executing the if-block, execution will jump to just after the
+\ `end-if`, and not fall through into the else-block.
+fn: else
+	assemble-jump
+	assembly-ptr 0 assemble
+	swap assemble: end-if
+end-fn immediate
 
 \ -- target
 \
@@ -124,23 +136,6 @@ fn: end-while
 	assemble: end-if
 end-fn immediate
 
-\ --
-fn: recurse
-	current-definition load entry-data-ptr assemble
-end-fn immediate
-
-\ patch-addr -- new-patch-addr
-\
-\ This one's a bit tricky: the idea is to put an uncoditional jump at the end of the preceding if-block, end the
-\ if-block, and leaving the address of the jump offset as the new patch address. This way, when `end-if` is executed, it
-\ will patch this uncoditional jump, so that upon executing the if-block, execution will jump to just after the
-\ `end-if`, and not fall through into the else-block.
-fn: else
-	assemble-jump
-	assembly-ptr 0 assemble
-	swap assemble: end-if
-end-fn immediate
-
 \ ptr -- in-bounds?
 fn: in-line-bounds?
 	line-start load
@@ -165,226 +160,6 @@ fn: char:
 	else
 		drop 0 flush-line
 	end-if
-end-fn
-
-\ string length -- committed-string length
-fn: copy-string
-	copy 0~=
-	if
-		copy push
-		copy assemble-byte
-		assembly-ptr push
-		assemble-blob
-		0 assemble-byte
-		pop pop
-	else
-		drop-pair
-		\ Deep magic; I encourage you to think about it
-		[
-			assemble-literal
-			0 assemble
-
-			assembly-ptr cell-size -
-			assemble-literal
-			assemble
-		] swap
-	end-if
-end-fn
-
-char: " const: dquote-char
-
-\ -- string? length
-\
-\ Fails if there is no terminating `"` before the end of the line. Please note that it ignores the initial space.
-fn: s"
-	current-word load-pair +	\ We now have a pointer to the rest of the line after ourselves
-	1 + copy					\ Skip the initial space
-	while
-		copy in-line-bounds?
-		over load-byte dquote-char ~=
-		&
-	do
-		1 +
-	end-while
-
-	\ By this point we only have a pointer on the stack, which either points to the end of the line, or the `"`
-	copy in-line-bounds?
-	if
-		copy current-word load - 1 +	\ Length of the skipped portion
-		current-word store-2nd			\ Store the length; the next accept-word will start at the end of the string
-		over -
-		copy-string
-	else
-		\ If we didn't find the closing `"` before the end of the line, we need to discard the string
-		drop
-		drop
-		flush-line
-		0 0
-	end-if
-end-fn
-
-\ --
-fn: execute"
-	s"
-	execute
-end-fn
-
-\ --
-fn: version
-	version-string print-line
-end-fn
-
-\ string length --
-fn: string:
-	define:
-	assemble-invoke-string
-	copy-string drop-pair
-end-fn
-
-\ Both of these contain tab characters
-s" 	" string: empty-tag
-s" *	" string: immediate-tag
-
-\ n-cells --
-fn: var:
-	define:
-	assemble-invoke-variable
-	cell-size * arena-allocate
-end-fn
-
-char: 0						const:	digit-0
-8 4 *						const:	formatted-decimal-size
-formatted-decimal-size 8 /	var:	formatted-decimal
-
-\ n --
-fn: print-u#
-	copy 0=
-	if
-		drop
-		digit-0 formatted-decimal store-byte
-		formatted-decimal 1 print
-		return
-	end-if
-
-	formatted-decimal
-	formatted-decimal-size +
-	copy push push
-
-	while
-		copy 0~=
-	do
-		copy 10 u%
-		digit-0 + pop 1 - swap over store-byte push
-		10 u/
-	end-while
-
-	drop
-	pop
-	pop
-	over - print
-end-fn
-
-s" -" string: negative
-
-\ n --
-fn: print-#
-	copy 0>
-	if
-		negative print
-		0- print-u#
-	else
-		print-u#
-	end-if
-end-fn
-
-\ string length --
-fn: print-yellow
-	seq-yellow print
-	print
-	seq-default print
-end-fn
-
-\ string length --
-fn: print-red
-	seq-red print
-	print
-	seq-default print
-end-fn
-
-\ dict-ptr --
-fn: print-dict
-	nl
-
-	while
-		copy 0~=
-	do
-		copy
-		copy push entry-name pop entry-immediate?
-		predicated immediate-tag empty-tag
-		print-red print-yellow nl
-
-		load
-	end-while
-
-	drop nl
-end-fn
-
-s"  bytes of code"					string: code-size-msg
-s"  bytes of data"					string: data-size-msg
-s"  bytes of reserved space"		string: reserved-size-msg
-s"  bytes of arena in use"			string: arena-usage-msg
-s" 	"								string: tab				\ I know it looks weird, but there *is* a tab character here
-
-\ --
-fn: tabstop tab print end-fn
-
-\ -- n
-fn: arena-usage
-	assembly-ptr arena-base -
-end-fn
-
-1							var: count
-s"  words in dictionary"	string: words-msg
-
-\ dict-ptr --
-fn: count-words
-	0 count store
-	while
-		copy 0~=
-	do
-		count load 1 + count store
-		load
-	end-while
-
-	drop
-	count load
-end-fn
-
-\ --
-fn: info
-	version nl
-	tabstop text-size print-u#						tabstop code-size-msg print-line
-	tabstop rdata-size print-u#						tabstop data-size-msg print-line
-	tabstop bss-size print-u#						tabstop reserved-size-msg print-line
-	tabstop arena-usage print-u#					tabstop arena-usage-msg print-line
-	tabstop dictionary load count-words print-u#	tabstop words-msg print-line
-	nl
-end-fn
-
-\ --
-fn: clear seq-clear print end-fn
-
-\ --
-fn: clear-all
-	clear
-	seq-clear-scrollback print
-end-fn
-
-\ --
-fn: checkpoint:
-	fn:
-	current-definition load assemble-literal assemble
-	assemble: end-fn
 end-fn
 
 char: ) const: char-rparen
@@ -418,8 +193,247 @@ fn: (
 	end-while
 end-fn immediate
 
+fn: recurse
+	( -- )
+
+	current-definition load entry-data-ptr assemble
+end-fn immediate
+
+fn: copy-string
+	( string length -- committed-string length )
+
+	copy 0~=
+	if
+		copy push
+		copy assemble-byte
+		assembly-ptr push
+		assemble-blob
+		0 assemble-byte
+		pop pop
+	else
+		drop-pair
+		\ Deep magic; I encourage you to think about it
+		[
+			assemble-literal
+			0 assemble
+
+			assembly-ptr cell-size -
+			assemble-literal
+			assemble
+		] swap
+	end-if
+end-fn
+
+char: " const: dquote-char
+
+\ Fails if there is no terminating `"` before the end of the line. Please note that it ignores the initial space.
+fn: s"
+	( -- string? length )
+
+	current-word load-pair +	\ We now have a pointer to the rest of the line after ourselves
+	1 + copy					\ Skip the initial space
+	while
+		copy in-line-bounds?
+		over load-byte dquote-char ~=
+		&
+	do
+		1 +
+	end-while
+
+	\ By this point we only have a pointer on the stack, which either points to the end of the line, or the `"`
+	copy in-line-bounds?
+	if
+		copy current-word load - 1 +	\ Length of the skipped portion
+		current-word store-2nd			\ Store the length; the next accept-word will start at the end of the string
+		over -
+		copy-string
+	else
+		\ If we didn't find the closing `"` before the end of the line, we need to discard the string
+		drop
+		drop
+		flush-line
+		0 0
+	end-if
+end-fn
+
+fn: execute"
+	( -- )
+
+	s"
+	execute
+end-fn
+
+fn: version
+	( -- )
+
+	version-string print-line
+end-fn
+
+fn: string:
+	( string length -- )
+
+	define:
+	assemble-invoke-string
+	copy-string drop-pair
+end-fn
+
+\ Both of these contain tab characters
+s" 	" string: empty-tag
+s" *	" string: immediate-tag
+
+fn: var:
+	( n-cells -- )
+
+	define:
+	assemble-invoke-variable
+	cell-size * arena-allocate
+end-fn
+
+char: 0						const:	digit-0
+8 4 *						const:	formatted-decimal-size
+formatted-decimal-size 8 /	var:	formatted-decimal
+
+fn: print-u#
+	( n -- )
+	copy 0=
+	if
+		drop
+		digit-0 formatted-decimal store-byte
+		formatted-decimal 1 print
+		return
+	end-if
+
+	formatted-decimal
+	formatted-decimal-size +
+	copy push push
+
+	while
+		copy 0~=
+	do
+		copy 10 u%
+		digit-0 + pop 1 - swap over store-byte push
+		10 u/
+	end-while
+
+	drop
+	pop
+	pop
+	over - print
+end-fn
+
+s" -" string: negative
+
+fn: print-#
+	( n -- )
+
+	copy 0>
+	if
+		negative print
+		0- print-u#
+	else
+		print-u#
+	end-if
+end-fn
+
+fn: print-yellow
+	( string length -- )
+
+	seq-yellow print
+	print
+	seq-default print
+end-fn
+
+fn: print-red
+	( string length -- )
+
+	seq-red print
+	print
+	seq-default print
+end-fn
+
+fn: print-dict
+	( dict-ptr -- )
+
+	nl
+
+	while
+		copy 0~=
+	do
+		copy
+		copy push entry-name pop entry-immediate?
+		predicated immediate-tag empty-tag
+		print-red print-yellow nl
+
+		load
+	end-while
+
+	drop nl
+end-fn
+
+s"  bytes of code"					string: code-size-msg
+s"  bytes of data"					string: data-size-msg
+s"  bytes of reserved space"		string: reserved-size-msg
+s"  bytes of arena in use"			string: arena-usage-msg
+s" 	"								string: tab				\ I know it looks weird, but there *is* a tab character here
+
+fn: tabstop ( -- ) tab print end-fn
+
+fn: arena-usage
+	( -- n )
+	
+	assembly-ptr arena-base -
+end-fn
+
+1							var: count
+s"  words in dictionary"	string: words-msg
+
+fn: count-words
+	( dict-ptr -- )
+
+	0 count store
+	while
+		copy 0~=
+	do
+		count load 1 + count store
+		load
+	end-while
+
+	drop
+	count load
+end-fn
+
+fn: info
+	( -- )
+
+	version nl
+	tabstop text-size print-u#						tabstop code-size-msg print-line
+	tabstop rdata-size print-u#						tabstop data-size-msg print-line
+	tabstop bss-size print-u#						tabstop reserved-size-msg print-line
+	tabstop arena-usage print-u#					tabstop arena-usage-msg print-line
+	tabstop dictionary load count-words print-u#	tabstop words-msg print-line
+	nl
+end-fn
+
+fn: clear ( -- ) seq-clear print end-fn
+
+fn: clear-all
+	( -- )
+
+	clear
+	seq-clear-scrollback print
+end-fn
+
+fn: checkpoint:
+	( -- )
+
+	fn:
+	current-definition load assemble-literal assemble
+	assemble: end-fn
+end-fn
+
 fn: ?
 	( -- )
+
 	info
 	dictionary load print-dict
 end-fn
