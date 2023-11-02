@@ -261,22 +261,19 @@ section .text
 		lea rp, stack_base(return_stack)
 		next
 
-	; ( -- leftovers? )
-	declare "test-stacks"
-	code test_stacks
-		lea rax, stack_base(data_stack)
-		cmp dp, rax
-		jne .stack_error
-		lea rax, stack_base(return_stack)
-		cmp rp, rax
-		jne .stack_error
+	; ( -- dp )
+	declare "get-data-stack"
+	code get_data_stack
+		mov rax, dp
 		sub dp, 8
-		mov qword [dp], 0
+		mov [dp], rax
 		next
 
-		.stack_error:
+	; ( -- rp )
+	declare "get-return-stack"
+	code get_return_stack
 		sub dp, 8
-		mov qword [dp], ~0
+		mov [dp], rp
 		next
 
 	; ( value -- )
@@ -1013,8 +1010,8 @@ section .rdata
 	align 8
 
 	; This is here purely to make disassembly work properly
-	declare "mock-entry"
-	thread mock_entry
+	declare "interpreter"
+	thread interpreter
 
 	initialize:
 		da set_data_stack
@@ -1034,6 +1031,9 @@ section .rdata
 		da should_exit
 		da load
 		branch_to .exit
+
+		da no_underflow
+		maybe report_underflow
 
 		da accept_word
 		branch_to .source_ended
@@ -1089,6 +1089,40 @@ section .rdata
 		da assemble_literal
 		da assemble
 		jump_to interpret
+
+	; ( -- underflow? )
+	declare "no-underflow?"
+	thread no_underflow
+		da get_data_stack
+		da literal
+		da stack_base(data_stack)
+		da stack_gt
+		da get_return_stack
+		da cell_size
+		da stack_add
+		da literal
+		da stack_base(return_stack)
+		da stack_gt
+		da stack_or
+		da return
+
+	; ( -- )
+	declare "report-underflow"
+	thread report_underflow
+		da status_underflow
+		da print
+		da get_current_word
+		da stack_add
+		da source_line_start
+		da load
+		da stack_sub
+		da source_line_start
+		da load
+		da swap
+		da print_line
+		da set_data_stack
+		da set_return_stack
+		da soft_fault
 
 	; ( -- )
 	declare "init-terminal"
@@ -2358,6 +2392,23 @@ section .rdata
 		da source_push_buffer
 		da return
 
+	; ( -- not-empty? )
+	declare "test-stacks"
+	thread test_stacks
+		da get_data_stack
+		da literal
+		da stack_base(data_stack)
+		da stack_eq
+		da get_return_stack
+		da cell_size
+		da stack_add
+		da literal
+		da stack_base(return_stack)
+		da stack_eq
+		da stack_and
+		da stack_not
+		da return
+
 	declare "0"
 	constant zero, 0
 
@@ -2491,6 +2542,9 @@ section .rdata
 	
 	declare "status-fatal"
 	string status_fatal, red(`Hard fault during piped input\n`) ; fatal error
+
+	declare "status-underflow"
+	string status_underflow, red(`Stack underflow detected after: `) ; soft fault
 	
 	declare "newline-char"
 	string newline, `\n`
