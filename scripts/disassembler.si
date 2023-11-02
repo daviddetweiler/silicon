@@ -74,7 +74,9 @@ s" Not a threaded word" string: not-threaded
 fn: is-final
     ( thread-ptr -- final? )
     
+    copy arena-top load = push
     load this-entry load =
+    pop |
 end-fn
 
 \ DANGER: this will run straight off the end as-is if you start it in the middle of a threaded word
@@ -94,7 +96,8 @@ end-fn
 fn: disasm-word
     ( word -- )
 
-    copy load raw-invoke-thread ~= if
+    copy load
+    ptr-invoke-thread ~= if
         drop
         not-threaded print-red nl
         return

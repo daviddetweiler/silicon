@@ -256,18 +256,8 @@ fn: s"
 	end-if
 end-fn
 
-fn: execute"
-	( -- )
-
-	s"
-	execute
-end-fn
-
-fn: version
-	( -- )
-
-	version-string print-line
-end-fn
+fn: execute" ( -- ) s" execute end-fn
+fn: version ( -- ) version-string print-line end-fn
 
 fn: string:
 	( string length -- )

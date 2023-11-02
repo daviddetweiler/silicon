@@ -1071,7 +1071,7 @@ section .rdata
 		branch_to .exit
 		da source_pop
 		da zero
-		da am_initing
+		da is_initializing
 		da store
 		jump_to interpret
 
@@ -1151,7 +1151,7 @@ section .rdata
 		da load
 		branch_to .piped
 
-		da am_initing
+		da is_initializing
 		da load
 		branch_to .die
 		da status_abort
@@ -1178,7 +1178,7 @@ section .rdata
 		da core_lib
 		da source_push_buffer
 		da all_ones
-		da am_initing
+		da is_initializing
 		da store
 		da return
 
@@ -2288,7 +2288,7 @@ section .rdata
 	; ( -- )
 	declare "source-pop"
 	thread source_pop
-		da am_initing
+		da is_initializing
 		da load
 		branch_to .not_init
 
@@ -2358,15 +2358,6 @@ section .rdata
 		da source_push_buffer
 		da return
 
-	; ( -- string length )
-	declare "core-lib-src"
-	thread core_lib_src
-		da literal
-		da core_lib
-		da literal
-		dq core_lib_end - core_lib
-		da return
-
 	declare "0"
 	constant zero, 0
 
@@ -2391,8 +2382,8 @@ section .rdata
 	declare "text-size"
 	constant text_size, end_text - begin_text
 
-	declare "raw-invoke-thread"
-	constant raw_invoke_thread, address(invoke_thread)
+	declare "ptr-invoke-thread"
+	constant ptr_invoke_thread, address(invoke_thread)
 
 	; Begin interpreter state variables
 
@@ -2408,8 +2399,8 @@ section .rdata
 	declare "source-context"
 	variable source_context, 1
 
-	declare "am-initing"
-	variable am_initing, 1
+	declare "is-initializing"
+	variable is_initializing, 1
 
 	; End interpreter state variables
 
