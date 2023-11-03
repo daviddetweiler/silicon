@@ -74,7 +74,7 @@ s" Not a threaded word" string: not-threaded
 fn: is-final
     ( thread-ptr -- final? )
     
-    copy arena-top load = push
+    copy assembly-arena-top load = push
     load this-entry load =
     pop |
 end-fn

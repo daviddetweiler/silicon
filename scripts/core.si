@@ -276,7 +276,7 @@ fn: var:
 
 	define:
 	assemble-invoke-variable
-	cell-size * arena-allocate
+	cell-size * assembly-arena-allocate
 end-fn
 
 char: 0						const:	digit-0
@@ -401,15 +401,15 @@ end-fn
 s"  bytes of code"					string: code-size-msg
 s"  bytes of data"					string: data-size-msg
 s"  bytes of reserved space"		string: reserved-size-msg
-s"  bytes of arena in use"			string: arena-usage-msg
+s"  bytes of assembly arena in use"	string: assembly-arena-usage-msg
 s" 	"								string: tab				\ I know it looks weird, but there *is* a tab character here
 
 fn: tabstop ( -- ) tab print end-fn
 
-fn: arena-usage
+fn: assembly-arena-usage
 	( -- n )
 	
-	assembly-ptr arena-base -
+	assembly-ptr assembly-arena-base -
 end-fn
 
 1							var: count
@@ -437,7 +437,7 @@ fn: info
 	tabstop text-size print-u#						tabstop code-size-msg print-line
 	tabstop rdata-size print-u#						tabstop data-size-msg print-line
 	tabstop bss-size print-u#						tabstop reserved-size-msg print-line
-	tabstop arena-usage print-u#					tabstop arena-usage-msg print-line
+	tabstop assembly-arena-usage print-u#					tabstop assembly-arena-usage-msg print-line
 	tabstop dictionary load count-words print-u#	tabstop words-msg print-line
 	nl
 end-fn

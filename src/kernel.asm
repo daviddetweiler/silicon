@@ -16,7 +16,7 @@ global start
 %define stack_base(stack) (stack + stack_depth * 8)
 
 %define term_buffer_size 8 * 16
-%define arena_size 1024 * 1024
+%define assembly_arena_cells 1024 * 1024
 %define source_context_stack_depth 64
 %define source_context_cells 5
 
@@ -1021,7 +1021,7 @@ section .rdata
 		da init_assembler
 		da init_source_context_stack
 		da init_dictionary
-		da init_arena
+		da init_assembly_arena
 		da init_terminal
 		da init_logging
 
@@ -1032,7 +1032,7 @@ section .rdata
 		da load
 		branch_to .exit
 
-		da no_underflow
+		da check_no_underflow
 		maybe report_underflow
 
 		da accept_word
@@ -1091,8 +1091,8 @@ section .rdata
 		jump_to interpret
 
 	; ( -- underflow? )
-	declare "no-underflow?"
-	thread no_underflow
+	declare "check-no-underflow?"
+	thread check_no_underflow
 		da get_data_stack
 		da literal
 		da stack_base(data_stack)
@@ -1156,7 +1156,7 @@ section .rdata
 		branch_to .exit
 		da current_definition
 		da load
-		da arena_top
+		da assembly_arena_top
 		da store
 
 		.exit:
@@ -2042,9 +2042,8 @@ section .rdata
 		dq 128
 		da stack_gte
 		branch_to .too_long
-		da cell_align_arena
-		da arena_top
-		da load
+		da cell_align_assembly_arena
+		da assembly_ptr
 		da stack_push
 		da dictionary
 		da load
@@ -2054,7 +2053,7 @@ section .rdata
 		da assemble_blob
 		da zero
 		da assemble_byte
-		da cell_align_arena
+		da cell_align_assembly_arena
 		da stack_pop
 		da return
 
@@ -2072,62 +2071,63 @@ section .rdata
 		da soft_fault
 
 	; ( -- )
-	declare "cell-align-arena"
-	thread cell_align_arena
-		da arena_top
+	declare "cell-align-assembly_arena"
+	thread cell_align_assembly_arena
+		da assembly_arena_top
 		da load
 		da cell_align
-		da arena_top
+		da assembly_arena_top
 		da store
 		da return
 
 	; ( cell -- )
 	declare "assemble"
 	thread assemble
-		da arena_top
-		da load
-		da store
-		da arena_top
-		da load
+		da assembly_ptr
 		da cell_size
-		da stack_add
-		da arena_top
+		da assembly_arena_allocate
 		da store
 		da return
 
 	; ( byte -- )
 	declare "assemble-byte"
 	thread assemble_byte
-		da arena_top
-		da load
-		da store_byte
-		da arena_top
-		da load
+		da assembly_ptr
 		da one
-		da stack_add
-		da arena_top
-		da store
+		da assembly_arena_allocate
+		da store_byte
+		da return
+
+	; ( new-ptr -- )
+	declare "assembly-check-bounds"
+	thread assembly_check_bounds
+		da assembly_arena
+		da stack_sub
+		da literal
+		dq assembly_arena_cells * 8
+		da stack_lte
+		branch_to .ok
+		da status_assembly_bounds
+		da print_line
+		da hard_fault
+
+		.ok:
 		da return
 
 	; ( byte-ptr length -- )
 	declare "assemble-blob"
 	thread assemble_blob
-		da copy
-		da stack_push
 		da assembly_ptr
+		da over
+		da assembly_arena_allocate
 		da copy_blob
-		da assembly_ptr
-		da stack_pop
-		da stack_add
-		da arena_top
-		da store
 		da return
 
 	; ( -- )
-	declare "init-arena"
-	thread init_arena
-		da arena_base
-		da arena_top
+	declare "init-assembly_arena"
+	thread init_assembly_arena
+		da assembly_arena
+		da assembly_arena_top
 		da store
 		da return
 
@@ -2150,7 +2150,7 @@ section .rdata
 	; ( -- ptr )
 	declare "assembly-ptr"
 	thread assembly_ptr
-		da arena_top
+		da assembly_arena_top
 		da load
 		da return
 
@@ -2353,12 +2353,14 @@ section .rdata
 		da return
 
 	; ( bytes -- )
-	declare "arena-allocate"
-	thread arena_allocate
-		da arena_top
+	declare "assembly-arena-allocate"
+	thread assembly_arena_allocate
+		da assembly_arena_top
 		da load
 		da stack_add
-		da arena_top
+		da copy
+		da assembly_check_bounds
+		da assembly_arena_top
 		da store
 		da return
 
@@ -2441,8 +2443,8 @@ section .rdata
 	declare "dictionary"
 	variable dictionary, 1
 
-	declare "arena-top"
-	variable arena_top, 1
+	declare "assembly-arena-top"
+	variable assembly_arena_top, 1
 
 	declare "should-exit"
 	variable should_exit, 1
@@ -2455,8 +2457,8 @@ section .rdata
 
 	; End interpreter state variables
 
-	declare "arena-base"
-	variable arena_base, arena_size / 8
+	declare "assembly-arena-base"
+	variable assembly_arena, assembly_arena_cells / 8
 
 	declare "is-assembling"
 	variable is_assembling, 1
@@ -2545,6 +2547,9 @@ section .rdata
 
 	declare "status-underflow"
 	string status_underflow, red(`Stack underflow detected after: `) ; soft fault
+
+	declare "status-assembly-bounds"
+	string status_assembly_bounds, red(`Assembly arena bounds exceeded\n`) ; hard fault
 	
 	declare "newline-char"
 	string newline, `\n`
