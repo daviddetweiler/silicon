@@ -246,7 +246,11 @@ fn: s"
 		copy current-word load - 1 +	\ Length of the skipped portion
 		current-word store-2nd			\ Store the length; the next accept-word will start at the end of the string
 		over -
-		copy-pair + 0 swap store-byte	\ Null-terminate the string (replacing the closing quote in the line buffer)
+		
+		dictionary load assemble	\ The disassembler expects that the first cell after a thread points back to the
+									\ thread (i.e. is the start of the next dict entry)
+
+		copy-string
 	else
 		\ If we didn't find the closing `"` before the end of the line, we need to discard the string
 		drop
