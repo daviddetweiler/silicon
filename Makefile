@@ -49,16 +49,16 @@ $(OUT)\loader.bin: $(OUT)\compressed.inc $(SRC)\loader.asm $(OUT)\core.inc Makef
 $(OUT)\loader.bin.xsh32 $(OUT)\seed.inc: $(OUT)\loader.bin $(XSH32) Makefile
     python $(XSH32) $(OUT)\loader.bin $(OUT)\loader.bin.xsh32 $(OUT)\seed.inc
 
-$(OUT)\xsh32.obj: $(SRC)\xsh32.asm $(OUT)\xsh32.inc $(OUT)\seed.inc Makefile
-    nasm -I $(OUT) -fwin64 $(SRC)\xsh32.asm -o $(OUT)\xsh32.obj
+$(OUT)\decryptor.obj: $(SRC)\decryptor.asm $(OUT)\xsh32.inc $(OUT)\seed.inc Makefile
+    nasm -I $(OUT) -fwin64 $(SRC)\decryptor.asm -o $(OUT)\decryptor.obj
 
 $(OUT)\xsh32.inc: $(OUT)\loader.bin.xsh32 $(INC) Makefile
     python $(INC) $(OUT)\loader.bin.xsh32 $(OUT)\xsh32.inc
 
 $(BW): $(AC) Makefile
 
-$(OUT)\silicon.exe: $(OUT)\xsh32.obj Makefile
-    link $(OUT)\xsh32.obj kernel32.lib \
+$(OUT)\silicon.exe: $(OUT)\decryptor.obj Makefile
+    link $(OUT)\decryptor.obj kernel32.lib \
         /out:$(OUT)\silicon.exe \
         /subsystem:console \
         /entry:start \

@@ -61,7 +61,6 @@ if __name__ == "__main__":
         "variables": len(variables),
         "constants": len(constants),
         "strings": len(strings),
-        "aliased": len(aliases),
     }
 
     statistics["total"] = sum(statistics.values())

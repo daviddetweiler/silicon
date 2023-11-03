@@ -976,8 +976,8 @@ section .text
 		next
 
 	; ( handle -- is-console? )
-	declare "is-console-handle"
-	code is_console_handle
+	declare "check-is-console-handle"
+	code check_is_console_handle
 		mov rcx, [dp]
 		lea rdx, [rsp + 8 * 4]
 		call_import GetConsoleMode
@@ -1133,7 +1133,7 @@ section .rdata
 
 		da stdin_handle
 		da load
-		da is_console_handle
+		da check_is_console_handle
 		da stack_not
 		da is_terminal_piped
 		da store
@@ -1479,7 +1479,7 @@ section .rdata
 		da stack_eq0
 		branch_to .again
 
-		da term_buffer_too_small
+		da term_check_is_buffer_full
 		branch_to .line_overfull
 
 		da zero
@@ -1491,7 +1491,7 @@ section .rdata
 
 		.flush:
 		da read_line
-		da term_buffer_too_small
+		da term_check_is_buffer_full
 		branch_to .flush
 		jump_to .again
 
@@ -1562,7 +1562,7 @@ section .rdata
 	; If the present line of input was longer than the buffer passed to ReadFile(), ReadFile() will notably _not_ place
 	; a terminal newline, making it trivial to check for oversized lines.
 	declare "term-buffer-too-small"
-	thread term_buffer_too_small
+	thread term_check_is_buffer_full
 		da term_buffer
 		da source_line_size
 		da load
@@ -1679,7 +1679,7 @@ section .rdata
 		.again:
 		da copy
 		da load_byte
-		da is_space
+		da check_is_space
 		branch_to .advance
 		da return
 
@@ -1700,7 +1700,7 @@ section .rdata
 		da stack_eq0
 		branch_to .return
 		da copy
-		da is_space
+		da check_is_space
 		branch_to .return
 		da drop
 		da one
@@ -1716,8 +1716,8 @@ section .rdata
 	; Here's the issue: accept_word functionally implements the regex `[ \n\r\t]*([^ \n\r\t]+)?`
 	; Because of that, a whitespace-only line will just run away into eternity. As such, it needs to
 	; be contractual that accept_line will strip out empty lines.
-	declare "is-space"
-	thread is_space
+	declare "check-is-space"
+	thread check_is_space
 		da copy
 		da literal
 		dq ` `
@@ -1916,8 +1916,8 @@ section .rdata
 		da return
 
 	; ( char -- digit? )
-	declare "is-digit"
-	thread is_digit
+	declare "check-is-digit"
+	thread check_is_digit
 		da copy
 		da literal
 		dq '0'
@@ -1943,7 +1943,7 @@ section .rdata
 		da load
 		da load_byte
 		da copy
-		da is_digit
+		da check_is_digit
 		da stack_not
 		branch_to .nan
 		da literal
@@ -2188,7 +2188,7 @@ section .rdata
 		.next_line:
 		da copy
 		da load_byte
-		da is_space
+		da check_is_space
 		branch_to .again
 
 		da copy
@@ -2513,7 +2513,7 @@ section .rdata
 	declare "status-stacks-unset"
 	string status_stacks_unset, yellow(`Stacks were not cleared, or have underflowed\nPress enter to exit...\n`)
 
-	declare "status_word_too_long"
+	declare "status-word-too-long"
 	string status_word_too_long, red(`Word is too long for dictionary entry\n`) ; soft fault
 
 	declare "status-file-handle-load-failure"
