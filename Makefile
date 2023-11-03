@@ -7,23 +7,32 @@ XSH32=.\tools\xsh32.py
 OUT=.\out
 SRC=.\src
 
-all: build debug-build zip Makefile
+all: build uncompressed-build zip Makefile
 
 build: version $(OUT)\silicon.exe Makefile
 
-debug-build: version $(OUT)\silicon-debug.exe Makefile
+uncompressed-build: version $(OUT)\silicon-uncompressed.exe Makefile
 
 version: $(VERSION) Makefile
     pwsh -c "git describe --dirty --tags > $(OUT)\actual.version"
     python $(VERSION) $(OUT)\actual.version $(OUT)\expected.version
 
 $(OUT)\kernel.bin: $(SRC)\kernel.asm $(OUT)\core.inc $(OUT)\expected.version Makefile
-    pwsh -c "nasm -I $(OUT) -fbin $(SRC)\kernel.asm -Dgit_version=""$$(git describe --dirty --tags)"" \
+    pwsh -c "nasm \
+        -I $(OUT) \
+        -fbin $(SRC)\kernel.asm \
+        -Dgit_version=""$$(git describe --dirty --tags)"" \
         -o $(OUT)\kernel.bin"
 
 $(OUT)\kernel.obj: $(SRC)\kernel.asm $(OUT)\core.inc $(OUT)\expected.version Makefile
-    pwsh -c "nasm -I $(OUT) -fwin64 $(SRC)\kernel.asm -Dgit_version=""$$(git describe --dirty --tags)"" \
-        -o $(OUT)\kernel.obj -Dstandalone -g"
+    echo "" > $(OUT)\kernel.obj
+    pwsh -c "nasm \
+        -I $(OUT) \
+        -fwin64 \
+        $$(Resolve-Path $(SRC)\kernel.asm) \
+        -Dgit_version=""$$(git describe --dirty --tags)"" \
+        -o $$(Resolve-Path $(OUT)\kernel.obj) \
+        -Dstandalone
 
 $(OUT)\kernel.bin.bw: $(OUT)\kernel.bin $(BW) Makefile
     python $(BW) pack $(OUT)\kernel.bin $(OUT)\kernel.bin.bw
@@ -60,9 +69,9 @@ $(OUT)\silicon.exe: $(OUT)\xsh32.obj Makefile
         /merge:.rdata=kernel \
         /merge:.text=kernel
 
-$(OUT)\silicon-debug.exe: $(OUT)\kernel.obj Makefile
+$(OUT)\silicon-uncompressed.exe: $(OUT)\kernel.obj Makefile
     link $(OUT)\kernel.obj kernel32.lib \
-        /out:$(OUT)\silicon-debug.exe \
+        /out:$(OUT)\silicon-uncompressed.exe \
         /subsystem:console \
         /entry:start \
         /nologo \
@@ -72,8 +81,7 @@ $(OUT)\silicon-debug.exe: $(OUT)\kernel.obj Makefile
         /section:data,RWE \
         /merge:.rdata=kernel \
         /merge:.text=kernel \
-        /merge:.bss=data \
-        /debug
+        /merge:.bss=data
 
 clean: Makefile
     del report.json *.log log.si
