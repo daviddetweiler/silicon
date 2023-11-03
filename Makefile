@@ -31,8 +31,8 @@ $(OUT)\kernel.obj: $(SRC)\kernel.asm $(OUT)\core.inc $(OUT)\expected.version Mak
         -fwin64 \
         $$(Resolve-Path $(SRC)\kernel.asm) \
         -Dgit_version=""$$(git describe --dirty --tags)"" \
-        -o $$(Resolve-Path $(OUT)\kernel.obj) \
-        -Dstandalone
+        -Dstandalone -g \
+        -o $$(Resolve-Path $(OUT)\kernel.obj)"
 
 $(OUT)\kernel.bin.bw: $(OUT)\kernel.bin $(BW) Makefile
     python $(BW) pack $(OUT)\kernel.bin $(OUT)\kernel.bin.bw
@@ -77,11 +77,11 @@ $(OUT)\silicon-uncompressed.exe: $(OUT)\kernel.obj Makefile
         /nologo \
         /fixed \
         /ignore:4254 \
-        /section:kernel,RE \
+        /section:kernel,RWE \
         /section:data,RWE \
         /merge:.rdata=kernel \
         /merge:.text=kernel \
-        /merge:.bss=data
+        /merge:.bss=data /debug
 
 clean: Makefile
     del report.json *.log log.si
