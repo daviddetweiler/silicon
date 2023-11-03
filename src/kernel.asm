@@ -16,7 +16,7 @@ global start
 %define stack_base(stack) (stack + stack_depth * 8)
 
 %define term_buffer_size 8 * 16
-%define assembly_arena_cells 1024 * 1024
+%define assembly_arena_size 1024 * 1024
 %define source_context_stack_depth 64
 %define source_context_cells 5
 
@@ -2076,6 +2076,8 @@ section .rdata
 		da assembly_arena_top
 		da load
 		da cell_align
+		da copy
+		da assembly_arena_check_bounds
 		da assembly_arena_top
 		da store
 		da return
@@ -2099,12 +2101,12 @@ section .rdata
 		da return
 
 	; ( new-ptr -- )
-	declare "assembly-check-bounds"
-	thread assembly_check_bounds
+	declare "assembly-arena-check-bounds"
+	thread assembly_arena_check_bounds
 		da assembly_arena
 		da stack_sub
 		da literal
-		dq assembly_arena_cells * 8
+		dq assembly_arena_size
 		da stack_lte
 		branch_to .ok
 		da status_assembly_bounds
@@ -2112,6 +2114,17 @@ section .rdata
 		da hard_fault
 
 		.ok:
+		da return
+
+	; ( -- )
+	;
+	; The disassembler assumes that every word in the arena or dictionary is immediately followed by another entry,
+	; which always starts with a pointer to the previous word.
+	declare "assembly-arena-start-block"
+	thread assembly_arena_start_block
+		da dictionary
+		da load
+		da assemble
 		da return
 
 	; ( byte-ptr length -- )
@@ -2148,7 +2161,7 @@ section .rdata
 		da return
 
 	; ( -- ptr )
-	declare "assembly-ptr"
+	declare "assembly-arena-ptr"
 	thread assembly_ptr
 		da assembly_arena_top
 		da load
@@ -2359,7 +2372,7 @@ section .rdata
 		da load
 		da stack_add
 		da copy
-		da assembly_check_bounds
+		da assembly_arena_check_bounds
 		da assembly_arena_top
 		da store
 		da return
@@ -2458,7 +2471,7 @@ section .rdata
 	; End interpreter state variables
 
 	declare "assembly-arena-base"
-	variable assembly_arena, assembly_arena_cells / 8
+	variable assembly_arena, assembly_arena_size / 8
 
 	declare "is-assembling"
 	variable is_assembling, 1
@@ -2548,7 +2561,7 @@ section .rdata
 	declare "status-underflow"
 	string status_underflow, red(`Stack underflow detected after: `) ; soft fault
 
-	declare "status-assembly-bounds"
+	declare "status-assembly-arena-bounds"
 	string status_assembly_bounds, red(`Assembly arena bounds exceeded\n`) ; hard fault
 	
 	declare "newline-char"

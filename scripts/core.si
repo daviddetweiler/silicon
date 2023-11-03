@@ -84,7 +84,7 @@ end-fn
 fn: if
 	[ assemble-literal ] ~ assemble
 	assemble-branch
-	assembly-ptr
+	assembly-arena-ptr
 	0 assemble
 end-fn immediate
 
@@ -93,7 +93,7 @@ end-fn immediate
 \ `end-if` expects to find the patch address left by the corresponding `if` on the stack, and uses it compute and patch
 \ in the true branch target.
 fn: end-if
-	assembly-ptr over cell-size + - swap store
+	assembly-arena-ptr over cell-size + - swap store
 end-fn immediate
 
 \ patch-addr -- new-patch-addr
@@ -104,7 +104,7 @@ end-fn immediate
 \ `end-if`, and not fall through into the else-block.
 fn: else
 	assemble-jump
-	assembly-ptr 0 assemble
+	assembly-arena-ptr 0 assemble
 	swap assemble: end-if
 end-fn immediate
 
@@ -114,7 +114,7 @@ end-fn immediate
 \ an `if`-block guarding the loop body and an additional unconditional jump back to the condition. As such, the only
 \ purpose of the `while` word is to record the address of the condition, so that the `end-while` word can assemble the
 \ jump back to it.
-fn: while assembly-ptr end-fn immediate
+fn: while assembly-arena-ptr end-fn immediate
 
 \ -- patch-addr
 \
@@ -130,7 +130,7 @@ fn: end-while
 	assemble-jump
 
 	swap
-	assembly-ptr cell-size +
+	assembly-arena-ptr cell-size +
 	- assemble
 
 	assemble: end-if
@@ -206,7 +206,7 @@ fn: copy-string
 	if
 		copy push
 		copy assemble-byte
-		assembly-ptr push
+		assembly-arena-ptr push
 		assemble-blob
 		0 assemble-byte
 		pop pop
@@ -217,7 +217,7 @@ fn: copy-string
 			assemble-literal
 			0 assemble
 
-			assembly-ptr cell-size -
+			assembly-arena-ptr cell-size -
 			assemble-literal
 			assemble
 		] swap
@@ -247,9 +247,7 @@ fn: s"
 		current-word store-2nd			\ Store the length; the next accept-word will start at the end of the string
 		over -
 		
-		dictionary load assemble	\ The disassembler expects that the first cell after a thread points back to the
-									\ thread (i.e. is the start of the next dict entry)
-
+		assembly-arena-start-block
 		copy-string
 	else
 		\ If we didn't find the closing `"` before the end of the line, we need to discard the string
@@ -413,7 +411,7 @@ fn: tabstop ( -- ) tab print end-fn
 fn: assembly-arena-usage
 	( -- n )
 	
-	assembly-ptr assembly-arena-base -
+	assembly-arena-ptr assembly-arena-base -
 end-fn
 
 1							var: count
