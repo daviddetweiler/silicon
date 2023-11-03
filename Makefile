@@ -40,8 +40,8 @@ $(OUT)\kernel.bin.bw: $(OUT)\kernel.bin $(BW) Makefile
 $(OUT)\compressed.inc: $(OUT)\kernel.bin.bw $(INC) Makefile
     python $(INC) $(OUT)\kernel.bin.bw $(OUT)\compressed.inc
 
-$(OUT)\core.inc: scripts\core.si $(INC) Makefile
-    python $(INC) scripts\core.si $(OUT)\core.inc
+$(OUT)\core.inc: $(SRC)\core.si $(INC) Makefile
+    python $(INC) $(SRC)\core.si $(OUT)\core.inc
 
 $(OUT)\loader.bin: $(OUT)\compressed.inc $(SRC)\loader.asm $(OUT)\core.inc Makefile
     nasm -I $(OUT) -fbin $(SRC)\loader.asm -o $(OUT)\loader.bin
@@ -94,7 +94,7 @@ $(OUT)\silicon.zip: Makefile
     echo Get-FileHash -Algorithm SHA256 silicon.exe >> $(OUT)\README.txt
     echo. >> $(OUT)\README.txt
     pwsh -c "cd $(OUT); (Get-FileHash -Algorithm SHA256 silicon.exe).Hash >> README.txt"
-    pwsh -c "cd $(OUT); Compress-Archive -Force -Path silicon.exe,README.txt -DestinationPath silicon.zip"
+    pwsh -c "cd $(OUT); Compress-Archive -Force -Path silicon.exe,README.txt,..\scripts\ -DestinationPath silicon.zip"
 
 run: build Makefile
     $(OUT)\silicon.exe
