@@ -15,7 +15,7 @@ global start
 %define stack_depth 1024
 %define stack_base(stack) (stack + stack_depth * 8)
 
-%define term_buffer_size 8 * 16
+%define term_buffer_size 512
 %define assembly_arena_size 1024 * 1024
 %define source_context_stack_depth 64
 %define source_context_cells 5
@@ -250,14 +250,14 @@ section .text
 		call_import ExitProcess
 
 	; ( -- )
-	declare "set-data-stack"
-	code set_data_stack
+	declare "clear-data-stack"
+	code clear_data_stack
 		lea dp, stack_base(data_stack)
 		next
 
 	; ( -- )
-	declare "set-return-stack"
-	code set_return_stack
+	declare "clear-return-stack"
+	code clear_return_stack
 		lea rp, stack_base(return_stack)
 		next
 
@@ -1020,8 +1020,8 @@ section .rdata
 	thread interpreter
 
 	initialize:
-		da set_data_stack
-		da set_return_stack
+		da clear_data_stack
+		da clear_return_stack
 		da init_imports
 		da init_handles
 		da init_assembler
@@ -1124,8 +1124,8 @@ section .rdata
 		da load
 		da swap
 		da print_line
-		da set_data_stack
-		da set_return_stack
+		da clear_data_stack
+		da clear_return_stack
 		da soft_fault
 
 	; ( -- )
@@ -1165,7 +1165,7 @@ section .rdata
 
 		.exit:
 		da init_assembler
-		da set_return_stack
+		da clear_return_stack
 		jump_to interpret
 
 	; ( -- )

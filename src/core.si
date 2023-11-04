@@ -312,25 +312,24 @@ fn: print-u#
 		drop
 		digit-0 formatted-decimal store-byte
 		formatted-decimal 1 print
-		return
+	else
+		formatted-decimal
+		formatted-decimal-size +
+		copy push push
+
+		while
+			copy 0~=
+		do
+			copy base load u%
+			map-digit pop 1 - swap over store-byte push
+			base load u/
+		end-while
+
+		drop
+		pop
+		pop
+		over - print
 	end-if
-
-	formatted-decimal
-	formatted-decimal-size +
-	copy push push
-
-	while
-		copy 0~=
-	do
-		copy base load u%
-		map-digit pop 1 - swap over store-byte push
-		base load u/
-	end-while
-
-	drop
-	pop
-	pop
-	over - print
 
 	false use-hex store \ By clearing each time we can do things like `hex print-#`
 end-fn
@@ -425,6 +424,46 @@ fn: count-words
 	count load
 end-fn
 
+fn: length-in-cells
+	( start-ptr end-ptr -- length )
+	- cell-size /
+end-fn
+
+s" cells of data stack in use"		string: ds-message
+s" cells of return stack in use"	string: rs-message
+
+fn: usage-msg
+	( message start end -- )
+	length-in-cells print-u# tabstop print-line
+end-fn
+
+fn: stack-usage
+	( -- )
+	ds-message data-stack-base get-data-stack cell-size 3 * + usage-msg
+	rs-message return-stack-base get-return-stack cell-size + usage-msg
+end-fn
+
+1 var: stack-depth
+
+fn: contents \ As in the data stack's contents, listed top down
+	( -- )
+	while
+		get-data-stack data-stack-base ~=
+	do
+		stack-depth load print-u# tabstop
+		copy push
+		hex print-u# nl
+		stack-depth cell-1+
+	end-while
+
+	stack-depth copy load 0- swap store
+	while
+		stack-depth load 0~=
+	do
+		pop stack-depth cell-1+
+	end-while
+end-fn
+
 fn: info
 	( -- )
 
@@ -432,7 +471,7 @@ fn: info
 	tabstop text-size print-u#						tabstop code-size-msg print-line
 	tabstop rdata-size print-u#						tabstop data-size-msg print-line
 	tabstop bss-size print-u#						tabstop reserved-size-msg print-line
-	tabstop assembly-arena-usage print-u#					tabstop assembly-arena-usage-msg print-line
+	tabstop assembly-arena-usage print-u#			tabstop assembly-arena-usage-msg print-line
 	tabstop dictionary load count-words print-u#	tabstop words-msg print-line
 	nl
 end-fn
