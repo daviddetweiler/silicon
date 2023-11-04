@@ -136,66 +136,73 @@ fn: end-while
 	assemble: end-if
 end-fn immediate
 
-\ ptr -- in-bounds?
+\ ptr -- ptr in-bounds?
 fn: in-line-bounds?
-	line-start load
-	-
-	line-size load
-	<
+	copy line-start load -
+	line-size load <
+end-fn
+
+\ -- next-ptr
+fn: after-word current-word load-pair + end-fn
+
+\ end-ptr --
+fn: skip-line-segment
+	current-word load - 1+		\ Length of the skipped portion
+	current-word store-2nd		\ Store the length; the next accept-word will start at the end of the comment
 end-fn
 
 \ -- code
 \
 \ Pushes the first character after the first space character, advancing the line pointer to just after it
 fn: char:
-	current-word load-pair +	\ We now have a pointer to the rest of the line after ourselves
-	1 + 						\ Skip the initial space
-	copy in-line-bounds?
+	after-word 1+ in-line-bounds?
 	if
 		copy load-byte push
-		1 +
-		current-word load -
-		current-word store-2nd
+		1+ skip-line-segment
 		pop
 	else
 		drop 0 flush-line
 	end-if
 end-fn
 
+\ n-cells --
+fn: var:
+	define:
+	assemble-invoke-variable
+	cell-size * assembly-arena-allocate
+end-fn
+
+1 var: delimiter-char
+
+\ ( start-ptr char-code -- end-ptr )
+fn: next-delimiter
+	delimiter-char store
+	while
+		in-line-bounds?
+		over load-byte delimiter-char load ~=
+		&
+	do
+		1+
+	end-while
+end-fn
+
 char: ) const: char-rparen
 
 \ --
 fn: (
-	while true do
-		current-word load-pair +	\ Pointer to the rest of the buffer
-		while
-			copy in-line-bounds?
-			over load-byte char-rparen ~=
-			&
-		do
-			1 +
-		end-while
-
-		copy in-line-bounds?
+	true
+	while do
+		after-word char-rparen next-delimiter
+		in-line-bounds?
 		if
-			current-word load - 1 +		\ Length of the skipped portion
-			current-word store-2nd		\ Store the length; the next accept-word will start at the end of the comment
-			return
+			skip-line-segment false
 		else
-			drop
-			accept-line
-			if
-				return
-			end-if
+			drop accept-line ~
 		end-if
 	end-while
 end-fn immediate
 
-fn: recurse
-	( -- )
-
-	current-definition load entry-data-ptr assemble
-end-fn immediate
+fn: recurse ( -- ) current-definition load entry-data-ptr assemble end-fn immediate
 
 fn: copy-string
 	( string length -- committed-string length )
@@ -228,31 +235,18 @@ char: " const: dquote-char
 fn: s"
 	( -- string? length )
 
-	current-word load-pair +	\ We now have a pointer to the rest of the line after ourselves
-	1 + copy					\ Skip the initial space
-	while
-		copy in-line-bounds?
-		over load-byte dquote-char ~=
-		&
-	do
-		1 +
-	end-while
+	after-word 1+
+	copy dquote-char next-delimiter
 
 	\ By this point we only have a pointer on the stack, which either points to the end of the line, or the `"`
-	copy in-line-bounds?
+	in-line-bounds?
 	if
-		copy current-word load - 1 +	\ Length of the skipped portion
-		current-word store-2nd			\ Store the length; the next accept-word will start at the end of the string
-		over -
-		
+		copy skip-line-segment
 		assembly-arena-start-block
-		copy-string
+		over - copy-string
 	else
 		\ If we didn't find the closing `"` before the end of the line, we need to discard the string
-		drop
-		drop
-		flush-line
-		0 0
+		drop-pair flush-line 0 0
 	end-if
 end-fn
 
@@ -270,14 +264,6 @@ end-fn
 \ Both of these contain tab characters
 s" 	" string: empty-tag
 s" *	" string: immediate-tag
-
-fn: var:
-	( n-cells -- )
-
-	define:
-	assemble-invoke-variable
-	cell-size * assembly-arena-allocate
-end-fn
 
 char: 0						const:	digit-0
 char: a						const:	digit-a
@@ -408,7 +394,7 @@ fn: tabstop ( -- ) tab print end-fn
 
 fn: assembly-arena-usage
 	( -- n )
-	
+
 	assembly-arena-ptr assembly-arena-base -
 end-fn
 
@@ -422,7 +408,7 @@ fn: count-words
 	while
 		copy 0~=
 	do
-		count load 1 + count store
+		count load 1+ count store
 		load
 	end-while
 

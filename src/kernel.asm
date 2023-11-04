@@ -1005,6 +1005,12 @@ section .text
 		add dp, 8
 		shr qword [dp], cl
 		next
+
+	; ( value -- ++value )
+	declare "1+"
+	code stack_inc
+		add qword [dp], 1
+		next
 			
 section .rdata
 	align 8
@@ -1094,14 +1100,12 @@ section .rdata
 	declare "check-no-underflow?"
 	thread check_no_underflow
 		da get_data_stack
-		da literal
-		da stack_base(data_stack)
+		da data_stack_base
 		da stack_gt
 		da get_return_stack
 		da cell_size
 		da stack_add
-		da literal
-		da stack_base(return_stack)
+		da return_stack_base
 		da stack_gt
 		da stack_or
 		da return
@@ -1321,8 +1325,7 @@ section .rdata
 	thread file_size
 		da copy
 		da zero
-		da literal
-		dq 2
+		da two
 		da set_file_ptr
 		da copy
 		da all_ones
@@ -1392,8 +1395,7 @@ section .rdata
 		da term_buffer
 		da stack_add
 		da store_byte
-		da literal
-		dq 2
+		da two
 		da stack_sub
 		da source_line_size
 		da store
@@ -1420,8 +1422,7 @@ section .rdata
 		da stack_add
 		da swap
 		da load_byte
-		da literal
-		dq `\n`
+		da newline_code
 		da stack_eq
 		branch_to .exit
 		da copy
@@ -1435,8 +1436,7 @@ section .rdata
 		.exit:
 		da term_buffer
 		da stack_sub
-		da literal
-		dq 2
+		da two
 		da stack_sub
 		da source_line_size
 		da store
@@ -1510,8 +1510,7 @@ section .rdata
 		da load
 		da source_line_size
 		da load
-		da literal
-		dq 2
+		da two
 		da stack_add
 		da log_file_handle
 		da load
@@ -1570,8 +1569,7 @@ section .rdata
 		da stack_add
 		da stack_add
 		da load_byte
-		da literal
-		dq `\n`
+		da newline_code
 		da stack_neq
 		da return
 
@@ -1737,8 +1735,7 @@ section .rdata
 		branch_to .all_ones
 
 		da copy
-		da literal
-		dq `\n`
+		da newline_code
 		da stack_eq
 		branch_to .all_ones
 
@@ -2411,14 +2408,12 @@ section .rdata
 	declare "test-stacks"
 	thread test_stacks
 		da get_data_stack
-		da literal
-		da stack_base(data_stack)
+		da data_stack_base
 		da stack_eq
 		da get_return_stack
 		da cell_size
 		da stack_add
-		da literal
-		da stack_base(return_stack)
+		da return_stack_base
 		da stack_eq
 		da stack_and
 		da stack_not
@@ -2433,11 +2428,23 @@ section .rdata
 	declare "1"
 	constant one, 1
 
+	declare "2"
+	constant two, 2
+
 	declare "cell-size"
 	constant cell_size, 8
 
 	declare "10"
 	constant ten, 10
+
+	declare "newline-code"
+	constant newline_code, `\n`
+
+	declare "data-stack-base"
+	constant data_stack_base, address(stack_base(data_stack))
+
+	declare "return-stack-base"
+	constant return_stack_base, address(stack_base(return_stack))
 
 	declare "bss-size"
 	constant bss_size, end_bss - begin_bss

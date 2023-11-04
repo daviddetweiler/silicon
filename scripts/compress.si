@@ -35,7 +35,7 @@ fn: init-histogram
         copy 256 <
     do
         copy hist[] 0 swap store
-        1 +
+        1+
     end-while
     drop
 end-fn
@@ -50,7 +50,7 @@ end-fn
 
 \ addr --
 fn: inc-cell
-    copy load 1 + swap store
+    copy load 1+ swap store
 end-fn
 
 \ --
@@ -75,7 +75,7 @@ fn: print-histogram
     do
         copy print-u# separator print
         copy hist[] load print-u# nl
-        1 +
+        1+
     end-while
     drop
 end-fn
