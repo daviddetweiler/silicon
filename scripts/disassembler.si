@@ -1,6 +1,7 @@
 1 var: queried-word
 
-fn: reverse-find-raw
+\ Locates the full dictionary entry for a word pointer, if it exists
+fn: find-word
     ( word -- entry? )
 
 	queried-word store
@@ -10,11 +11,7 @@ fn: reverse-find-raw
 		copy 0~=
 	do
 		copy entry-data-ptr
-		queried-word load
-		= if
-			return
-		end-if
-
+		queried-word load = maybe return
 		load
 	end-while
 
@@ -23,12 +20,8 @@ end-fn
 
 fn: reverse-find
     ( word -- name? length? )
-    reverse-find-raw
-    copy 0~= if
-        entry-name
-    else
-        0
-    end-if
+    find-word
+    copy predicated entry-name 0
 end-fn
 
 fn: show-pointer
@@ -44,56 +37,24 @@ end-fn
 
 fn: show-instr
     ( thread-ptr -- )
-
     copy hex print-u# tabstop
     load show-pointer
 end-fn
 
-find: return const: return-word
-
-s" Quoted word not found" string: not-found
-
-fn: quote:
-    ( -- )
-
-    find:
-    copy 0= if
-        not-found print-red nl
-        drop
-        soft-fault
-    end-if
-
-    assemble-literal
-    assemble
-end-fn immediate
-
-s" Not a threaded word" string: not-threaded
-
 1 var: this-entry
 
-fn: is-final
+fn: is-next-assembler-block
     ( thread-ptr -- final? )
-    
+
     copy assembly-arena-top load = push
     load this-entry load =
     pop |
 end-fn
 
-\ DANGER: this will run straight off the end as-is if you start it in the middle of a threaded word
-fn: disasm-raw
-    ( thread-ptr -- )
+s" Not a threaded word" string: not-threaded
+s" Not found" string: not-found
 
-    while
-        copy is-final ~
-    do
-        copy show-instr
-        cell-size +
-    end-while
-
-    drop
-end-fn
-
-fn: disasm-word
+fn: disassemble-word
     ( word -- )
 
     copy load
@@ -103,12 +64,20 @@ fn: disasm-word
         return
     end-if
 
-    copy reverse-find-raw this-entry store
+    copy find-word this-entry store
 
-    cell-size + disasm-raw
+    cell-size +
+    while
+        copy is-next-assembler-block ~
+    do
+        copy show-instr
+        cell-size +
+    end-while
+
+    drop
 end-fn
 
-fn: disasm:
+fn: disassemble:
     ( -- )
     find:
 
@@ -118,5 +87,5 @@ fn: disasm:
         return
     end-if
 
-    disasm-word
+    disassemble-word
 end-fn
