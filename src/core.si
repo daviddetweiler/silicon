@@ -197,7 +197,7 @@ fn: (
 		if
 			skip-line-segment false
 		else
-			drop accept-line ~
+			drop repl-accept-line ~
 		end-if
 	end-while
 end-fn immediate
@@ -506,7 +506,7 @@ fn: lexicon
 		clear-all
 		page-msg print current-screen load print-u# nl
 		print-dict
-		continue-msg print-cyan term-read-line
+		continue-msg print-cyan repl-read-line
 		current-screen cell-1+
 	end-while
 	

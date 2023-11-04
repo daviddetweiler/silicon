@@ -15,7 +15,7 @@ global start
 %define stack_depth 1024
 %define stack_base(stack) (stack + stack_depth * 8)
 
-%define term_buffer_size 512
+%define repl_buffer_size 512
 %define assembly_arena_size 1024 * 1024
 %define source_context_stack_depth 64
 %define source_context_cells 5
@@ -1146,7 +1146,7 @@ section .rdata
 	declare "init-terminal"
 	thread init_terminal
 		da zero
-		da term_buffer
+		da repl_buffer
 		da store_byte
 
 		da stdin_handle
@@ -1213,7 +1213,7 @@ section .rdata
 		.die:
 		da status_bad_init
 		da print_line
-		da read_line
+		da repl_read_line
 		da all_ones
 		da exit_process
 
@@ -1394,31 +1394,30 @@ section .rdata
 		da print
 		da return
 
-	; ( -- )
+	; ( -- length? )
 	declare "term-read-line"
 	thread term_read_line
-		da term_buffer
-		da literal
-		dq term_buffer_size
+		da input_buffer
+		da load_pair
 		da stdin_handle
 		da load
 		da read_file
 		da drop
 		da zero
 		da over
-		da term_buffer
+		da input_buffer
+		da load
 		da stack_add
 		da store_byte
 		da two
 		da stack_sub
-		da source_line_size
-		da store
 		da return
 
-	; ( -- )
+	; ( -- length? )
 	declare "pipe-read-line"
 	thread pipe_read_line
-		da term_buffer
+		da input_buffer
+		da load
 
 		.again:
 		da copy
@@ -1440,33 +1439,43 @@ section .rdata
 		da stack_eq
 		branch_to .exit
 		da copy
-		da term_buffer
+		da input_buffer
+		da load
 		da stack_sub
-		da literal
-		dq term_buffer_size
+		da input_buffer
+		da load_2nd
 		da stack_lt
 		branch_to .again
 
 		.exit:
-		da term_buffer
+		da input_buffer
+		da load
 		da stack_sub
 		da two
 		da stack_sub
-		da source_line_size
-		da store
 		da return
 
 		.eof:
 		da drop_pair
 		da all_ones
+		da return
+
+	; ( -- )
+	declare "repl-read-line"
+	thread repl_read_line
+		da repl_buffer
+		da literal
+		dq repl_buffer_size
+		da input_buffer
+		da store_pair
+		da read_line
 		da source_line_size
 		da store
 		da return
 
-	; ( -- )
+	; ( -- length? )
 	;
-	; By simply having it take a ptr-length pair, we can use read-line, without modification, to do separate input
-	; handling.
+	; length? will be a signed negative number on failure
 	declare "read-line"
 	thread read_line
 		.rewrite_point:
@@ -1495,15 +1504,15 @@ section .rdata
 		jump_to .rewrite_point
 
 	; ( -- exit? )
-	declare "accept-line-interactive-unlogged"
-	thread accept_line_interactive_unlogged
+	declare "repl-accept-line-interactive-nolog"
+	thread repl_accept_line_interactive_nolog
 		da reset_current_word
-		da term_buffer
+		da repl_buffer
 		da source_line_start
 		da store
 
 		.again:
-		da read_line
+		da repl_read_line
 
 		da source_line_size
 		da load
@@ -1526,7 +1535,7 @@ section .rdata
 		da print_line
 
 		.flush:
-		da read_line
+		da repl_read_line
 		da term_check_is_buffer_full
 		branch_to .flush
 		jump_to .again
@@ -1537,9 +1546,9 @@ section .rdata
 		da return
 
 	; ( -- exit? )
-	declare "accept-line-interactive"
-	thread accept_line_interactive
-		da accept_line_interactive_unlogged
+	declare "repl-accept-line-interactive"
+	thread repl_accept_line_interactive
+		da repl_accept_line_interactive_nolog
 		da copy
 		maybe return
 		da source_line_start
@@ -1554,7 +1563,7 @@ section .rdata
 		maybe return
 		da status_log_failure
 		da print_line
-		da read_line
+		da repl_read_line
 		da all_ones
 		da exit_process
 
@@ -1581,7 +1590,7 @@ section .rdata
 		.error:
 		da status_log_failure
 		da print_line
-		da read_line
+		da repl_read_line
 		da all_ones
 		da exit_process
 
@@ -1598,7 +1607,7 @@ section .rdata
 	; a terminal newline, making it trivial to check for oversized lines.
 	declare "term-buffer-too-small"
 	thread term_check_is_buffer_full
-		da term_buffer
+		da repl_buffer
 		da source_line_size
 		da load
 		da one
@@ -1644,7 +1653,7 @@ section .rdata
 
 		.refill:
 		da drop
-		da accept_line
+		da repl_accept_line
 		branch_to .exit
 		jump_to .again
 
@@ -1655,11 +1664,11 @@ section .rdata
 	; ( -- exit? )
 	;
 	; The bottom-most source context reprsents the terminal, and so is identified with a zeroed source_full_text pointer
-	declare "accept-line"
-	thread accept_line
+	declare "repl-accept-line"
+	thread repl_accept_line
 		da source_full_text
 		da load
-		predicated accept_line_source_text, accept_line_interactive
+		predicated repl_accept_line_source_text, repl_accept_line_interactive
 		da return
 
 	; ( a b address -- )
@@ -1699,7 +1708,7 @@ section .rdata
 	; interpretation.
 	declare "reset-current-word"
 	thread reset_current_word
-		da term_buffer
+		da repl_buffer
 		da zero
 		da source_current_word
 		da store_pair
@@ -1749,7 +1758,7 @@ section .rdata
 	;
 	; Here's the issue: accept_word functionally implements the regex `[ \n\r\t]*([^ \n\r\t]+)?`
 	; Because of that, a whitespace-only line will just run away into eternity. As such, it needs to
-	; be contractual that accept_line will strip out empty lines.
+	; be contractual that repl_accept_line will strip out empty lines.
 	declare "check-is-space"
 	thread check_is_space
 		da copy
@@ -1945,7 +1954,7 @@ section .rdata
 	thread report_leftovers
 		da status_stacks_unset
 		da print_line
-		da read_line
+		da repl_read_line
 		da return
 
 	; ( char -- digit? )
@@ -2215,8 +2224,8 @@ section .rdata
 		da return
 
 	; ( -- exit? )
-	declare "accept-line-source-text"
-	thread accept_line_source_text
+	declare "repl-accept-line-source-text"
+	thread repl_accept_line_source_text
 		da get_current_word
 		da stack_add
 
@@ -2528,8 +2537,8 @@ section .rdata
 	declare "stdout-handle"
 	variable stdout_handle, 1
 
-	declare "term-buffer"
-	variable term_buffer, (term_buffer_size / 8) + 1 ; +1 to ensure null-termination
+	declare "repl-buffer"
+	variable repl_buffer, (repl_buffer_size / 8) + 1 ; +1 to ensure null-termination
 
 	declare "string-a"
 	variable string_a, 2
@@ -2552,6 +2561,9 @@ section .rdata
 	; TODO: refactor file_handle_load_content; this is kind of hacky and indicative of its overcomplexity
 	declare "load-length"
 	variable load_length, 1
+
+	declare "input-buffer"
+	variable input_buffer, 2 ; buffer, length
 
 	; A short discussion on dealing with errors (the red ones): if they occur in the uppermost context, we can
 	; differentiate between a soft fault and a hard fault. A soft fault can be a non-existent word used in assembly
