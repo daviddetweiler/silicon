@@ -990,7 +990,7 @@ section .text
 		not rcx
 
 		.failure:
-		mov [dp], rcx 
+		mov [dp], rcx
 		next
 
 	; ( value shift -- shifted )
@@ -1025,7 +1025,7 @@ section .text
 		int3
 		add dp, 8
 		next
-			
+
 section .rdata
 	align 8
 
@@ -1419,7 +1419,7 @@ section .rdata
 	declare "pipe-read-line"
 	thread pipe_read_line
 		da term_buffer
-		
+
 		.again:
 		da copy
 		da one
@@ -1464,13 +1464,35 @@ section .rdata
 		da return
 
 	; ( -- )
+	;
+	; By simply having it take a ptr-length pair, we can use read-line, without modification, to do separate input
+	; handling.
 	declare "read-line"
 	thread read_line
+		.rewrite_point:
+		da literal
+		da .rewrite_point
 		da is_terminal_piped
 		da load
-		da stack_not
-		predicated term_read_line, pipe_read_line
+		branch_to .pipe
+		da literal
+		da term_read_line
+		jump_to .rewrite
+
+		.pipe:
+		da literal
+		da pipe_read_line
+
+		.rewrite:
+		da over
+		da store
+		da literal
 		da return
+		da swap
+		da cell_size
+		da stack_add
+		da store
+		jump_to .rewrite_point
 
 	; ( -- exit? )
 	declare "accept-line-interactive-unlogged"
@@ -2508,7 +2530,7 @@ section .rdata
 
 	declare "term-buffer"
 	variable term_buffer, (term_buffer_size / 8) + 1 ; +1 to ensure null-termination
-	
+
 	declare "string-a"
 	variable string_a, 2
 
@@ -2526,7 +2548,7 @@ section .rdata
 
 	declare "log-file-handle"
 	variable log_file_handle, 1
-	
+
 	; TODO: refactor file_handle_load_content; this is kind of hacky and indicative of its overcomplexity
 	declare "load-length"
 	variable load_length, 1
@@ -2560,10 +2582,10 @@ section .rdata
 
 	declare "status-no-word"
 	string status_no_word, red(`Input was cancelled before word was named\n`) ; soft fault
-	
+
 	declare "status-abort"
 	string status_abort, yellow(`Aborted and restarted\n`)
-	
+
 	declare "status-bad-init"
 	string status_bad_init, yellow(`Fault during core lib load\nPress enter to exit...\n`)
 
@@ -2575,7 +2597,7 @@ section .rdata
 
 	declare "status-log-failure"
 	string status_log_failure, red(`Log related-failure\nPress enter to exit...`) ; fatal error
-	
+
 	declare "status-fatal"
 	string status_fatal, red(`Hard fault during piped input\n`) ; fatal error
 
@@ -2584,7 +2606,7 @@ section .rdata
 
 	declare "status-assembly-arena-bounds"
 	string status_assembly_bounds, red(`Assembly arena bounds exceeded\n`) ; hard fault
-	
+
 	declare "newline-char"
 	string newline, `\n`
 
@@ -2634,7 +2656,7 @@ section .rdata
 
 	core_lib:
 		%include "core.inc"
-	
+
 	core_lib_end:
 		db 0
 
