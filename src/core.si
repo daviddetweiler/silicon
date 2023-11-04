@@ -348,20 +348,24 @@ fn: print-#
 	end-if
 end-fn
 
+fn: print-colored
+	( string length color-seq -- )
+	print print seq-default print
+end-fn
+
 fn: print-yellow
 	( string length -- )
-
-	seq-yellow print
-	print
-	seq-default print
+	seq-yellow print-colored
 end-fn
 
 fn: print-red
 	( string length -- )
+	seq-red print-colored
+end-fn
 
-	seq-red print
-	print
-	seq-default print
+fn: print-cyan
+	( string length -- )
+	seq-cyan print-colored
 end-fn
 
 16 const: page-length
@@ -477,13 +481,7 @@ fn: info
 end-fn
 
 fn: clear ( -- ) seq-clear print end-fn
-
-fn: clear-all
-	( -- )
-
-	clear
-	seq-clear-scrollback print
-end-fn
+fn: clear-all ( -- ) seq-clear-all print end-fn
 
 fn: checkpoint:
 	( -- )
@@ -493,4 +491,28 @@ fn: checkpoint:
 	assemble: end-fn
 end-fn
 
+s" Press enter to continue..."			string: continue-msg
+s" No more words, returning to REPL"	string: no-more-words-msg
+s" Page #"								string: page-msg
+
+1 var: current-screen
+
+fn: lexicon
+	0 current-screen store
+	dictionary load
+	while
+		copy 0~=
+	do
+		clear-all
+		page-msg print current-screen load print-u# nl
+		print-dict
+		continue-msg print-cyan term-read-line
+		current-screen cell-1+
+	end-while
+	
+	drop clear-all no-more-words-msg print-cyan nl nl
+end-fn
+
 checkpoint: core-dict
+
+version nl

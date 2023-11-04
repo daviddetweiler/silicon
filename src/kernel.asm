@@ -36,7 +36,7 @@ global start
 %define vt_cyan `\x1b[36m`
 %define vt_yellow `\x1b[33m`
 %define vt_clear `\x1b[2J\x1b[H`
-%define vt_clear_scrollback `\x1b[3J`
+%define vt_clear_all `\x1b[H\x1b[J`
 %define red(string) %strcat(vt_red, string, vt_default)
 %define cyan(string) %strcat(vt_cyan, string, vt_default)
 %define yellow(string) %strcat(vt_yellow, string, vt_default)
@@ -169,7 +169,8 @@ global start
 	%define id_VirtualAlloc 7
 	%define id_VirtualFree 8
 	%define id_GetConsoleMode 9
-	%define n_imports 10
+	%define id_WaitForSingleObject 10
+	%define n_imports 11
 
 	%define id(name) id_ %+ name
 	%macro get_import 1
@@ -194,6 +195,7 @@ global start
 	extern VirtualAlloc
 	extern VirtualFree
 	extern GetConsoleMode
+	extern WaitForSingleObject
 %endif
 
 %macro call_import 1
@@ -972,6 +974,7 @@ section .text
 			get_import VirtualAlloc
 			get_import VirtualFree
 			get_import GetConsoleMode
+			get_import WaitForSingleObject
 		%endif
 		next
 
@@ -1010,6 +1013,17 @@ section .text
 	declare "1+"
 	code stack_inc
 		add qword [dp], 1
+		next
+
+	; ( handle -- )
+	declare "await"
+	code await
+		mov rcx, [dp]
+		xor rdx, rdx
+		not rdx
+		call_import WaitForSingleObject
+		int3
+		add dp, 8
 		next
 			
 section .rdata
@@ -2589,11 +2603,14 @@ section .rdata
 	declare "seq-red"
 	string seq_red, vt_red
 
+	declare "seq-cyan"
+	string seq_cyan, vt_cyan
+
 	declare "seq-default"
 	string seq_default, vt_default
 
-	declare "seq-clear-scrollback"
-	string seq_clear_scrollback, vt_clear_scrollback
+	declare "seq-clear-all"
+	string seq_clear_all, vt_clear_all
 
 	declare "version-string"
 	string version_banner, cyan(version_string)
@@ -2612,6 +2629,7 @@ section .rdata
 		name VirtualAlloc
 		name VirtualFree
 		name GetConsoleMode
+		name WaitForSingleObject
 	%endif
 
 	core_lib:
