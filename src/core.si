@@ -496,6 +496,16 @@ s" No more words, returning to REPL"	string: no-more-words-msg
 s" Page #"								string: page-msg
 
 1 var: current-screen
+1 var: dummy-buffer
+
+fn: await-input
+	( -- )
+	dummy-buffer
+	cell-size
+	input-buffer
+	store-pair
+	read-line drop
+end-fn
 
 fn: lexicon
 	0 current-screen store
@@ -506,7 +516,7 @@ fn: lexicon
 		clear-all
 		page-msg print current-screen load print-u# nl
 		print-dict
-		continue-msg print-cyan repl-read-line
+		continue-msg print-cyan await-input
 		current-screen cell-1+
 	end-while
 	
