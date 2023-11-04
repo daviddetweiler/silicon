@@ -496,15 +496,20 @@ s" No more words, returning to REPL"	string: no-more-words-msg
 s" Page #"								string: page-msg
 
 1 var: current-screen
-1 var: dummy-buffer
+2 var: dummy-buffer \ one extra byte is needed for null-termination
 
 fn: await-input
 	( -- )
+
 	dummy-buffer
 	cell-size
 	input-buffer
 	store-pair
-	read-line drop
+
+	true
+	while do
+		read-line dummy-buffer + 1+ load-byte newline-code ~=
+	end-while
 end-fn
 
 fn: lexicon
@@ -519,7 +524,7 @@ fn: lexicon
 		continue-msg print-cyan await-input
 		current-screen cell-1+
 	end-while
-	
+
 	drop clear-all no-more-words-msg print-cyan nl nl
 end-fn
 
