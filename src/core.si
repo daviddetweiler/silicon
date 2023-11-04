@@ -365,14 +365,23 @@ fn: print-red
 	seq-default print
 end-fn
 
-fn: print-dict
-	( dict-ptr -- )
+16 const: page-length
+1 var: current-depth
 
-	nl
+fn: cell-1+ ( cell-ptr -- ) copy load 1+ swap store end-fn
+
+fn: print-dict
+	( dict-ptr -- next-ptr? )
+
+	0 current-depth store nl
 
 	while
 		copy 0~=
+		current-depth load page-length <=
+		&
 	do
+		current-depth cell-1+
+
 		copy
 		copy push entry-name pop entry-immediate?
 		predicated immediate-tag empty-tag
@@ -381,7 +390,7 @@ fn: print-dict
 		load
 	end-while
 
-	drop nl
+	nl
 end-fn
 
 s"  bytes of code"					string: code-size-msg
@@ -443,13 +452,6 @@ fn: checkpoint:
 	fn:
 	current-definition load assemble-literal assemble
 	assemble: end-fn
-end-fn
-
-fn: ?
-	( -- )
-
-	info
-	dictionary load print-dict
 end-fn
 
 checkpoint: core-dict

@@ -31,7 +31,7 @@ $(OUT)\kernel.obj: $(SRC)\kernel.asm $(OUT)\core.inc $(OUT)\expected.version Mak
         -fwin64 \
         $$(Resolve-Path $(SRC)\kernel.asm) \
         -Dgit_version=""$$(git describe --dirty --tags)"" \
-        -Dstandalone -g \
+        -Dstandalone \
         -o $$(Resolve-Path $(OUT)\kernel.obj)"
 
 $(OUT)\kernel.bin.bw: $(OUT)\kernel.bin $(BW) Makefile
@@ -81,7 +81,7 @@ $(OUT)\silicon-uncompressed.exe: $(OUT)\kernel.obj Makefile
         /section:data,RWE \
         /merge:.rdata=kernel \
         /merge:.text=kernel \
-        /merge:.bss=data /debug
+        /merge:.bss=data
 
 clean: Makefile
     del report.json *.log log.si
