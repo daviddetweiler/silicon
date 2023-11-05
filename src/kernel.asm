@@ -2546,12 +2546,6 @@ section .rdata
 	declare "repl-buffer"
 	variable repl_buffer, (repl_buffer_size / 8) + 1 ; +1 to ensure null-termination
 
-	declare "string-a"
-	variable string_a, 2
-
-	declare "string-b"
-	variable string_b, 2
-
 	declare "parsed-number"
 	variable parsed_number, 2
 
