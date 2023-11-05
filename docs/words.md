@@ -4,6 +4,7 @@
     parse_number
     parse_unumber
     parsed_number
+    negative
     repl_accept_line
     repl_accept_line_interactive
     repl_accept_line_interactive_nolog
@@ -16,6 +17,8 @@
     consume_word
     check_is_digit
     check_is_space
+    flush_line
+    get_current_word
 
 # System Functions
 
@@ -76,6 +79,7 @@
     copy_pair
     drop
     drop_pair
+    literal
 
 # Memory Access
 
@@ -83,7 +87,7 @@
     load_2nd
     load_byte
     load_pair
-    
+
     store
     store_2nd
     store_byte
@@ -101,6 +105,9 @@
     is_terminal_piped
     pipe_read_line
     read_line
+    new_line
+    newline
+    newline_code
 
 # Dictionary
 
@@ -111,6 +118,7 @@
     make_immediate
     find
     find_next_word
+    create
 
 # VT Sequences
 
@@ -183,48 +191,45 @@
     status_unknown
     status_word_too_long
 
+# Control Flow
+
+    invoke
+    maybe_execute
+    jump
+    predicate
+    return
+    branch
+
 # Uncategorized
 
     string_eq
-    version_banner
-    
-    interpreter
-    invoke
-    is_assembling
-    is_initializing
-    jump
-    literal
-    load_file
-    load_length
-    log_file_handle
-    log_name
-    maybe_execute
-    negative
-    new_line
-    newline
-    newline_code
-    predicate
-    return
-    should_exit
-
-    branch
-    break
-    crash
+    copy_blob
     cell_align
     clear_data_stack
-    clear_return_stack
-    copy_blob
-    core_vocabulary
-    create
-    current_definition
-    execute
-    exit
-    file_handle_load_content
-    file_size
-    flush_line
-    get_current_word
     get_data_stack
+    clear_return_stack
     get_return_stack
+
+# Interpreter
+
+    version_banner
+    interpreter
+    is_assembling
+    is_initializing
+    log_file_handle
+    log_name
+    should_exit
+    core_vocabulary
+    current_definition
+    exit
+
+# File Interpretation
+
+    execute
+    file_handle_load_content
+    load_file
+    load_length
+    file_size
 
 # Fault Handling
 
@@ -234,6 +239,8 @@
     soft_fault
     hard_fault
     check_no_underflow
+    break
+    crash
 
 # Constants
 
