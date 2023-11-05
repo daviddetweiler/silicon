@@ -8,6 +8,11 @@ global start
 %define dp r13
 %define rp r12
 
+; I fear that I have missed the point of Forth and relatives by making this implementation so complex. Though the
+; full-featuredness is nice, I wonder if it's not possible to achieve the metacompilation ideal in a simpler fashion.
+; Perhaps on bare UEFI? The next attempt should try and escape the assembler as quickly as possible. Also CREATE-DOES>
+; would be nice to try out.
+
 ; While a per-word stack usage may be quite small (perhaps 8 cells at most?) the call stack can be much, much deeper, so
 ; the data stack must be of a similar size to the return stack. It may be easiest to only ever check for underflow,
 ; since overflows are unlikely to be recoverable anyways (though I did have a thought about a "circular stack" being
@@ -35,6 +40,7 @@ global start
 %define vt_default `\x1b[0m`
 %define vt_cyan `\x1b[36m`
 %define vt_yellow `\x1b[33m`
+%define vt_bright_magenta `\x1b[95m`
 %define vt_clear `\x1b[2J\x1b[H`
 %define vt_clear_all `\x1b[H\x1b[J`
 %define red(string) %strcat(vt_red, string, vt_default)
@@ -2604,9 +2610,6 @@ section .rdata
 	declare "status-nested-def"
 	string status_nested_def, red(`Cannot define new words while another is still being defined\n`) ; soft fault
 
-	declare "status-non-interactive"
-	string status_non_interactive, red(`Cannot accept input from non-interactive terminal\n`) ; fatal error
-
 	declare "status-log-failure"
 	string status_log_failure, red(`Log related-failure\nPress enter to exit...`) ; fatal error
 
@@ -2639,6 +2642,9 @@ section .rdata
 
 	declare "seq-cyan"
 	string seq_cyan, vt_cyan
+
+	declare "seq-bright-magenta"
+	string seq_bright_magenta, vt_bright_magenta
 
 	declare "seq-default"
 	string seq_default, vt_default

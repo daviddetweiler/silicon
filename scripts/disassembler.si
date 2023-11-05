@@ -29,9 +29,9 @@ fn: show-pointer
 
     copy reverse-find
     copy 0~= if
-        print-yellow nl drop
+        print-cyan nl drop
     else
-        drop-pair hex print-u# nl
+        drop-pair hex print-# nl
     end-if
 end-fn
 

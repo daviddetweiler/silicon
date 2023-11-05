@@ -368,6 +368,11 @@ fn: print-cyan
 	seq-cyan print-colored
 end-fn
 
+fn: print-bright-magenta
+	( string length -- )
+	seq-bright-magenta print-colored
+end-fn
+
 16 const: page-length
 1 var: current-depth
 
@@ -388,7 +393,7 @@ fn: print-dict
 		copy
 		copy push entry-name pop entry-immediate?
 		predicated immediate-tag empty-tag
-		print-red print-yellow nl
+		print print-cyan nl
 
 		load
 	end-while
@@ -521,11 +526,11 @@ fn: lexicon
 		clear-all
 		page-msg print current-screen load print-u# nl
 		print-dict
-		continue-msg print-cyan await-input
+		continue-msg print-yellow await-input
 		current-screen cell-1+
 	end-while
 
-	drop clear-all no-more-words-msg print-cyan nl nl
+	drop clear-all no-more-words-msg print-yellow nl nl
 end-fn
 
 checkpoint: core-dict
