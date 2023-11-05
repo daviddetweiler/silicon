@@ -10,7 +10,7 @@ global start
 
 ; While a per-word stack usage may be quite small (perhaps 8 cells at most?) the call stack can be much, much deeper, so
 ; the data stack must be of a similar size to the return stack. It may be easiest to only ever check for underflow,
-; since overflows are unlikely to be recoverable anyways (though I did have a thought about a "circular stack" being
+; since overflows are unlikely to be recoverable anyways (though I did have a thought about a "CIRCULAR STACK" being
 ; used to mitigate it without as onerous a runtime cost).
 %define stack_depth 1024
 %define stack_base(stack) (stack + stack_depth * 8)
@@ -143,7 +143,7 @@ global start
 
 %macro commit_dictionary 0
 	section .rdata
-		declare "kernel-dict"
+		declare "KERNEL-DICT"
 		constant core_vocabulary, address(dictionary_entry(dictionary_head))
 		%assign dictionary_written 1
 %endmacro
@@ -239,32 +239,32 @@ section .text
 		next
 
 	; ( -- )
-	declare "return"
+	declare "RETURN"
 	code return
 		mov tp, [rp]
 		add rp, 8
 		next
 
 	; ( code -- )
-	declare "exit-process"
+	declare "EXIT-PROCESS"
 	code exit_process
 		mov rcx, [dp]
 		call_import ExitProcess
 
 	; ( -- )
-	declare "clear-data-stack"
+	declare "CLEAR-DATA-STACK"
 	code clear_data_stack
 		lea dp, stack_base(data_stack)
 		next
 
 	; ( -- )
-	declare "clear-return-stack"
+	declare "CLEAR-RETURN-STACK"
 	code clear_return_stack
 		lea rp, stack_base(return_stack)
 		next
 
 	; ( -- dp )
-	declare "get-data-stack"
+	declare "GET-DATA-STACK"
 	code get_data_stack
 		mov rax, dp
 		sub dp, 8
@@ -272,20 +272,20 @@ section .text
 		next
 
 	; ( -- rp )
-	declare "get-return-stack"
+	declare "GET-RETURN-STACK"
 	code get_return_stack
 		sub dp, 8
 		mov [dp], rp
 		next
 
 	; ( value -- )
-	declare "drop"
+	declare "DROP"
 	code drop
 		add dp, 8
 		next
 
 	; ( -- value )
-	declare "literal"
+	declare "LITERAL"
 	code literal
 		mov rax, [tp]
 		add tp, 8
@@ -303,7 +303,7 @@ section .text
 		next
 
 	; ( string length handle -- succeeded )
-	declare "write-file"
+	declare "WRITE-FILE"
 	code write_file
 		mov rcx, [dp]
 		mov rdx, [dp + 8 * 2]
@@ -323,7 +323,7 @@ section .text
 		next
 
 	; ( address -- value )
-	declare "load"
+	declare "LOAD"
 	code load
 		mov rax, [dp]
 		mov rax, [rax]
@@ -331,7 +331,7 @@ section .text
 		next
 
 	; ( value address -- )
-	declare "store"
+	declare "STORE"
 	code store
 		mov rax, [dp]
 		mov rbx, [dp + 8]
@@ -340,7 +340,7 @@ section .text
 		next
 
 	; ( id -- handle )
-	declare "get-std-handle"
+	declare "GET-STD-HANDLE"
 	code get_handle
 		mov rcx, [dp]
 		call_import GetStdHandle
@@ -348,7 +348,7 @@ section .text
 		next
 
 	; ( buffer length handle -- count succeeded? )
-	declare "read-file"
+	declare "READ-FILE"
 	code read_file
 		mov rcx, [dp]
 		mov rdx, [dp + 8 * 2]
@@ -377,7 +377,7 @@ section .text
 		next
 
 	; ( condition -- )
-	declare "branch"
+	declare "BRANCH"
 	code branch
 		mov rax, [dp]
 		add dp, 8
@@ -404,7 +404,7 @@ section .text
 		next
 
 	; ( value -- value value )
-	declare "copy"
+	declare "COPY"
 	code copy
 		mov rax, [dp]
 		sub dp, 8
@@ -438,7 +438,7 @@ section .text
 		next
 
 	; ( -- )
-	declare "jump"
+	declare "JUMP"
 	code jump
 		mov rax, [tp]
 		lea tp, [tp + rax + 8]
@@ -453,7 +453,7 @@ section .text
 		next
 
 	; ( address -- byte )
-	declare "load-byte"
+	declare "LOAD-BYTE"
 	code load_byte
 		mov rax, [dp]
 		movzx rax, byte [rax]
@@ -489,7 +489,7 @@ section .text
 		next
 
 	; ( value -- )
-	declare "push"
+	declare "PUSH"
 	code stack_push
 		mov rax, [dp]
 		add dp, 8
@@ -498,7 +498,7 @@ section .text
 		next
 
 	; ( -- value )
-	declare "pop"
+	declare "POP"
 	code stack_pop
 		mov rax, [rp]
 		add rp, 8
@@ -507,7 +507,7 @@ section .text
 		next
 
 	; ( a b -- b a )
-	declare "swap"
+	declare "SWAP"
 	code swap
 		mov rax, [dp]
 		xchg rax, [dp + 8]
@@ -515,7 +515,7 @@ section .text
 		next
 
 	; ( a b -- a b a b )
-	declare "copy-pair"
+	declare "COPY-PAIR"
 	code copy_pair
 		mov rax, [dp]
 		mov rbx, [dp + 8]
@@ -525,7 +525,7 @@ section .text
 		next
 
 	; ( a b -- b )
-	declare "nip"
+	declare "NIP"
 	code nip
 		mov rax, [dp]
 		add dp, 8
@@ -533,7 +533,7 @@ section .text
 		next
 
 	; ( a b -- a b a )
-	declare "over"
+	declare "OVER"
 	code over
 		mov rax, [dp + 8]
 		sub dp, 8
@@ -541,7 +541,7 @@ section .text
 		next
 
 	; ( value address -- )
-	declare "store-byte"
+	declare "STORE-BYTE"
 	code store_byte
 		mov rax, [dp]
 		mov rbx, [dp + 8]
@@ -564,7 +564,7 @@ section .text
 		next
 
 	; ( condition -- )
-	declare "predicated"
+	declare "PREDICATED"
 	code predicate
 		mov rax, [tp]
 		mov rbx, [tp + 8]
@@ -581,7 +581,7 @@ section .text
 		run
 
 	; ( address -- value )
-	declare "load-2nd"
+	declare "LOAD-2ND"
 	code load_2nd
 		mov rax, [dp]
 		mov rax, [rax + 8]
@@ -589,7 +589,7 @@ section .text
 		next
 
 	; ( value address -- )
-	declare "store-2nd"
+	declare "STORE-2ND"
 	code store_2nd
 		mov rax, [dp]
 		mov rbx, [dp + 8]
@@ -598,20 +598,20 @@ section .text
 		next
 
 	; ( a b -- )
-	declare "drop-pair"
+	declare "DROP-PAIR"
 	code drop_pair
 		add dp, 8 * 2
 		next
 
 	; ( word -- )
-	declare "invoke"
+	declare "INVOKE"
 	code invoke
 		mov wp, [dp]
 		add dp, 8
 		run
 
 	; ( a b -- (a / b) )
-	declare "u/"
+	declare "U/"
 	code stack_udiv
 		mov rax, [dp + 8]
 		mov rbx, [dp]
@@ -622,7 +622,7 @@ section .text
 		next
 
 	; ( a b -- (a % b) )
-	declare "u%"
+	declare "U%"
 	code stack_umod
 		mov rax, [dp + 8]
 		mov rbx, [dp]
@@ -717,7 +717,7 @@ section .text
 		next
 
 	; ( a b -- (a * b) )
-	declare "u*"
+	declare "U*"
 	code stack_umul
 		mov rax, [dp]
 		add dp, 8
@@ -735,7 +735,7 @@ section .text
 		next
 
 	; ( -- )
-	declare "break"
+	declare "BREAK"
 	code break
 		int3
 		next
@@ -749,7 +749,7 @@ section .text
 		next
 
 	; ( -- )
-	declare "maybe"
+	declare "MAYBE"
 	code maybe_execute
 		mov rax, [dp]
 		add dp, 8
@@ -765,7 +765,7 @@ section .text
 	; ( handle offset mode -- old-ptr? )
 	;
 	; We treat -1 as an error sentinel
-	declare "set-file-ptr"
+	declare "SET-FILE-PTR"
 	code set_file_ptr
 		mov rcx, [dp + 8 * 2]
 		mov rdx, [dp + 8]
@@ -792,7 +792,7 @@ section .text
 		next
 
 	; ( handle -- )
-	declare "close-handle"
+	declare "CLOSE-HANDLE"
 	code close_handle
 		mov rcx, [dp]
 		call_import CloseHandle
@@ -800,7 +800,7 @@ section .text
 		next
 
 	; ( c-string -- handle )
-	declare "open-file"
+	declare "OPEN-FILE"
 	code open_file
 		mov rcx, [dp]
 		mov rdx, 0x80000000 ; GENERIC_READ
@@ -819,7 +819,7 @@ section .text
 		next
 
 	; ( c-string -- handle )
-	declare "create-file"
+	declare "CREATE-FILE"
 	code create_file
 		mov rcx, [dp]
 		mov rdx, 0x40000000 ; GENERIC_WRITE
@@ -838,7 +838,7 @@ section .text
 		next
 
 	; ( size -- address )
-	declare "allocate-pages"
+	declare "ALLOCATE-PAGES"
 	code allocate_pages
 		xor rcx, rcx
 		mov rdx, [dp]
@@ -849,7 +849,7 @@ section .text
 		next
 
 	; ( address -- succeeded? )
-	declare "free-pages"
+	declare "FREE-PAGES"
 	code free_pages
 		mov rcx, [dp]
 		xor rdx, rdx
@@ -866,14 +866,14 @@ section .text
 		next
 
 	; ( -- )
-	declare "crash"
+	declare "CRASH"
 	code crash
 		mov rcx, 7
 		int 0x29 ; Good ol' __fastfail(FAST_FAIL_FATAL_APP_EXIT)
 		next
 
 	; ( a-string a-length b-string b-length -- same? )
-	declare "string="
+	declare "STRING="
 	code string_eq
 		mov rcx, [dp + 8 * 2]
 		cmp rcx, [dp]
@@ -897,7 +897,7 @@ section .text
 		next
 
 	; ( byte-ptr length destination -- )
-	declare "copy-blob"
+	declare "COPY-BLOB"
 	code copy_blob
 		mov rcx, [dp + 8]
 		mov rsi, [dp + 8 * 2]
@@ -907,7 +907,7 @@ section .text
 		next
 
 	; ( entry -- name length )
-	declare "entry-name"
+	declare "ENTRY-NAME"
 	code entry_name
 		mov rax, [dp]
 		add rax, 9
@@ -919,7 +919,7 @@ section .text
 		next
 
 	; ( -- value )
-	declare "peek"
+	declare "PEEK"
 	code stack_peek
 		mov rax, [rp]
 		sub dp, 8
@@ -927,7 +927,7 @@ section .text
 		next
 
 	; ( a b c -- a b c a b )
-	declare "pair-over"
+	declare "PAIR-OVER"
 	code pair_over
 		mov rax, [dp + 8 * 2]
 		mov rbx, [dp + 8]
@@ -937,7 +937,7 @@ section .text
 		next
 
 	; ( a b c -- a b c a )
-	declare "over-pair"
+	declare "OVER-PAIR"
 	code over_pair
 		mov rax, [dp + 8 * 2]
 		sub dp, 8
@@ -945,7 +945,7 @@ section .text
 		next
 
 	; ( a b c -- b c a )
-	declare "rot-down"
+	declare "ROT-DOWN"
 	code rot_down
 		mov rax, [dp + 8 * 2]
 		mov rbx, [dp + 8]
@@ -955,7 +955,7 @@ section .text
 		mov [dp], rax
 		next
 
-	declare "init-imports"
+	declare "INIT-IMPORTS"
 	code init_imports
 		%ifndef standalone
 			mov rsi, [get_module_handle]
@@ -979,7 +979,7 @@ section .text
 		next
 
 	; ( handle -- is-console? )
-	declare "check-is-console-handle"
+	declare "CHECK-IS-CONSOLE-HANDLE"
 	code check_is_console_handle
 		mov rcx, [dp]
 		lea rdx, [rsp + 8 * 4]
@@ -1016,7 +1016,7 @@ section .text
 		next
 
 	; ( handle -- )
-	declare "await"
+	declare "AWAIT"
 	code await
 		mov rcx, [dp]
 		xor rdx, rdx
@@ -1030,7 +1030,7 @@ section .rdata
 	align 8
 
 	; This is here purely to make disassembly work properly
-	declare "interpreter"
+	declare "INTERPRETER"
 	thread interpreter
 
 	initialize:
@@ -1111,7 +1111,7 @@ section .rdata
 		jump_to interpret
 
 	; ( -- underflow? )
-	declare "check-no-underflow?"
+	declare "CHECK-NO-UNDERFLOW?"
 	thread check_no_underflow
 		da get_data_stack
 		da data_stack_base
@@ -1125,7 +1125,7 @@ section .rdata
 		da return
 
 	; ( -- )
-	declare "report-underflow"
+	declare "REPORT-UNDERFLOW"
 	thread report_underflow
 		da status_underflow
 		da print
@@ -1143,7 +1143,7 @@ section .rdata
 		da soft_fault
 
 	; ( -- )
-	declare "init-terminal"
+	declare "INIT-TERMINAL"
 	thread init_terminal
 		da zero
 		da repl_buffer
@@ -1159,7 +1159,7 @@ section .rdata
 		da return
 
 	; ( -- )
-	declare "soft-fault"
+	declare "SOFT-FAULT"
 	thread soft_fault
 		da source_is_nested
 		da is_terminal_piped
@@ -1183,7 +1183,7 @@ section .rdata
 		jump_to interpret
 
 	; ( -- )
-	declare "init-assembler"
+	declare "INIT-ASSEMBLER"
 	thread init_assembler
 		da zero
 		da copy
@@ -1197,7 +1197,7 @@ section .rdata
 	;
 	; This makes some rather dubious assumptions about the interpreter state; amounting to assuming that hard faults
 	; have left the interpreter in partial, unspecified, but otherwise valid state that it must simply reset from
-	declare "hard-fault"
+	declare "HARD-FAULT"
 	thread hard_fault
 		da is_terminal_piped
 		da load
@@ -1224,7 +1224,7 @@ section .rdata
 		da exit_process
 
 	; ( -- )
-	declare "load-core-library"
+	declare "LOAD-CORE-LIBRARY"
 	thread load_core_library
 		da literal
 		da core_lib
@@ -1235,7 +1235,7 @@ section .rdata
 		da return
 
 	; ( path -- buffer? length? )
-	declare "load-file"
+	declare "LOAD-FILE"
 	thread load_file
 		da open_file
 		da copy
@@ -1254,7 +1254,7 @@ section .rdata
 		da return
 
 	; ( buffer -- )
-	declare "source-push-buffer"
+	declare "SOURCE-PUSH-BUFFER"
 	thread source_push_buffer
 		da source_push
 
@@ -1275,7 +1275,7 @@ section .rdata
 		da return
 
 	; ( handle -- source? length? )
-	declare "file-handle-load-content"
+	declare "FILE-HANDLE-LOAD-CONTENT"
 	thread file_handle_load_content
 		da copy
 		da stack_push
@@ -1335,7 +1335,7 @@ section .rdata
 	; ( handle -- size? )
 	;
 	; We treat -1 as an error sentinel
-	declare "file-size"
+	declare "FILE-SIZE"
 	thread file_size
 		da copy
 		da zero
@@ -1362,7 +1362,7 @@ section .rdata
 		da return
 
 	; ( string length -- )
-	declare "print"
+	declare "PRINT"
 	thread print
 		da stdout_handle
 		da load
@@ -1371,7 +1371,7 @@ section .rdata
 		da return
 
 	; ( -- )
-	declare "init-handles"
+	declare "INIT-HANDLES"
 	thread init_handles
 		da literal
 		dq -10
@@ -1388,14 +1388,14 @@ section .rdata
 		da return
 
 	; ( -- )
-	declare "nl"
+	declare "NL"
 	thread new_line
 		da newline
 		da print
 		da return
 
 	; ( -- length? )
-	declare "term-read-line"
+	declare "TERM-READ-LINE"
 	thread term_read_line
 		da input_buffer
 		da load_pair
@@ -1414,7 +1414,7 @@ section .rdata
 		da return
 
 	; ( -- length? )
-	declare "pipe-read-line"
+	declare "PIPE-READ-LINE"
 	thread pipe_read_line
 		da input_buffer
 		da load
@@ -1461,7 +1461,7 @@ section .rdata
 		da return
 
 	; ( -- )
-	declare "repl-read-line"
+	declare "REPL-READ-LINE"
 	thread repl_read_line
 		da repl_buffer
 		da literal
@@ -1476,7 +1476,7 @@ section .rdata
 	; ( -- length? )
 	;
 	; length? will be a signed negative number on failure
-	declare "read-line"
+	declare "READ-LINE"
 	thread read_line
 		.rewrite_point:
 		da literal
@@ -1504,7 +1504,7 @@ section .rdata
 		jump_to .rewrite_point
 
 	; ( -- exit? )
-	declare "repl-accept-line-interactive-nolog"
+	declare "REPL-ACCEPT-LINE-INTERACTIVE-NOLOG"
 	thread repl_accept_line_interactive_nolog
 		da reset_current_word
 		da repl_buffer
@@ -1546,7 +1546,7 @@ section .rdata
 		da return
 
 	; ( -- exit? )
-	declare "repl-accept-line-interactive"
+	declare "REPL-ACCEPT-LINE-INTERACTIVE"
 	thread repl_accept_line_interactive
 		da repl_accept_line_interactive_nolog
 		da copy
@@ -1568,7 +1568,7 @@ section .rdata
 		da exit_process
 
 	; ( -- )
-	declare "init-logging"
+	declare "INIT-LOGGING"
 	thread init_logging
 		da log_file_handle ; Might be post-restart
 		da load
@@ -1595,7 +1595,7 @@ section .rdata
 		da exit_process
 
 	; ( string length -- )
-	declare "print-line"
+	declare "PRINT-LINE"
 	thread print_line
 		da print
 		da new_line
@@ -1605,7 +1605,7 @@ section .rdata
 	;
 	; If the present line of input was longer than the buffer passed to ReadFile(), ReadFile() will notably _not_ place
 	; a terminal newline, making it trivial to check for oversized lines.
-	declare "term-buffer-too-small"
+	declare "TERM-BUFFER-TOO-SMALL"
 	thread term_check_is_buffer_full
 		da repl_buffer
 		da source_line_size
@@ -1618,8 +1618,55 @@ section .rdata
 		da stack_neq
 		da return
 
+	; ( char-ptr -- char-ptr )
+	declare "TO-UPPERCASE"
+	thread to_uppercase
+		da copy
+		da load_byte
+		da copy
+		da copy
+		da literal
+		dq `a`
+		da stack_gte
+		da stack_push
+		da literal
+		dq `z`
+		da stack_lte
+		da stack_pop
+		da stack_and
+		branch_to .lowercase
+		da drop
+		da return
+
+		.lowercase:
+		da literal
+		dq ~0b00100000
+		da stack_and
+		da over
+		da store_byte
+		da return
+
+	; ( string length -- )
+	declare "NORMALIZE"
+	thread normalize
+		da stack_push
+
+		.next_char:
+		da to_uppercase
+		da stack_inc
+		da stack_pop
+		da one
+		da stack_sub
+		da copy
+		da stack_push
+		branch_to .next_char
+
+		da stack_pop
+		da drop_pair
+		da return
+
 	; ( -- exit? )
-	declare "accept-word"
+	declare "ACCEPT-WORD"
 	thread accept_word
 		.again:
 		da get_current_word
@@ -1646,6 +1693,8 @@ section .rdata
 		da stack_sub
 		da nip
 
+		da copy_pair
+		da normalize
 		da source_current_word
 		da store_pair
 		da zero
@@ -1664,7 +1713,7 @@ section .rdata
 	; ( -- exit? )
 	;
 	; The bottom-most source context reprsents the terminal, and so is identified with a zeroed source_full_text pointer
-	declare "repl-accept-line"
+	declare "REPL-ACCEPT-LINE"
 	thread repl_accept_line
 		da source_full_text
 		da load
@@ -1672,7 +1721,7 @@ section .rdata
 		da return
 
 	; ( a b address -- )
-	declare "store-pair"
+	declare "STORE-PAIR"
 	thread store_pair
 		da copy
 		da stack_push
@@ -1684,7 +1733,7 @@ section .rdata
 		da return
 
 	; ( address -- a b )
-	declare "load-pair"
+	declare "LOAD-PAIR"
 	thread load_pair
 		da copy
 		da cell_size
@@ -1696,7 +1745,7 @@ section .rdata
 		da return
 
 	; ( -- word length )
-	declare "get-current-word"
+	declare "GET-CURRENT-WORD"
 	thread get_current_word
 		da source_current_word
 		da load_pair
@@ -1706,7 +1755,7 @@ section .rdata
 	;
 	; At all times, source_current_word refers to the address and length of the word that was just parsed for
 	; interpretation.
-	declare "reset-current-word"
+	declare "RESET-CURRENT-WORD"
 	thread reset_current_word
 		da repl_buffer
 		da zero
@@ -1717,7 +1766,7 @@ section .rdata
 	; ( ptr -- new-ptr )
 	;
 	; Advances ptr past an initial run of whitespace characters
-	declare "consume-space"
+	declare "CONSUME-SPACE"
 	thread consume_space
 		.again:
 		da copy
@@ -1734,7 +1783,7 @@ section .rdata
 	; ( ptr -- new-ptr )
 	;
 	; Advances ptr to the first space character after an initial run of non-space characters
-	declare "consume-word"
+	declare "CONSUME-WORD"
 	thread consume_word
 		.again:
 		da copy
@@ -1759,7 +1808,7 @@ section .rdata
 	; Here's the issue: accept_word functionally implements the regex `[ \n\r\t]*([^ \n\r\t]+)?`
 	; Because of that, a whitespace-only line will just run away into eternity. As such, it needs to
 	; be contractual that repl_accept_line will strip out empty lines.
-	declare "check-is-space"
+	declare "CHECK-IS-SPACE"
 	thread check_is_space
 		da copy
 		da literal
@@ -1794,7 +1843,7 @@ section .rdata
 		da return
 
 	; ( -- )
-	declare "init-dictionary"
+	declare "INIT-DICTIONARY"
 	thread init_dictionary
 		da core_vocabulary
 		da dictionary
@@ -1802,7 +1851,7 @@ section .rdata
 		da return
 
 	; ( -- )
-	declare "assemble-literal"
+	declare "ASSEMBLE-LITERAL"
 	thread assemble_literal
 		da literal
 		da literal
@@ -1810,7 +1859,7 @@ section .rdata
 		da return
 
 	; ( -- )
-	declare "assemble-invoke-thread"
+	declare "ASSEMBLE-INVOKE-THREAD"
 	thread assemble_invoke_thread
 		da literal
 		da invoke_thread
@@ -1818,7 +1867,7 @@ section .rdata
 		da return
 
 	; ( -- )
-	declare "assemble-invoke-constant"
+	declare "ASSEMBLE-INVOKE-CONSTANT"
 	thread assemble_invoke_constant
 		da literal
 		da invoke_constant
@@ -1826,7 +1875,7 @@ section .rdata
 		da return
 
 	; ( -- )
-	declare "assemble-branch"
+	declare "ASSEMBLE-BRANCH"
 	thread assemble_branch
 		da literal
 		da branch
@@ -1834,7 +1883,7 @@ section .rdata
 		da return
 
 	; ( -- )
-	declare "assemble-jump"
+	declare "ASSEMBLE-JUMP"
 	thread assemble_jump
 		da literal
 		da jump
@@ -1842,7 +1891,7 @@ section .rdata
 		da return
 
 	; ( -- )
-	declare "assemble-invoke-string"
+	declare "ASSEMBLE-INVOKE-STRING"
 	thread assemble_invoke_string
 		da literal
 		da invoke_string
@@ -1850,7 +1899,7 @@ section .rdata
 		da return
 
 	; ( -- )
-	declare "assemble-invoke-variable"
+	declare "ASSEMBLE-INVOKE-VARIABLE"
 	thread assemble_invoke_variable
 		da literal
 		da invoke_variable
@@ -1858,7 +1907,7 @@ section .rdata
 		da return
 
 	; ( string length -- immediate? word? )
-	declare "find"
+	declare "FIND"
 	thread find
 		da dictionary
 		da load
@@ -1888,7 +1937,7 @@ section .rdata
 		da return
 
 	; ( entry -- data )
-	declare "entry-data-ptr"
+	declare "ENTRY-DATA-PTR"
 	thread entry_data_ptr
 		da entry_name
 		da stack_add
@@ -1898,7 +1947,7 @@ section .rdata
 		da return
 
 	; ( entry -- immediate? )
-	declare "entry-immediate?"
+	declare "ENTRY-IMMEDIATE?"
 	thread entry_immediate
 		da cell_size
 		da stack_add
@@ -1910,7 +1959,7 @@ section .rdata
 		da return
 
 	; ( address -- aligned-address )
-	declare "cell-align"
+	declare "CELL-ALIGN"
 	thread cell_align
 		da copy
 		da literal
@@ -1928,12 +1977,12 @@ section .rdata
 	; ( -- )
 	;
 	; The input layer of the interpreter is structured around having a current line of source text, stored at
-	; `source_line_ptr`, and a current word within that line, stored at `source_current_word`. Line reads (or "refills")
-	; are automatically triggered whenever `accept_word` reaches the end of the current line. Now, `accept_word` figures
+	; `SOURCE_LINE_PTR`, AND A CURRENT WORD WITHIN THAT LINE, STORED AT `SOURCE_CURRENT_WORD`. Line reads (or "REFILLS")
+	; are automatically triggered whenever `ACCEPT_WORD` REACHES THE END OF THE CURRENT LINE. NOW, `ACCEPT_WORD` figures
 	; out where to start reading from by adding the current word length to the current word pointer (essentially
-	; skipping just past the current word), so the simplest way to "flush" the rest of the current line is to fudge the
+	; skipping just past the current word), so the simplest way to "FLUSH" the rest of the current line is to fudge the
 	; current word length so that the result of that addition points to the end of the line.
-	declare "flush-line"
+	declare "FLUSH-LINE"
 	thread flush_line
 		da get_current_word
 		da drop
@@ -1950,7 +1999,7 @@ section .rdata
 		da return
 
 	; ( -- )
-	declare "report-leftovers"
+	declare "REPORT-LEFTOVERS"
 	thread report_leftovers
 		da status_stacks_unset
 		da print_line
@@ -1958,7 +2007,7 @@ section .rdata
 		da return
 
 	; ( char -- digit? )
-	declare "check-is-digit"
+	declare "CHECK-IS-DIGIT"
 	thread check_is_digit
 		da copy
 		da literal
@@ -1973,7 +2022,7 @@ section .rdata
 		da return
 
 	; ( string length -- n number? )
-	declare "parse-u#"
+	declare "PARSE-U#"
 	thread parse_unumber
 		da parsed_number
 		da store_pair
@@ -2023,7 +2072,7 @@ section .rdata
 		da return
 
 	; ( string length -- n number? )
-	declare "parse-#"
+	declare "PARSE-#"
 	thread parse_number
 		da over
 		da load_byte
@@ -2057,7 +2106,7 @@ section .rdata
 		da zero
 		da return
 
-	declare "exit"
+	declare "EXIT"
 	thread exit
 		da all_ones
 		da should_exit
@@ -2065,7 +2114,7 @@ section .rdata
 		da return
 
 	; ( -- word? )
-	declare "create:"
+	declare "CREATE:"
 	thread create
 		da current_definition
 		da load
@@ -2113,7 +2162,7 @@ section .rdata
 		da soft_fault
 
 	; ( -- )
-	declare "cell-align-assembly_arena"
+	declare "CELL-ALIGN-ASSEMBLY_ARENA"
 	thread cell_align_assembly_arena
 		da assembly_arena_top
 		da load
@@ -2125,7 +2174,7 @@ section .rdata
 		da return
 
 	; ( cell -- )
-	declare "assemble"
+	declare "ASSEMBLE"
 	thread assemble
 		da assembly_ptr
 		da cell_size
@@ -2134,7 +2183,7 @@ section .rdata
 		da return
 
 	; ( byte -- )
-	declare "assemble-byte"
+	declare "ASSEMBLE-BYTE"
 	thread assemble_byte
 		da assembly_ptr
 		da one
@@ -2143,7 +2192,7 @@ section .rdata
 		da return
 
 	; ( new-ptr -- )
-	declare "assembly-arena-check-bounds"
+	declare "ASSEMBLY-ARENA-CHECK-BOUNDS"
 	thread assembly_arena_check_bounds
 		da assembly_arena
 		da stack_sub
@@ -2162,7 +2211,7 @@ section .rdata
 	;
 	; The disassembler assumes that every word in the arena or dictionary is immediately followed by another entry,
 	; which always starts with a pointer to the previous word.
-	declare "assembly-arena-start-block"
+	declare "ASSEMBLY-ARENA-START-BLOCK"
 	thread assembly_arena_start_block
 		da dictionary
 		da load
@@ -2170,7 +2219,7 @@ section .rdata
 		da return
 
 	; ( byte-ptr length -- )
-	declare "assemble-blob"
+	declare "ASSEMBLE-BLOB"
 	thread assemble_blob
 		da assembly_ptr
 		da over
@@ -2179,7 +2228,7 @@ section .rdata
 		da return
 
 	; ( -- )
-	declare "init-assembly_arena"
+	declare "INIT-ASSEMBLY_ARENA"
 	thread init_assembly_arena
 		da assembly_arena
 		da assembly_arena_top
@@ -2187,7 +2236,7 @@ section .rdata
 		da return
 
 	; ( -- )
-	declare "immediate"
+	declare "IMMEDIATE"
 	thread make_immediate
 		da dictionary
 		da load
@@ -2203,14 +2252,14 @@ section .rdata
 		da return
 
 	; ( -- ptr )
-	declare "assembly-arena-ptr"
+	declare "ASSEMBLY-ARENA-PTR"
 	thread assembly_ptr
 		da assembly_arena_top
 		da load
 		da return
 
 	; ( -- word? )
-	declare "find:"
+	declare "FIND:"
 	thread find_next_word
 		da accept_word
 		branch_to .cancelled
@@ -2224,7 +2273,7 @@ section .rdata
 		da return
 
 	; ( -- exit? )
-	declare "repl-accept-line-source-text"
+	declare "REPL-ACCEPT-LINE-SOURCE-TEXT"
 	thread repl_accept_line_source_text
 		da get_current_word
 		da stack_add
@@ -2262,7 +2311,7 @@ section .rdata
 	;
 	; For terminal input, ReadFile() already reports the length of the line due to the console-specific behavior around
 	; newlines, but for in-memory source files, we have to count bytes ourselves.
-	declare "set-line-size"
+	declare "SET-LINE-SIZE"
 	thread set_line_size
 		da copy
 
@@ -2288,17 +2337,17 @@ section .rdata
 		da store
 		da return
 
-	; The context stack should be bounds-checked; `execute` should report if recursion depth has been exceeded
+	; The context stack should be bounds-checked; `EXECUTE` should report if recursion depth has been exceeded
 
 	; ( -- ptr-line-size )
-	declare "line-size"
+	declare "LINE-SIZE"
 	thread source_line_size
 		da source_context
 		da load
 		da return
 
 	; ( -- ptr-preloaded-source )
-	declare "full-text"
+	declare "FULL-TEXT"
 	thread source_full_text
 		da source_context
 		da load
@@ -2307,7 +2356,7 @@ section .rdata
 		da return
 
 	; ( -- ptr-word-pair )
-	declare "current-word"
+	declare "CURRENT-WORD"
 	thread source_current_word
 		da source_context
 		da load
@@ -2317,7 +2366,7 @@ section .rdata
 		da return
 
 	; ( -- ptr-line-start )
-	declare "line-start"
+	declare "LINE-START"
 	thread source_line_start
 		da source_context
 		da load
@@ -2327,7 +2376,7 @@ section .rdata
 		da return
 
 	; ( -- )
-	declare "init-source-context-stack"
+	declare "INIT-SOURCE-CONTEXT-STACK"
 	thread init_source_context_stack
 		da source_context_stack
 		da source_context
@@ -2339,7 +2388,7 @@ section .rdata
 	;
 	; You'd be surprised at the kind of bugs that crop up if source contexts are not explicitly zeroed; a symptom of
 	; over-reliance on the zeroing behavior of BSS sections.
-	declare "source-clear"
+	declare "SOURCE-CLEAR"
 	thread source_clear
 		da zero
 		da source_line_size
@@ -2361,7 +2410,7 @@ section .rdata
 		da return
 
 	; ( -- )
-	declare "source-push"
+	declare "SOURCE-PUSH"
 	thread source_push
 		da source_context
 		da copy
@@ -2375,7 +2424,7 @@ section .rdata
 		da return
 
 	; ( -- )
-	declare "source-pop"
+	declare "SOURCE-POP"
 	thread source_pop
 		da is_initializing
 		da load
@@ -2399,7 +2448,7 @@ section .rdata
 		da return
 
 	; ( -- nested? )
-	declare "source-is-nested"
+	declare "SOURCE-IS-NESTED"
 	thread source_is_nested
 		da source_context
 		da load
@@ -2408,7 +2457,7 @@ section .rdata
 		da return
 
 	; ( bytes -- )
-	declare "assembly-arena-allocate"
+	declare "ASSEMBLY-ARENA-ALLOCATE"
 	thread assembly_arena_allocate
 		da assembly_arena_top
 		da load
@@ -2421,12 +2470,12 @@ section .rdata
 
 	; ( string length -- )
 	;
-	; A good candidate to be moved to init.si. `execute` is how we do raw interpretation of an on-disk script; the
+	; A good candidate to be moved to init.si. `EXECUTE` is how we do raw interpretation of an on-disk script; the
 	; high-level flow is that the file is opened, read into memory, null-terminated, then pushed onto the source context
-	; stack. As soon as `execute` returns to the interpreter (note that this means it will behave very strangely within
+	; stack. As soon as `EXECUTE` returns to the interpreter (note that this means it will behave very strangely within
 	; a definition), the interpreter will continue reading from the in-memory source. When it reaches EOF, it pops the
-	; source context, restoring the original one, with the rest of the line after the `execute` still intact.
-	declare "execute"
+	; source context, restoring the original one, with the rest of the line after the `EXECUTE` still intact.
+	declare "EXECUTE"
 	thread execute
 		da copy_pair
 		da stack_push
@@ -2450,7 +2499,7 @@ section .rdata
 		da return
 
 	; ( -- not-empty? )
-	declare "test-stacks"
+	declare "TEST-STACKS"
 	thread test_stacks
 		da get_data_stack
 		da data_stack_base
@@ -2476,93 +2525,93 @@ section .rdata
 	declare "2"
 	constant two, 2
 
-	declare "cell-size"
+	declare "CELL-SIZE"
 	constant cell_size, 8
 
 	declare "10"
 	constant ten, 10
 
-	declare "newline-code"
+	declare "NEWLINE-CODE"
 	constant newline_code, `\n`
 
-	declare "data-stack-base"
+	declare "DATA-STACK-BASE"
 	constant data_stack_base, address(stack_base(data_stack))
 
-	declare "return-stack-base"
+	declare "RETURN-STACK-BASE"
 	constant return_stack_base, address(stack_base(return_stack))
 
-	declare "bss-size"
+	declare "BSS-SIZE"
 	constant bss_size, end_bss - begin_bss
 
-	declare "rdata-size"
+	declare "RDATA-SIZE"
 	constant rdata_size, end_rdata - begin_rdata
 
-	declare "text-size"
+	declare "TEXT-SIZE"
 	constant text_size, end_text - begin_text
 
-	declare "ptr-invoke-thread"
+	declare "PTR-INVOKE-THREAD"
 	constant ptr_invoke_thread, address(invoke_thread)
 
 	; Begin interpreter state variables
 
-	declare "dictionary"
+	declare "DICTIONARY"
 	variable dictionary, 1
 
-	declare "assembly-arena-top"
+	declare "ASSEMBLY-ARENA-TOP"
 	variable assembly_arena_top, 1
 
-	declare "should-exit"
+	declare "SHOULD-EXIT"
 	variable should_exit, 1
 
-	declare "source-context"
+	declare "SOURCE-CONTEXT"
 	variable source_context, 1
 
-	declare "is-initializing"
+	declare "IS-INITIALIZING"
 	variable is_initializing, 1
 
 	; End interpreter state variables
 
-	declare "assembly-arena-base"
+	declare "ASSEMBLY-ARENA-BASE"
 	variable assembly_arena, assembly_arena_size / 8
 
-	declare "is-assembling"
+	declare "IS-ASSEMBLING"
 	variable is_assembling, 1
 
-	declare "current-definition"
+	declare "CURRENT-DEFINITION"
 	variable current_definition, 1
 
-	declare "stdin-handle"
+	declare "STDIN-HANDLE"
 	variable stdin_handle, 1
 
-	declare "stdout-handle"
+	declare "STDOUT-HANDLE"
 	variable stdout_handle, 1
 
-	declare "repl-buffer"
+	declare "REPL-BUFFER"
 	variable repl_buffer, (repl_buffer_size / 8) + 1 ; +1 to ensure null-termination
 
-	declare "string-a"
+	declare "STRING-A"
 	variable string_a, 2
 
-	declare "string-b"
+	declare "STRING-B"
 	variable string_b, 2
 
-	declare "parsed-number"
+	declare "PARSED-NUMBER"
 	variable parsed_number, 2
 
-	declare "source-context-stack"
+	declare "SOURCE-CONTEXT-STACK"
 	variable source_context_stack, source_context_stack_depth * source_context_cells
 
-	declare "is-terminal-piped"
+	declare "IS-TERMINAL-PIPED"
 	variable is_terminal_piped, 1
 
-	declare "log-file-handle"
+	declare "LOG-FILE-HANDLE"
 	variable log_file_handle, 1
 
 	; TODO: refactor file_handle_load_content; this is kind of hacky and indicative of its overcomplexity
-	declare "load-length"
+	declare "LOAD-LENGTH"
 	variable load_length, 1
 
-	declare "input-buffer"
+	declare "INPUT-BUFFER"
 	variable input_buffer, 2 ; buffer, length
 
 	; A short discussion on dealing with errors (the red ones): if they occur in the uppermost context, we can
@@ -2574,79 +2623,79 @@ section .rdata
 	; should probably just exit either way. Also need to have some sort of warning message for when a fault occurs
 	; during the init script, methinks.
 
-	declare "status-overfull"
+	declare "STATUS-OVERFULL"
 	string status_overfull, yellow(`Line overfull\n`) ; not a fault, dealt with in terminal subsystem
 
-	declare "status-unknown"
+	declare "STATUS-UNKNOWN"
 	string status_unknown, red(`Unknown word: `) ; soft fault
 
-	declare "status-stacks-unset"
+	declare "STATUS-STACKS-UNSET"
 	string status_stacks_unset, yellow(`Stacks were not cleared, or have underflowed\nPress enter to exit...\n`)
 
-	declare "status-word-too-long"
+	declare "STATUS-WORD-TOO-LONG"
 	string status_word_too_long, red(`Word is too long for dictionary entry\n`) ; soft fault
 
-	declare "status-file-handle-load-failure"
+	declare "STATUS-FILE-HANDLE-LOAD-FAILURE"
 	string status_file_handle_load_failure, red(`File contents could not be read into memory\n`) ; soft fault
 
-	declare "status-script-not-found"
+	declare "STATUS-SCRIPT-NOT-FOUND"
 	string status_script_not_found, red(`Script not found: `) ; soft fault
 
-	declare "status-no-word"
+	declare "STATUS-NO-WORD"
 	string status_no_word, red(`Input was cancelled before word was named\n`) ; soft fault
 
-	declare "status-abort"
+	declare "STATUS-ABORT"
 	string status_abort, yellow(`Aborted and restarted\n`)
 
-	declare "status-bad-init"
+	declare "STATUS-BAD-INIT"
 	string status_bad_init, yellow(`Fault during core lib load\nPress enter to exit...\n`)
 
-	declare "status-nested-def"
+	declare "STATUS-NESTED-DEF"
 	string status_nested_def, red(`Cannot define new words while another is still being defined\n`) ; soft fault
 
-	declare "status-non-interactive"
+	declare "STATUS-NON-INTERACTIVE"
 	string status_non_interactive, red(`Cannot accept input from non-interactive terminal\n`) ; fatal error
 
-	declare "status-log-failure"
+	declare "STATUS-LOG-FAILURE"
 	string status_log_failure, red(`Log related-failure\nPress enter to exit...`) ; fatal error
 
-	declare "status-fatal"
+	declare "STATUS-FATAL"
 	string status_fatal, red(`Hard fault during piped input\n`) ; fatal error
 
-	declare "status-underflow"
+	declare "STATUS-UNDERFLOW"
 	string status_underflow, red(`Stack underflow detected after: `) ; soft fault
 
-	declare "status-assembly-arena-bounds"
+	declare "STATUS-ASSEMBLY-ARENA-BOUNDS"
 	string status_assembly_bounds, red(`Assembly arena bounds exceeded\n`) ; hard fault
 
-	declare "newline-char"
+	declare "NEWLINE-CHAR"
 	string newline, `\n`
 
-	declare "negative"
+	declare "NEGATIVE"
 	string negative, `-`
 
-	declare "log-name"
+	declare "LOG-NAME"
 	string log_name, `log.si`
 
-	declare "seq-clear"
+	declare "SEQ-CLEAR"
 	string seq_clear, vt_clear
 
-	declare "seq-yellow"
+	declare "SEQ-YELLOW"
 	string seq_yellow, vt_yellow
 
-	declare "seq-red"
+	declare "SEQ-RED"
 	string seq_red, vt_red
 
-	declare "seq-cyan"
+	declare "SEQ-CYAN"
 	string seq_cyan, vt_cyan
 
-	declare "seq-default"
+	declare "SEQ-DEFAULT"
 	string seq_default, vt_default
 
-	declare "seq-clear-all"
+	declare "SEQ-CLEAR-ALL"
 	string seq_clear_all, vt_clear_all
 
-	declare "version-string"
+	declare "VERSION-STRING"
 	string version_banner, cyan(version_string)
 
 	%ifndef standalone
@@ -2667,7 +2716,7 @@ section .rdata
 	%endif
 
 	core_lib:
-		%include "core.inc"
+		%include "CORE.INC"
 
 	core_lib_end:
 		db 0
