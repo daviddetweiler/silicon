@@ -39,21 +39,14 @@
 
     assemble
     assemble_blob
-    assemble_branch
     assemble_byte
-    assemble_invoke_constant
-    assemble_invoke_string
-    assemble_invoke_thread
-    assemble_invoke_variable
-    assemble_jump
-    assemble_literal
     assembly_arena
     assembly_arena_allocate
     assembly_arena_check_bounds
     assembly_arena_start_block
     assembly_arena_top
     assembly_ptr
-    cell_align_assembly_arena
+    assembly_arena_realign
 
 # Initialization Sequence
 
@@ -251,6 +244,9 @@
     zero
     all_ones
     ptr_invoke_thread
+    ptr_invoke_constant
+    ptr_invoke_variable
+    ptr_invoke_string
     text_size
     rdata_size
     bss_size

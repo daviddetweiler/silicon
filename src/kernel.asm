@@ -136,6 +136,7 @@ global start
 	%assign n dictionary_head + 1
 
 	[section .rdata]
+		align 8
 		dictionary_entry(n):
 			da dictionary_entry(dictionary_head)
 			db %strlen(%1) | %2, %1, 0
@@ -903,8 +904,8 @@ section .text
 		next
 
 	; ( byte-ptr length destination -- )
-	declare "copy-blob"
-	code copy_blob
+	declare "copy-string"
+	code copy_string
 		mov rcx, [dp + 8]
 		mov rsi, [dp + 8 * 2]
 		mov rdi, [dp]
@@ -1033,8 +1034,6 @@ section .text
 		next
 
 section .rdata
-	align 8
-
 	; This is here purely to make disassembly work properly
 	declare "interpreter"
 	thread interpreter
@@ -1050,8 +1049,7 @@ section .rdata
 		da init_assembly_arena
 		da init_terminal
 		da init_logging
-
-		da load_core_library
+		da init_core_library
 
 	interpret:
 		da should_exit
@@ -1232,8 +1230,8 @@ section .rdata
 		da exit_process
 
 	; ( -- )
-	declare "load-core-library"
-	thread load_core_library
+	declare "init-core-library"
+	thread init_core_library
 		da literal
 		da core_lib
 		da source_push_buffer
@@ -2036,7 +2034,7 @@ section .rdata
 		dq 128
 		da stack_gte
 		branch_to .too_long
-		da cell_align_assembly_arena
+		da assembly_arena_realign
 		da assembly_ptr
 		da stack_push
 		da dictionary
@@ -2047,7 +2045,7 @@ section .rdata
 		da assemble_blob
 		da zero
 		da assemble_byte
-		da cell_align_assembly_arena
+		da assembly_arena_realign
 		da stack_pop
 		da return
 
@@ -2065,8 +2063,8 @@ section .rdata
 		da soft_fault
 
 	; ( -- )
-	declare "cell-align-assembly_arena"
-	thread cell_align_assembly_arena
+	declare "assembly_arena_realign"
+	thread assembly_arena_realign
 		da assembly_arena_top
 		da load
 		da cell_align
@@ -2122,12 +2120,12 @@ section .rdata
 		da return
 
 	; ( byte-ptr length -- )
-	declare "assemble-blob"
+	declare "assemble-string"
 	thread assemble_blob
 		da assembly_ptr
 		da over
 		da assembly_arena_allocate
-		da copy_blob
+		da copy_string
 		da return
 
 	; ( -- )
@@ -2626,8 +2624,6 @@ section .rdata
 
 	core_lib_end:
 		db 0
-
-	align 8
 
 section .bss
 	align 8

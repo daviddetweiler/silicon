@@ -13,6 +13,11 @@ def get_words(lines: List[List[str]], kind: str, numbers=False) -> List[str]:
     )
 
 
+def get_docs():
+    with open("./docs/words.md") as f:
+        return [line.strip() for line in f.readlines() if line.startswith("    ")]
+
+
 if __name__ == "__main__":
     if len(sys.argv) != 2:
         print("Usage: analyzer.py <source>")
@@ -51,6 +56,11 @@ if __name__ == "__main__":
     }
 
     words["all"] = sorted(sum(words.values(), []))
+    a, b = set(words["all"]), set(get_docs())
+    undocumented = a - b
+    nonexistent = b - a
+    words["undocumented"] = sorted(undocumented)
+    words["nonexistent"] = sorted(nonexistent)
 
     unnamed = sorted([word for word in words["all"] if word not in dictionary.values()])
     words["unnamed"] = unnamed

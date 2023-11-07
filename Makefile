@@ -104,7 +104,7 @@ run-term: build Makefile
 
 report: report.json Makefile
 
-report.json: $(ANALYZER) $(SRC)\kernel.asm Makefile
+report.json: $(ANALYZER) $(SRC)\kernel.asm .\docs\words.md Makefile
     python $(ANALYZER) $(SRC)\kernel.asm > report.json
 
 image-info:
