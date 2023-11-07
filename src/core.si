@@ -1,3 +1,9 @@
+create: assemble-invoke-thread dictionary store immediate
+ptr-invoke-thread copy assemble
+find: literal assemble assemble
+find: assemble assemble
+find: return assemble
+
 create: assemble: dictionary store immediate
 assemble-invoke-thread
 find: find: assemble
@@ -27,7 +33,7 @@ assemble: return
 
 define: ]
 assemble-invoke-thread
-assemble-literal -1 assemble
+assemble: literal -1 assemble
 assemble: is-assembling
 assemble: store
 assemble: return
@@ -43,7 +49,7 @@ assemble: store
 assemble: 0
 assemble: current-definition
 assemble: store
-assemble-literal
+assemble: literal
 assemble: return
 assemble: assemble
 assemble: [
@@ -58,6 +64,39 @@ assemble: current-definition
 assemble: store
 assemble: assemble-invoke-thread
 assemble: return
+
+\ --
+fn: assemble-invoke-constant
+	ptr-invoke-constant
+	assemble
+end-fn
+
+\ --
+fn: assemble-invoke-variable
+	ptr-invoke-variable
+	assemble
+end-fn
+
+\ --
+fn: assemble-invoke-string
+	ptr-invoke-string
+	assemble
+end-fn
+
+\ --
+fn: assemble-literal
+	literal literal assemble
+end-fn
+
+\ --
+fn: assemble-branch
+	literal branch assemble
+end-fn
+
+\ --
+fn: assemble-jump
+	literal jump assemble
+end-fn
 
 \ value --
 \
@@ -373,7 +412,7 @@ fn: print-bright-magenta
 	seq-bright-magenta print-colored
 end-fn
 
-16 const: page-length
+32 const: page-length
 1 var: current-depth
 
 fn: cell-1+ ( cell-ptr -- ) copy load 1+ swap store end-fn

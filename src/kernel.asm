@@ -1112,7 +1112,9 @@ section .rdata
 		da load
 		da stack_not
 		branch_to interpret
-		da assemble_literal
+		da literal
+		da literal
+		da assemble
 		da assemble
 		jump_to interpret
 
@@ -1807,62 +1809,6 @@ section .rdata
 		da store
 		da return
 
-	; ( -- )
-	declare "assemble-literal"
-	thread assemble_literal
-		da literal
-		da literal
-		da assemble
-		da return
-
-	; ( -- )
-	declare "assemble-invoke-thread"
-	thread assemble_invoke_thread
-		da literal
-		da invoke_thread
-		da assemble
-		da return
-
-	; ( -- )
-	declare "assemble-invoke-constant"
-	thread assemble_invoke_constant
-		da literal
-		da invoke_constant
-		da assemble
-		da return
-
-	; ( -- )
-	declare "assemble-branch"
-	thread assemble_branch
-		da literal
-		da branch
-		da assemble
-		da return
-
-	; ( -- )
-	declare "assemble-jump"
-	thread assemble_jump
-		da literal
-		da jump
-		da assemble
-		da return
-
-	; ( -- )
-	declare "assemble-invoke-string"
-	thread assemble_invoke_string
-		da literal
-		da invoke_string
-		da assemble
-		da return
-
-	; ( -- )
-	declare "assemble-invoke-variable"
-	thread assemble_invoke_variable
-		da literal
-		da invoke_variable
-		da assemble
-		da return
-
 	; ( string length -- immediate? word? )
 	declare "find"
 	thread find
@@ -2508,6 +2454,15 @@ section .rdata
 
 	declare "ptr-invoke-thread"
 	constant ptr_invoke_thread, address(invoke_thread)
+
+	declare "ptr-invoke-constant"
+	constant ptr_invoke_constant, address(invoke_constant)
+
+	declare "ptr-invoke-variable"
+	constant ptr_invoke_variable, address(invoke_variable)
+
+	declare "ptr-invoke-string"
+	constant ptr_invoke_string, address(invoke_string)
 
 	; Begin interpreter state variables
 
