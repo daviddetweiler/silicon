@@ -253,6 +253,9 @@ section .text
 		next
 
 	; ( -- pfa )
+	;
+	; A high-level word will have this as its code field, immediately followed by a pointer to a thread, and _then_ the
+	; "actual" parameter field.
 	invoke_high_level:
 		lea rax, [wp + 16]
 		sub dp, 8
@@ -1154,6 +1157,7 @@ section .rdata
 		da load
 		da swap
 		da print_line
+		da new_line
 		da clear_data_stack
 		da clear_return_stack
 		da soft_fault
@@ -2399,6 +2403,7 @@ section .rdata
 		da stack_pop
 		da stack_pop
 		da print_line
+		da new_line
 		da drop
 		da soft_fault
 
@@ -2547,7 +2552,7 @@ section .rdata
 	string status_unknown, red(`Unknown word: `) ; soft fault
 
 	declare "status-stacks-unset"
-	string status_stacks_unset, yellow(`Stacks were not cleared, or have underflowed\nPress enter to exit...\n`)
+	string status_stacks_unset, yellow(`Stacks were not cleared, or have underflowed\nPress enter to exit...`)
 
 	declare "status-word-too-long"
 	string status_word_too_long, red(`Word is too long for dictionary entry\n`) ; soft fault
@@ -2565,7 +2570,7 @@ section .rdata
 	string status_abort, yellow(`Aborted and restarted\n`)
 
 	declare "status-bad-init"
-	string status_bad_init, yellow(`Fault during core lib load\nPress enter to exit...\n`)
+	string status_bad_init, yellow(`Fault during core lib load\nPress enter to exit...`)
 
 	declare "status-nested-def"
 	string status_nested_def, red(`Cannot define new words while another is still being defined\n`) ; soft fault

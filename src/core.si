@@ -71,21 +71,17 @@ end-fn
 
 fn: patch-high-level
 	\ reference-ptr --
-	cell-size 3 * +				\ This now points to the high-level thread
 	dictionary load
 	entry-data-ptr cell-size +
 	store
 end-fn
 
-\ How to define `does>`? It should append a machine code stub to the creating word, after appending a `return`.
-\ This stub behaves like a thread call, but always use the thread immediately after itself, while also pushing the
-\ address of the defined word (from `wp`). The normal end-fn provides the final `return`.
 fn: does>
 	\ --
-	literal literal assemble
-	assembly-arena-ptr assemble
-	literal patch-high-level assemble
-	literal return assemble
+	literal literal						assemble
+	assembly-arena-ptr cell-size 3 * +	assemble \ Will point to just after the return below, where we keep the thread
+	literal patch-high-level			assemble
+	literal return						assemble
 end-fn immediate
 
 fn: macro:
@@ -569,7 +565,7 @@ fn: lexicon
 		clear-all
 		page-msg print current-screen load print-u# nl
 		print-dict
-		continue-msg print-yellow await-input
+		continue-msg print-yellow nl await-input
 		current-screen cell-1+
 	end-while
 

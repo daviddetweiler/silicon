@@ -58,7 +58,7 @@
     init_logging
     init_source_context_stack
     init_terminal
-    load_core_library
+    init_core_library
 
 # Stack Manipulation
 
@@ -111,7 +111,7 @@
     make_immediate
     find
     find_next_word
-    create
+    header
 
 # VT Sequences
 
@@ -196,7 +196,7 @@
 # Uncategorized
 
     string_eq
-    copy_blob
+    copy_string
     cell_align
     clear_data_stack
     get_data_stack
@@ -247,6 +247,7 @@
     ptr_invoke_constant
     ptr_invoke_variable
     ptr_invoke_string
+    ptr_invoke_high_level
     text_size
     rdata_size
     bss_size
