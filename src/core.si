@@ -1,37 +1,37 @@
-create: [ dictionary store immediate
+header: [ dictionary store immediate
 ptr-invoke-thread 	assemble
 find: 0				assemble
 find: is-assembling assemble
 find: store			assemble
 find: return		assemble
 
-create: ] dictionary store
+header: ] dictionary store
 ptr-invoke-thread assemble
 -1 is-assembling store
 	-1 is-assembling store
 	return
 [
 
-create: assemble-invoke-thread dictionary store
+header: assemble-invoke-thread dictionary store
 ptr-invoke-thread assemble
 ]
 	ptr-invoke-thread assemble
 	return
 [
 
-create: assemble: dictionary store immediate
+header: assemble: dictionary store immediate
 assemble-invoke-thread
 ] find: assemble return [
 
-create: \ dictionary store immediate
+header: \ dictionary store immediate
 assemble-invoke-thread
 ] flush-line return [
 
 \ `define:` acts to create a new word at the tip of the dictionary, with subsequent `assemble` instructions
 \ appending to its definition
-create: define: dictionary store
+header: define: dictionary store
 assemble-invoke-thread
-] create: dictionary store return [
+] header: dictionary store return [
 
 \ `end-fn` terminates the current definition with a `return`, and disables assembly mode in the interpreter
 define: end-fn immediate
@@ -56,40 +56,51 @@ define: fn:
 assemble-invoke-thread
 ]
 	]
-	create: current-definition store
+	header: current-definition store
 	assemble-invoke-thread
 	return
 [
 
-\ --
-fn: assemble-invoke-constant
-	ptr-invoke-constant assemble
+fn: high-level:
+	\ --
+
+	define:
+	ptr-invoke-high-level assemble
+	0 assemble
 end-fn
 
-\ --
-fn: assemble-invoke-variable
-	ptr-invoke-variable assemble
+fn: patch-high-level
+	\ reference-ptr --
+	cell-size 3 * +				\ This now points to the high-level thread
+	dictionary load
+	entry-data-ptr cell-size +
+	store
 end-fn
 
-\ --
-fn: assemble-invoke-string
-	ptr-invoke-string assemble
-end-fn
-
-\ --
-fn: assemble-literal
+\ How to define `does>`? It should append a machine code stub to the creating word, after appending a `return`.
+\ This stub behaves like a thread call, but always use the thread immediately after itself, while also pushing the
+\ address of the defined word (from `wp`). The normal end-fn provides the final `return`.
+fn: does>
+	\ --
 	literal literal assemble
+	assembly-arena-ptr assemble
+	literal patch-high-level assemble
+	literal return assemble
+end-fn immediate
+
+fn: macro:
+	\ value --
+	high-level:
+	assemble
+	does> load assemble
 end-fn
 
-\ --
-fn: assemble-branch
-	literal branch assemble
-end-fn
-
-\ --
-fn: assemble-jump
-	literal jump assemble
-end-fn
+ptr-invoke-constant	macro: assemble-invoke-constant
+ptr-invoke-variable	macro: assemble-invoke-variable
+ptr-invoke-string	macro: assemble-invoke-string
+find: literal		macro: assemble-literal
+find: branch		macro: assemble-branch
+find: jump			macro: assemble-jump
 
 \ value --
 \
@@ -523,9 +534,9 @@ fn: clear-all ( -- ) seq-clear-all print end-fn
 fn: checkpoint:
 	( -- )
 
-	fn:
-	current-definition load assemble-literal assemble
-	assemble: end-fn
+	high-level:
+	dictionary load assemble
+	does> load
 end-fn
 
 s" Press enter to continue..."			string: continue-msg

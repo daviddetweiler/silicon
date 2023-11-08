@@ -252,6 +252,16 @@ section .text
 		add rp, 8
 		next
 
+	; ( -- pfa )
+	invoke_high_level:
+		lea rax, [wp + 16]
+		sub dp, 8
+		mov [dp], rax
+		sub rp, 8
+		mov [rp], tp
+		mov tp, [wp + 8]
+		next
+
 	; ( code -- )
 	declare "exit-process"
 	code exit_process
@@ -826,7 +836,7 @@ section .text
 		next
 
 	; ( c-string -- handle )
-	declare "create-file"
+	declare "header-file"
 	code create_file
 		mov rcx, [dp]
 		mov rdx, 0x40000000 ; GENERIC_WRITE
@@ -2015,8 +2025,8 @@ section .rdata
 		da return
 
 	; ( -- word? )
-	declare "create:"
-	thread create
+	declare "header:"
+	thread header
 		da current_definition
 		da load
 		da stack_eq0
@@ -2461,6 +2471,9 @@ section .rdata
 
 	declare "ptr-invoke-string"
 	constant ptr_invoke_string, address(invoke_string)
+
+	declare "ptr-invoke-high-level"
+	constant ptr_invoke_high_level, address(invoke_high_level)
 
 	; Begin interpreter state variables
 
