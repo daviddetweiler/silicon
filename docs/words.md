@@ -183,6 +183,7 @@
     status_underflow
     status_unknown
     status_word_too_long
+    status_bad_execute
 
 # Control Flow
 

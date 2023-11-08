@@ -2077,7 +2077,7 @@ section .rdata
 		da soft_fault
 
 	; ( -- )
-	declare "assembly_arena_realign"
+	declare "assembly-arena-realign"
 	thread assembly_arena_realign
 		da assembly_arena_top
 		da load
@@ -2392,6 +2392,15 @@ section .rdata
 	; source context, restoring the original one, with the rest of the line after the `execute` still intact.
 	declare "execute"
 	thread execute
+		da is_initializing
+		da load
+		da stack_not
+		branch_to .ok
+		da status_bad_execute
+		da print_line
+		da hard_fault
+
+		.ok:
 		da copy_pair
 		da stack_push
 		da stack_push
@@ -2586,6 +2595,9 @@ section .rdata
 
 	declare "status-assembly-arena-bounds"
 	string status_assembly_bounds, red(`Assembly arena bounds exceeded\n`) ; hard fault
+
+	declare "status-bad-execute"
+	string status_bad_execute, red(`Cannot execute scripts while initializing\n`) ; hard fault
 
 	declare "newline-char"
 	string newline, `\n`

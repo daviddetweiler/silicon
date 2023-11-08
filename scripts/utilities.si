@@ -1,0 +1,161 @@
+2 var: dummy-buffer \ one extra byte is needed for null-termination
+
+fn: await-input
+	( -- )
+
+	dummy-buffer
+	cell-size
+	input-buffer
+	store-pair
+
+	true
+	while do
+		read-line dummy-buffer + 1+ load-byte newline-code ~=
+	end-while
+end-fn
+
+fn: print-colored:
+	high-level:
+	swap assemble assemble
+	does> load-pair print print seq-default print
+end-fn
+
+seq-yellow			print-colored: print-yellow
+seq-red				print-colored: print-red
+seq-cyan			print-colored: print-cyan
+seq-bright-magenta	print-colored: print-bright-magenta
+
+s"  bytes of code"					string: code-size-msg
+s"  bytes of data"					string: data-size-msg
+s"  bytes of reserved space"		string: reserved-size-msg
+s"  bytes of assembly arena in use"	string: assembly-arena-usage-msg
+s" 	"								string: tab				\ I know it looks weird, but there *is* a tab character here
+
+fn: tabstop ( -- ) tab print end-fn
+
+fn: assembly-arena-usage
+	( -- n )
+
+	assembly-arena-ptr assembly-arena-base -
+end-fn
+
+1							var: count
+s"  words in dictionary"	string: words-msg
+
+fn: count-words
+	( dict-ptr -- )
+
+	0 count store
+	while
+		copy 0~=
+	do
+		count load 1+ count store
+		load
+	end-while
+
+	drop
+	count load
+end-fn
+
+fn: length-in-cells
+	( start-ptr end-ptr -- length )
+	- cell-size /
+end-fn
+
+s" cells of data stack in use"		string: ds-message
+s" cells of return stack in use"	string: rs-message
+
+fn: usage-msg
+	( message start end -- )
+	length-in-cells print-u# tabstop print-line
+end-fn
+
+fn: stack-usage
+	( -- )
+	ds-message data-stack-base get-data-stack cell-size 3 * + usage-msg
+	rs-message return-stack-base get-return-stack cell-size + usage-msg
+end-fn
+
+1 var: stack-depth
+
+fn: contents \ As in the data stack's contents, listed top down
+	( -- )
+	while
+		get-data-stack data-stack-base ~=
+	do
+		stack-depth load print-u# tabstop
+		copy push
+		hex print-u# nl
+		stack-depth cell-1+
+	end-while
+
+	stack-depth copy load 0- swap store
+	while
+		stack-depth load 0~=
+	do
+		pop stack-depth cell-1+
+	end-while
+end-fn
+
+fn: info
+	( -- )
+
+	version nl
+	tabstop text-size print-u#						tabstop code-size-msg print-line
+	tabstop rdata-size print-u#						tabstop data-size-msg print-line
+	tabstop bss-size print-u#						tabstop reserved-size-msg print-line
+	tabstop assembly-arena-usage print-u#			tabstop assembly-arena-usage-msg print-line
+	tabstop dictionary load count-words print-u#	tabstop words-msg print-line
+	nl
+end-fn
+
+fn: clear ( -- ) seq-clear print end-fn
+fn: clear-all ( -- ) seq-clear-all print end-fn
+
+32	const: page-length
+1	var: current-depth
+
+fn: print-dict
+	( dict-ptr -- next-ptr? )
+
+	0 current-depth store nl
+
+	while
+		copy 0~=
+		current-depth load page-length <=
+		&
+	do
+		current-depth cell-1+
+
+		copy
+		copy push entry-name pop entry-immediate?
+		predicated immediate-tag empty-tag
+		print print-cyan nl
+
+		load
+	end-while
+
+	nl
+end-fn
+
+s" Press enter to continue..."			string: continue-msg
+s" No more words, returning to REPL"	string: no-more-words-msg
+s" Page #"								string: page-msg
+
+1 var: current-screen
+
+fn: lexicon
+	0 current-screen store
+	dictionary load
+	while
+		copy 0~=
+	do
+		clear-all
+		page-msg print current-screen load print-u# nl
+		print-dict
+		continue-msg print-yellow nl await-input
+		current-screen cell-1+
+	end-while
+
+	drop clear-all no-more-words-msg print-yellow nl nl
+end-fn
