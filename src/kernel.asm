@@ -8,15 +8,6 @@ global start
 %define dp r13
 %define rp r12
 
-; I fear that I have missed the point of Forth and relatives by making this implementation so complex. Though the
-; full-featuredness is nice, I wonder if it's not possible to achieve the metacompilation ideal in a simpler fashion.
-; Perhaps on bare UEFI? The next attempt should try and escape the assembler as quickly as possible. Also CREATE-DOES>
-; would be nice to try out.
-
-; While a per-word stack usage may be quite small (perhaps 8 cells at most?) the call stack can be much, much deeper, so
-; the data stack must be of a similar size to the return stack. It may be easiest to only ever check for underflow,
-; since overflows are unlikely to be recoverable anyways (though I did have a thought about a "circular stack" being
-; used to mitigate it without as onerous a runtime cost).
 %define stack_depth 1024
 %define stack_base(stack) (stack + stack_depth * 8)
 
