@@ -810,7 +810,7 @@ section .text
 		add dp, 8
 		next
 
-	; ( c-string -- handle )
+	; ( c-string -- handle? )
 	declare "open-file"
 	code open_file
 		mov rcx, [dp]
@@ -1259,7 +1259,7 @@ section .rdata
 		.found:
 		da copy
 		da stack_push
-		da file_handle_load_content
+		da read_whole_file
 		da stack_pop
 		da close_handle
 		da return
@@ -1285,9 +1285,9 @@ section .rdata
 		da set_line_size
 		da return
 
-	; ( handle -- source? length? )
-	declare "file-handle-load-content"
-	thread file_handle_load_content
+	; ( handle -- source length )
+	declare "read-whole-file"
+	thread read_whole_file
 		da copy
 		da stack_push
 		da file_size
@@ -2374,46 +2374,6 @@ section .rdata
 		da store
 		da return
 
-	; ( string length -- )
-	;
-	; A good candidate to be moved to init.si. `execute` is how we do raw interpretation of an on-disk script; the
-	; high-level flow is that the file is opened, read into memory, null-terminated, then pushed onto the source context
-	; stack. As soon as `execute` returns to the interpreter (note that this means it will behave very strangely within
-	; a definition), the interpreter will continue reading from the in-memory source. When it reaches EOF, it pops the
-	; source context, restoring the original one, with the rest of the line after the `execute` still intact.
-	declare "execute"
-	thread execute
-		da is_initializing
-		da load
-		da stack_not
-		branch_to .ok
-		da status_bad_execute
-		da print_line
-		da hard_fault
-
-		.ok:
-		da copy_pair
-		da stack_push
-		da stack_push
-		da drop
-		da load_file
-		branch_to .found
-		da status_script_not_found
-		da print
-		da stack_pop
-		da stack_pop
-		da print_line
-		da new_line
-		da drop
-		da soft_fault
-
-		.found:
-		da stack_pop
-		da stack_pop
-		da drop_pair
-		da source_push_buffer
-		da return
-
 	; ( -- not-empty? )
 	declare "test-stacks"
 	thread test_stacks
@@ -2529,7 +2489,7 @@ section .rdata
 	declare "log-file-handle"
 	variable log_file_handle, 1
 
-	; TODO: refactor file_handle_load_content; this is kind of hacky and indicative of its overcomplexity
+	; TODO: refactor read_whole_file; this is kind of hacky and indicative of its overcomplexity
 	declare "load-length"
 	variable load_length, 1
 
