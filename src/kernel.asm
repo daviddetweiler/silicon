@@ -168,7 +168,8 @@ global start
 	%define id_VirtualFree 8
 	%define id_GetConsoleMode 9
 	%define id_WaitForSingleObject 10
-	%define n_imports 11
+	%define id_GetLastError 11
+	%define n_imports 12
 
 	%define id(name) id_ %+ name
 	%macro get_import 1
@@ -194,6 +195,7 @@ global start
 	extern VirtualFree
 	extern GetConsoleMode
 	extern WaitForSingleObject
+	extern GetLastError
 %endif
 
 %macro call_import 1
@@ -787,10 +789,14 @@ section .text
 		mov rcx, 4294967295 ; INVALID_SET_FILE_POINTER
 		cmp rax, rcx
 		jne .success
+		call_import GetLastError
+		test rax, rax
+		jnz .failure
 		call_import SetFilePointer
 		test rax, rax
 		jnz .success
 
+		.failure:
 		add dp, 8 * 2
 		mov qword [dp], -1
 		next
@@ -986,6 +992,7 @@ section .text
 			get_import VirtualFree
 			get_import GetConsoleMode
 			get_import WaitForSingleObject
+			get_import GetLastError
 		%endif
 		next
 
@@ -2598,6 +2605,7 @@ section .rdata
 		name VirtualFree
 		name GetConsoleMode
 		name WaitForSingleObject
+		name GetLastError
 	%endif
 
 	core_lib:
