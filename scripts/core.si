@@ -289,40 +289,6 @@ fn: s"
 	end-if
 end-fn
 
-fn: execute-handle
-	( handle -- )
-	
-	is-initializing load
-	if
-		status-bad-execute print-line
-		hard-fault
-	end-if
-
-	read-whole-file drop source-push-buffer
-end-fn
-
-\ `execute` is how we do raw interpretation of an on-disk script; the
-\ high-level flow is that the file is opened, read into memory, null-terminated, then pushed onto the source context
-\ stack. As soon as `execute` returns to the interpreter (note that this means it will behave very strangely within
-\ a definition), the interpreter will continue reading from the in-memory source. When it reaches EOF, it pops the
-\ source context, restoring the original one, with the rest of the line after the `execute` still intact.
-fn: execute
-	( string length )
-	
-	copy-pair push push
-	drop open-file copy 0=
-	if
-		status-script-not-found print
-		pop pop print-line nl
-		drop soft-fault
-	end-if
-
-	pop pop drop-pair
-	copy push
-	execute-handle
-	pop close-handle
-end-fn
-
 fn: execute" ( -- ) s" execute end-fn
 fn: version ( -- ) version-string print-line end-fn
 

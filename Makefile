@@ -17,20 +17,20 @@ version: $(VERSION) Makefile
     pwsh -c "git describe --dirty --tags > $(OUT)\actual.version"
     python $(VERSION) $(OUT)\actual.version $(OUT)\expected.version
 
-$(OUT)\kernel.bin: $(SRC)\kernel.asm $(OUT)\core.inc $(OUT)\expected.version Makefile
+$(OUT)\kernel.bin: $(SRC)\kernel.asm $(OUT)\expected.version Makefile
     pwsh -c "nasm \
         -I $(OUT) \
         -fbin $(SRC)\kernel.asm \
         -Dgit_version=""$$(git describe --dirty --tags)"" \
         -o $(OUT)\kernel.bin"
 
-$(OUT)\kernel.obj: $(SRC)\kernel.asm $(OUT)\core.inc $(OUT)\expected.version Makefile
+$(OUT)\kernel.obj: $(SRC)\kernel.asm $(OUT)\expected.version Makefile
     echo "" > $(OUT)\kernel.obj
     pwsh -c "nasm \
         -I $(OUT) \
         -fwin64 \
         $$(Resolve-Path $(SRC)\kernel.asm) \
-        -Dgit_version=""$$(git describe --dirty --tags)"" \
+        -Dgit_version=""$$(cat $(OUT)\actual.version)"" \
         -Dstandalone \
         -o $$(Resolve-Path $(OUT)\kernel.obj)"
 
@@ -40,10 +40,7 @@ $(OUT)\kernel.bin.bw: $(OUT)\kernel.bin $(BW) Makefile
 $(OUT)\compressed.inc: $(OUT)\kernel.bin.bw $(INC) Makefile
     python $(INC) $(OUT)\kernel.bin.bw $(OUT)\compressed.inc
 
-$(OUT)\core.inc: $(SRC)\core.si $(INC) Makefile
-    python $(INC) $(SRC)\core.si $(OUT)\core.inc
-
-$(OUT)\loader.bin: $(OUT)\compressed.inc $(SRC)\loader.asm $(OUT)\core.inc Makefile
+$(OUT)\loader.bin: $(OUT)\compressed.inc $(SRC)\loader.asm Makefile
     nasm -I $(OUT) -fbin $(SRC)\loader.asm -o $(OUT)\loader.bin
 
 $(OUT)\loader.bin.xsh32 $(OUT)\seed.inc: $(OUT)\loader.bin $(XSH32) Makefile
@@ -97,10 +94,10 @@ $(OUT)\silicon.zip: Makefile
     pwsh -c "cd $(OUT); Compress-Archive -Force -Path silicon.exe,README.txt,..\scripts\ -DestinationPath silicon.zip"
 
 run: build Makefile
-    $(OUT)\silicon.exe
+    cd .\scripts\ && ..\$(OUT)\silicon.exe
 
 run-term: build Makefile
-    pwsh -c "wt -F $$(Resolve-Path $(OUT)\silicon.exe)"
+    cd .\scripts\ && pwsh -c "wt -F $$(Resolve-Path ..\$(OUT)\silicon.exe)"
 
 report: report.json Makefile
 

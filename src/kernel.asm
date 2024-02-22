@@ -1244,13 +1244,62 @@ section .rdata
 	; ( -- )
 	declare "init-core-library"
 	thread init_core_library
-		da literal
 		da core_lib
-		da source_push_buffer
-		da all_ones
-		da is_initializing
-		da store
+		da execute
 		da return
+
+	; ( handle -- )
+	declare "execute-handle"
+	thread execute_handle
+		da is_initializing
+		da load
+		branch_to .bad
+		da read_whole_file
+		da drop
+		da source_push_buffer
+		da return
+
+		.bad:
+		da status_bad_execute
+		da print_line
+		da hard_fault
+
+	; ( str len --)
+	;
+	; `execute` is how we do raw interpretation of an on-disk script; the
+	; high-level flow is that the file is opened, read into memory, null-terminated, then pushed onto the source context
+	; stack. As soon as `execute` returns to the interpreter (note that this means it will behave very strangely within
+	; a definition), the interpreter will continue reading from the in-memory source. When it reaches EOF, it pops the
+	; source context, restoring the original one, with the rest of the line after the `execute` still intact.
+	declare "execute"
+	thread execute
+		da copy_pair
+		da stack_push
+		da stack_push
+		da drop
+		da open_file
+		da copy
+		da stack_eq0
+		branch_to .bad
+		da stack_pop
+		da stack_pop
+		da drop_pair
+		da copy
+		da stack_push
+		da execute_handle
+		da stack_pop
+		da close_handle
+		da return
+
+		.bad:
+		da status_script_not_found
+		da print
+		da stack_pop
+		da stack_pop
+		da print_line
+		da new_line
+		da drop
+		da soft_fault
 
 	; ( path -- buffer? length? )
 	declare "load-file"
@@ -2590,6 +2639,9 @@ section .rdata
 	declare "version-string"
 	string version_banner, cyan(version_string)
 
+	declare "core-lib"
+	string core_lib, `core.si`
+
 	%ifndef standalone
 		kernel32:
 			db `kernel32.dll\0`
@@ -2607,12 +2659,6 @@ section .rdata
 		name WaitForSingleObject
 		name GetLastError
 	%endif
-
-	core_lib:
-		%include "core.inc"
-
-	core_lib_end:
-		db 0
 
 section .bss
 	align 8
