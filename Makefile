@@ -43,7 +43,7 @@ $(OUT)\compressed.inc: $(OUT)\kernel.bin.bw $(INC) Makefile
 $(OUT)\core.inc: $(SRC)\core.si $(INC) Makefile
     python $(INC) $(SRC)\core.si $(OUT)\core.inc
 
-$(OUT)\loader.bin: $(OUT)\compressed.inc $(SRC)\loader.asm $(OUT)\core.inc Makefile
+$(OUT)\loader.bin: $(OUT)\compressed.inc $(SRC)\loader.asm Makefile
     nasm -I $(OUT) -fbin $(SRC)\loader.asm -o $(OUT)\loader.bin
 
 $(OUT)\loader.bin.xsh32 $(OUT)\seed.inc: $(OUT)\loader.bin $(XSH32) Makefile
