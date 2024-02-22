@@ -3,6 +3,10 @@ bits 64
 
 global start
 
+extern VirtualAlloc
+extern GetModuleHandleA
+extern GetProcAddress
+
 %define image_base 0x2000000000
 
 %define model256_size (8 + 256 * 8)
@@ -24,8 +28,7 @@ global start
 
 section .text
     start:
-        sub rsp, 8
-        mov [stash], rcx
+        sub rsp, 8 + 8 * 16
 
     init_models:
         xor rcx, rcx
@@ -157,15 +160,16 @@ section .text
 
     load:
         mov rax, image_base + 8
-        add rsp, 8
-        ret
+        lea rcx, GetModuleHandleA
+        lea rdx, GetProcAddress
+        jmp rax
 
     allocate:
         sub rsp, 8 + 8 * 4
 
         mov r8, 0x1000 | 0x2000 ; MEM_COMMIT | MEM_RESERVE
         mov r9, 0x40 ; PAGE_EXECUTE_READWRITE
-        call [stash]
+        call VirtualAlloc
 
         add rsp, 8 + 8 * 4
         ret
@@ -304,9 +308,6 @@ section .text
         ret
 
     bitstream:
-        %include "compressed.inc"
+        %include "kernel.bin.bw.inc"
 
     db `\0\0\0\0\0\0\0\0` ; You do not want garbage data entering the bitstream near the end
-
-    stash:
-        dq 0

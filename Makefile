@@ -3,7 +3,6 @@ AC=.\tools\ac.py
 INC=.\tools\inc.py
 VERSION=.\tools\version.py
 ANALYZER=.\tools\analyzer.py
-XSH32=.\tools\xsh32.py
 OUT=.\out
 SRC=.\src
 
@@ -25,7 +24,6 @@ $(OUT)\kernel.bin: $(SRC)\kernel.asm $(OUT)\core.inc $(OUT)\expected.version Mak
         -o $(OUT)\kernel.bin"
 
 $(OUT)\kernel.obj: $(SRC)\kernel.asm $(OUT)\core.inc $(OUT)\expected.version Makefile
-    echo "" > $(OUT)\kernel.obj
     pwsh -c "nasm \
         -I $(OUT) \
         -fwin64 \
@@ -37,28 +35,19 @@ $(OUT)\kernel.obj: $(SRC)\kernel.asm $(OUT)\core.inc $(OUT)\expected.version Mak
 $(OUT)\kernel.bin.bw: $(OUT)\kernel.bin $(BW) Makefile
     python $(BW) pack $(OUT)\kernel.bin $(OUT)\kernel.bin.bw
 
-$(OUT)\compressed.inc: $(OUT)\kernel.bin.bw $(INC) Makefile
-    python $(INC) $(OUT)\kernel.bin.bw $(OUT)\compressed.inc
+$(OUT)\kernel.bin.bw.inc: $(OUT)\kernel.bin.bw $(INC) Makefile
+    python $(INC) $(OUT)\kernel.bin.bw $(OUT)\kernel.bin.bw.inc
 
 $(OUT)\core.inc: $(SRC)\core.si $(INC) Makefile
     python $(INC) $(SRC)\core.si $(OUT)\core.inc
 
-$(OUT)\loader.bin: $(OUT)\compressed.inc $(SRC)\loader.asm Makefile
-    nasm -I $(OUT) -fbin $(SRC)\loader.asm -o $(OUT)\loader.bin
-
-$(OUT)\loader.bin.xsh32 $(OUT)\seed.inc: $(OUT)\loader.bin $(XSH32) Makefile
-    python $(XSH32) $(OUT)\loader.bin $(OUT)\loader.bin.xsh32 $(OUT)\seed.inc
-
-$(OUT)\decryptor.obj: $(SRC)\decryptor.asm $(OUT)\xsh32.inc $(OUT)\seed.inc Makefile
-    nasm -I $(OUT) -fwin64 $(SRC)\decryptor.asm -o $(OUT)\decryptor.obj
-
-$(OUT)\xsh32.inc: $(OUT)\loader.bin.xsh32 $(INC) Makefile
-    python $(INC) $(OUT)\loader.bin.xsh32 $(OUT)\xsh32.inc
+$(OUT)\loader.obj: $(OUT)\kernel.bin.bw.inc $(SRC)\loader.asm Makefile
+    nasm -I $(OUT) -fwin64 $(SRC)\loader.asm -o $(OUT)\loader.obj
 
 $(BW): $(AC) Makefile
 
-$(OUT)\silicon.exe: $(OUT)\decryptor.obj Makefile
-    link $(OUT)\decryptor.obj kernel32.lib \
+$(OUT)\silicon.exe: $(OUT)\loader.obj Makefile
+    link $(OUT)\loader.obj kernel32.lib \
         /out:$(OUT)\silicon.exe \
         /subsystem:console \
         /entry:start \
@@ -85,7 +74,7 @@ $(OUT)\silicon-uncompressed.exe: $(OUT)\kernel.obj Makefile
 
 clean: Makefile
     del report.json *.log log.si
-    cd .\out\ && del *.obj *.exe *.pdb *.ilk *.zip *.bin *.log *.inc README.txt *.bw *.version *.xsh32
+    cd .\out\ && del *.obj *.exe *.pdb *.ilk *.zip *.bin *.log *.inc README.txt *.bw *.version
 
 zip: build $(OUT)\silicon.zip Makefile
 
