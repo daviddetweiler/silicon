@@ -836,7 +836,7 @@ section .text
 		next
 
 	; ( c-string -- handle )
-	declare "header-file"
+	declare "create-file"
 	code create_file
 		mov rcx, [dp]
 		mov rdx, 0x40000000 ; GENERIC_WRITE

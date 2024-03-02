@@ -159,3 +159,67 @@ fn: lexicon
 
 	drop clear-all no-more-words-msg print-yellow nl nl
 end-fn
+
+s" Dump file could not be created"	string: msg-no-dump
+s" Write to file failed"			string: msg-bad-write
+s" Done"							string: msg-done
+
+1 var: names
+1 var: index
+
+fn: names[]
+	( n -- ptr )
+
+	16 * names load +
+end-fn
+
+fn: dump-dict
+	( filename len -- )
+
+	drop create-file
+	copy 0=
+	if
+		drop
+		msg-no-dump print-red
+		soft-fault
+	end-if
+
+	push
+
+	dictionary load
+	assembly-arena-ptr names store
+	0 index store
+	copy count-words 16 * assembly-arena-allocate	\ FIXME: this memory gets leaked lmao, we have no rollback call
+
+	while
+		copy 0~=
+	do
+		copy entry-name
+		index load copy 1+ index store
+		names[] store-pair
+		load
+	end-while
+
+	drop
+
+	while
+		index load 0~=
+	do
+		index load 1 - copy index store
+		names[] load-pair
+		peek write-file ~
+		if
+			pop close-handle
+			msg-bad-write print-red soft-fault
+		end-if
+
+		newline-char peek write-file ~
+		if
+			pop close-handle
+			msg-bad-write print-red soft-fault
+		end-if
+	end-while
+
+	pop close-handle
+	msg-done print-cyan nl
+end-fn
