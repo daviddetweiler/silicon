@@ -36,3 +36,13 @@ Functionally, the beating heart of `Silicon` is this miniscule code fragment, re
     mov wp, [tp]
     add tp, 8
     jmp [wp]
+
+## Essential Core?
+
+Regardless of how much a Forth-like language is modified to support more advanced features, the core of the language
+consists of a concatenative mode of execution, with an implicit, global parameter stack, and a compiled representation
+that can be modified as it is built. While more advanced Forth-likes can have namespacing, different dictionary search
+orders, type-checking, infix notation, optimized machine code compilation, etc., the core execution and compilation mode
+remains the same.
+
+Put more succinctly, the essential characteristic is that of being a homoiconic, concatenative language.
