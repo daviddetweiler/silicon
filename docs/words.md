@@ -224,6 +224,7 @@
     load_file
     load_length
     file_size
+    read_whole_file
 
 # Fault Handling
 
