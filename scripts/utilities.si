@@ -224,4 +224,36 @@ fn: dump-dict
 	msg-done print-cyan nl
 end-fn
 
+s" Assertion failed" string: msg-assert
+
+fn: assert
+	( flag -- )
+	0=
+	if
+		msg-assert print-red nl
+		soft-fault
+	end-if
+end-fn
+
+1 var: clock-f
+query-perf-freq assert clock-f store
+
+fn: now
+	( -- n )
+	query-perf-ctr assert
+end-fn
+
+1000 1000 * const: million
+
+fn: us
+	( start end -- us )
+	swap -
+	clock-f load million /
+	/
+end-fn
+
+s"  us" string: us-unit
+fn: t{ now end-fn
+fn: }t now us print-u# us-unit print-line end-fn
+
 checkpoint: utility-dict

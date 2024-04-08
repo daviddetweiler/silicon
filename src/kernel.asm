@@ -169,7 +169,9 @@ global start
 	%define id_GetConsoleMode 9
 	%define id_WaitForSingleObject 10
 	%define id_GetLastError 11
-	%define n_imports 12
+	%define id_QueryPerformanceCounter 12
+	%define id_QueryPerformanceFrequency 13
+	%define n_imports 14
 
 	%define id(name) id_ %+ name
 	%macro get_import 1
@@ -196,6 +198,8 @@ global start
 	extern GetConsoleMode
 	extern WaitForSingleObject
 	extern GetLastError
+	extern QueryPerformanceCounter
+	extern QueryPerformanceFrequency
 %endif
 
 %macro call_import 1
@@ -325,6 +329,26 @@ section .text
 		mov qword [rsp + 8 * 4], 0
 		call_import WriteFile
 		add dp, 8 * 2
+		mov [dp], rax
+		next
+
+	; ( -- perf-cntr succeeded? )
+	declare "query-perf-ctr"
+	code query_perf_ctr
+		sub dp, 8
+		mov rcx, dp
+		call_import QueryPerformanceCounter
+		sub dp, 8
+		mov [dp], rax
+		next
+
+	; ( -- perf-freq succeeded? )
+	declare "query-perf-freq"
+	code query_perf_freq
+		sub dp, 8
+		mov rcx, dp
+		call_import QueryPerformanceFrequency
+		sub dp, 8
 		mov [dp], rax
 		next
 
@@ -993,6 +1017,8 @@ section .text
 			get_import GetConsoleMode
 			get_import WaitForSingleObject
 			get_import GetLastError
+			get_import QueryPerformanceCounter
+			get_import QueryPerformanceFrequency
 		%endif
 		next
 
@@ -2606,6 +2632,8 @@ section .rdata
 		name GetConsoleMode
 		name WaitForSingleObject
 		name GetLastError
+		name QueryPerformanceCounter
+		name QueryPerformanceFrequency
 	%endif
 
 	core_lib:

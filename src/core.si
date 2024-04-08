@@ -281,7 +281,8 @@ fn: s"
 	in-line-bounds?
 	if
 		copy skip-line-segment
-		assembly-arena-start-block
+		assembly-arena-start-block 	\ FIXME: this memory is leaked unless during compilation; we are fine with
+									\ ovewriting the string during interpretation
 		over - commit-string
 	else
 		\ If we didn't find the closing `"` before the end of the line, we need to discard the string
