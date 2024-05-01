@@ -1232,12 +1232,16 @@ section .rdata
 		da status_bad_init
 		da print_line
 		da repl_read_line
-		da all_ones
-		da exit_process
+		da abort
 
 		.piped:
 		da status_fatal
 		da print_line
+		da abort
+
+	; ( -- )
+	declare "abort"
+	thread abort
 		da all_ones
 		da exit_process
 
@@ -1582,8 +1586,7 @@ section .rdata
 		da status_log_failure
 		da print_line
 		da repl_read_line
-		da all_ones
-		da exit_process
+		da abort
 
 	; ( -- )
 	declare "init-logging"
@@ -1609,8 +1612,7 @@ section .rdata
 		da status_log_failure
 		da print_line
 		da repl_read_line
-		da all_ones
-		da exit_process
+		da abort
 
 	; ( string length -- )
 	declare "print-line"

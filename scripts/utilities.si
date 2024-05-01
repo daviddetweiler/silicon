@@ -85,7 +85,8 @@ fn: contents \ As in the data stack's contents, listed top down
 	do
 		stack-depth load print-u# tabstop
 		copy push
-		hex print-u# nl
+		copy hex print-u# tabstop
+		print-# nl
 		stack-depth cell-1+
 	end-while
 

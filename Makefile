@@ -30,7 +30,7 @@ $(OUT)\kernel.obj: $(SRC)\kernel.asm $(OUT)\core.inc $(OUT)\expected.version Mak
         $$(Resolve-Path $(SRC)\kernel.asm) \
         -Dgit_version=""$$(git describe --dirty --tags)"" \
         -Dstandalone \
-        -o $$(Resolve-Path $(OUT)\kernel.obj)"
+        -o $(OUT)\kernel.obj"
 
 $(OUT)\kernel.bin.bw: $(OUT)\kernel.bin $(BW) Makefile
     python $(BW) pack $(OUT)\kernel.bin $(OUT)\kernel.bin.bw

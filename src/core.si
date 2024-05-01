@@ -281,7 +281,7 @@ fn: s"
 	in-line-bounds?
 	if
 		copy skip-line-segment
-		assembly-arena-start-block
+		assembly-arena-start-block \ FIXME: Leaked?
 		over - commit-string
 	else
 		\ If we didn't find the closing `"` before the end of the line, we need to discard the string
@@ -432,3 +432,9 @@ end-fn
 checkpoint: core-dict
 
 version nl
+
+(
+	I seem to recall that I didn't like how namespacing (specifically things like namespace imports or private symbols)
+	require some pretty invasive modifications to the interpreter, since it can no longer be done by simple
+	modification of a single linked list, but rather requires a list of wordlists.
+)
