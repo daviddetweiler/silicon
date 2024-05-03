@@ -281,7 +281,8 @@ fn: s"
 	in-line-bounds?
 	if
 		copy skip-line-segment
-		assembly-arena-start-block \ FIXME: Leaked?
+		assembly-arena-start-block 	\ FIXME: this memory is leaked unless during compilation; we are fine with
+									\ ovewriting the string during interpretation
 		over - commit-string
 	else
 		\ If we didn't find the closing `"` before the end of the line, we need to discard the string
@@ -433,7 +434,7 @@ checkpoint: core-dict
 
 version nl
 
-\ This multi-line comment breaks the interpreter lmao
+\ FIXME: This multi-line comment breaks the interpreter lmao
 \ But apparently only when present in a soruce file, not in the interactive terminal. Further testing also indicates
 \ that it doesn't affect the piped input path either.
 
@@ -442,3 +443,6 @@ version nl
 \ 	require some pretty invasive modifications to the interpreter, since it can no longer be done by simple
 \ 	modification of a single linked list, but rather requires a list of wordlists.
 \ )
+
+\ TODO: We must add wordlists next
+\ TODO: Or a test suite; use UnhandledExceptionFilter for reporting crashes
