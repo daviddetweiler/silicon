@@ -1,5 +1,6 @@
 import sys
 import ac
+import math
 
 HV_CONFIG = {
     "control": ac.HowardVitterModel,
@@ -229,6 +230,18 @@ def info(data: bytes) -> None:
     print(extended_length_count, "extended lengths", sep="\t")
     print(pair_count, "offset-length pairs", sep="\t")
 
+    uncoded_length = math.ceil(control_bit_count / 8) \
+        + literal_byte_count \
+        + offset_byte_count \
+        + length_byte_count \
+        + extended_offset_count \
+        + extended_length_count
+    
+    print(uncoded_length, "bytes uncoded", sep="\t")
+    print(f"{100 * len(data) / uncoded_length :.2f}%\tcoding ratio")
+    print(f"{100 * uncoded_length / expected_bytes :.2f}%\tuncoded compression ratio")
+    print(f"{100 * len(data) / expected_bytes :.2f}%\ttotal compression ratio")
+
 
 if __name__ == "__main__":
     if sys.argv[1] not in ("pack", "unpack", "info"):
@@ -243,8 +256,8 @@ if __name__ == "__main__":
         print("Usage: bitweaver.py info <input>")
         sys.exit(1)
 
-    with open(sys.argv[2], "rb") as f:
-        data = f.read()
+    with open(sys.argv[2], "rb") as rf:
+        data = rf.read()
 
     if command == "pack":
         full_size = get_size(data)
@@ -255,11 +268,11 @@ if __name__ == "__main__":
             print("Stream corruption detected!")
             sys.exit(1)
 
-        with open(sys.argv[3], "wb") as f:
-            f.write(encoded)
+        with open(sys.argv[3], "wb") as wf:
+            wf.write(encoded)
     elif command == "unpack":
         decoded = decode(data)
-        with open(sys.argv[3], "wb") as f:
-            f.write(decoded)
+        with open(sys.argv[3], "wb") as wf:
+            wf.write(decoded)
     elif command == "info":
         info(data)
