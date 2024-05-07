@@ -435,9 +435,9 @@ checkpoint: core-dict
 version nl
 
 (
- 	I seem to recall that I didn't like how namespacing [specifically things like namespace imports or private symbols]
- 	require some pretty invasive modifications to the interpreter, since it can no longer be done by simple
- 	modification of a single linked list, but rather requires a list of wordlists.
+	I seem to recall that I didn't like how namespacing [specifically things like namespace imports or private symbols]
+	require some pretty invasive modifications to the interpreter, since it can no longer be done by simple
+	modification of a single linked list, but rather requires a list of wordlists.
 )
 
 \ TODO: We must add wordlists next

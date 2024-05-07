@@ -1276,12 +1276,23 @@ section .rdata
 	; ( -- )
 	declare "init-core-library"
 	thread init_core_library
-		da literal
 		da core_lib
+		da drop
 		da source_push_buffer
 		da all_ones
 		da is_initializing
 		da store
+		da return
+
+	; ( -- buffer length )
+	declare "core-lib"
+	thread core_lib
+		da literal
+		da core_lib_data
+		da literal
+		da core_lib_data_end
+		da over
+		da stack_sub
 		da return
 
 	; ( path -- buffer? length? )
@@ -2643,10 +2654,10 @@ section .rdata
 		name QueryPerformanceFrequency
 	%endif
 
-	core_lib:
+	core_lib_data:
 		%include "core.inc"
 
-	core_lib_end:
+	core_lib_data_end:
 		db 0
 
 section .bss
