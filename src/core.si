@@ -182,7 +182,7 @@ fn: in-line-bounds?
 end-fn
 
 \ -- next-ptr
-fn: after-word current-word load-pair + end-fn
+fn: after-word get-current-word + end-fn
 
 \ end-ptr --
 fn: skip-line-segment
@@ -434,15 +434,13 @@ checkpoint: core-dict
 
 version nl
 
-\ FIXME: This multi-line comment breaks the interpreter lmao
-\ But apparently only when present in a soruce file, not in the interactive terminal. Further testing also indicates
-\ that it doesn't affect the piped input path either.
-
-\ (
-\ 	I seem to recall that I didn't like how namespacing [specifically things like namespace imports or private symbols]
-\ 	require some pretty invasive modifications to the interpreter, since it can no longer be done by simple
-\ 	modification of a single linked list, but rather requires a list of wordlists.
-\ )
+(
+ 	I seem to recall that I didn't like how namespacing [specifically things like namespace imports or private symbols]
+ 	require some pretty invasive modifications to the interpreter, since it can no longer be done by simple
+ 	modification of a single linked list, but rather requires a list of wordlists.
+)
 
 \ TODO: We must add wordlists next
+\ TODO: and imports, or at least a C-style concept of local include directory (working dir for the interpreter) and
+\ 	include guards
 \ TODO: Or a test suite; use UnhandledExceptionFilter for reporting crashes

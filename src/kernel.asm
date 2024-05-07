@@ -59,10 +59,12 @@ global start
 
 %macro code 1
 	[section .rdata]
-		code_field %1, %%here
+		code_field %1, %1_impl
+
+	global %1_impl
 
 	__?SECT?__
-		%%here:
+		%1_impl:
 %endmacro
 
 %macro thread 1
@@ -2216,7 +2218,10 @@ section .rdata
 	; ( -- exit? )
 	declare "repl-accept-line-source-text"
 	thread repl_accept_line_source_text
-		da get_current_word
+		da source_line_start
+		da load
+		da source_line_size
+		da load
 		da stack_add
 
 		da copy

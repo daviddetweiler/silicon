@@ -6,11 +6,11 @@ ANALYZER=.\tools\analyzer.py
 OUT=.\out
 SRC=.\src
 
-all: build uncompressed-build zip Makefile
+all: build debug-build zip Makefile
 
 build: version $(OUT)\silicon.exe Makefile
 
-uncompressed-build: version $(OUT)\silicon-uncompressed.exe Makefile
+debug-build: version $(OUT)\silicon-debug.exe Makefile
 
 version: $(VERSION) Makefile
     pwsh -c "git describe --dirty --tags > $(OUT)\actual.version"
@@ -30,7 +30,8 @@ $(OUT)\kernel.obj: $(SRC)\kernel.asm $(OUT)\core.inc $(OUT)\expected.version Mak
         $(SRC)\kernel.asm \
         -Dgit_version=""$$(git describe --dirty --tags)"" \
         -Dstandalone \
-        -o $(OUT)\kernel.obj"
+        -o $(OUT)\kernel.obj \
+        -g"
 
 $(OUT)\kernel.bin.bw: $(OUT)\kernel.bin $(BW) Makefile
     python $(BW) pack $(OUT)\kernel.bin $(OUT)\kernel.bin.bw
@@ -58,9 +59,9 @@ $(OUT)\silicon.exe: $(OUT)\loader.obj Makefile
         /merge:.rdata=kernel \
         /merge:.text=kernel
 
-$(OUT)\silicon-uncompressed.exe: $(OUT)\kernel.obj Makefile
+$(OUT)\silicon-debug.exe: $(OUT)\kernel.obj Makefile
     link $(OUT)\kernel.obj kernel32.lib \
-        /out:$(OUT)\silicon-uncompressed.exe \
+        /out:$(OUT)\silicon-debug.exe \
         /subsystem:console \
         /entry:start \
         /nologo \
@@ -70,7 +71,8 @@ $(OUT)\silicon-uncompressed.exe: $(OUT)\kernel.obj Makefile
         /section:data,RWE \
         /merge:.rdata=kernel \
         /merge:.text=kernel \
-        /merge:.bss=data
+        /merge:.bss=data \
+        /debug
 
 clean: Makefile
     del report.json *.log log.si
