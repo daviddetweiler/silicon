@@ -24,6 +24,12 @@ fn: reverse-find
     copy predicated entry-name 0
 end-fn
 
+1 var: base-addr
+
+fn: show-addr
+    copy base-addr load - hex print-u#
+end-fn
+
 fn: show-pointer
     ( ptr-value -- )
 
@@ -37,7 +43,7 @@ end-fn
 
 fn: show-instr
     ( thread-ptr -- )
-    copy hex print-u# tabstop
+    show-addr tabstop
     load show-pointer
 end-fn
 
@@ -56,6 +62,8 @@ s" Not found" string: not-found
 
 fn: disassemble-word
     ( word -- )
+
+    copy cell-size + base-addr store
 
     copy load
     ptr-invoke-thread ~= if
