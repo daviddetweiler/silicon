@@ -787,7 +787,7 @@ section .text
 		or [dp], rax
 		next
 
-	; ( -- )
+	; ( condition -- )
 	declare "maybe"
 	code maybe_execute
 		mov rax, [dp]
@@ -1291,6 +1291,17 @@ section .rdata
 		da core_lib_data
 		da literal
 		da core_lib_data_end
+		da over
+		da stack_sub
+		da return
+
+	; ( -- buffer length )
+	declare "src"
+	thread src
+		da literal
+		da src_data
+		da literal
+		da src_data_end
 		da over
 		da stack_sub
 		da return
@@ -2658,6 +2669,12 @@ section .rdata
 		%include "core.inc"
 
 	core_lib_data_end:
+		db 0
+
+	src_data:
+		%include "kernel.inc"
+
+	src_data_end:
 		db 0
 
 section .bss

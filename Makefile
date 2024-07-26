@@ -16,14 +16,14 @@ version: $(VERSION) Makefile
     pwsh -c "git describe --dirty --tags > $(OUT)\actual.version"
     python $(VERSION) $(OUT)\actual.version $(OUT)\expected.version
 
-$(OUT)\kernel.bin: $(SRC)\kernel.asm $(OUT)\core.inc $(OUT)\expected.version Makefile
+$(OUT)\kernel.bin: $(SRC)\kernel.asm $(OUT)\core.inc $(OUT)\kernel.inc $(OUT)\expected.version Makefile
     pwsh -c "nasm \
         -I $(OUT) \
         -fbin $(SRC)\kernel.asm \
         -Dgit_version=""$$(git describe --dirty --tags)"" \
         -o $(OUT)\kernel.bin"
 
-$(OUT)\kernel.obj: $(SRC)\kernel.asm $(OUT)\core.inc $(OUT)\expected.version Makefile
+$(OUT)\kernel.obj: $(SRC)\kernel.asm $(OUT)\core.inc $(OUT)\kernel.inc $(OUT)\expected.version Makefile
     pwsh -c "nasm \
         -I $(OUT) \
         -fwin64 \
@@ -41,6 +41,9 @@ $(OUT)\kernel.bin.bw.inc: $(OUT)\kernel.bin.bw $(INC) Makefile
 
 $(OUT)\core.inc: $(SRC)\core.si $(INC) Makefile
     python $(INC) $(SRC)\core.si $(OUT)\core.inc
+
+$(OUT)\kernel.inc: $(SRC)\kernel.asm $(INC) Makefile
+    python $(INC) $(SRC)\kernel.asm $(OUT)\kernel.inc
 
 $(OUT)\loader.obj: $(OUT)\kernel.bin.bw.inc $(SRC)\loader.asm Makefile
     nasm -I $(OUT) -fwin64 $(SRC)\loader.asm -o $(OUT)\loader.obj
