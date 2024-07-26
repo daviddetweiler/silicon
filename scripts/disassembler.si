@@ -30,14 +30,32 @@ fn: show-addr
     copy base-addr load - hex print-u#
 end-fn
 
+find: jump const: [jump]
+find: branch const: [branch]
+
+fn: =? over = end-fn
+fn: cfg? [jump] =? copy maybe return drop [branch] =? end-fn
+
+1 var: is-target
+fn: set-target      true is-target store        end-fn
+fn: clear-target    false is-target store       end-fn
+fn: target?         is-target load clear-target end-fn
+
+s" ip+ " string: msg-target
+fn: target msg-target print end-fn
+
 fn: show-pointer
     ( ptr-value -- )
 
     copy reverse-find
     copy 0~= if
-        print-cyan nl drop
+        print-cyan nl
+        cfg? maybe set-target
+        drop
     else
-        drop-pair hex print-# nl
+        drop-pair
+        target? maybe target
+        hex print-# nl
     end-if
 end-fn
 

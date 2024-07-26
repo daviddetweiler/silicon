@@ -1,0 +1,57 @@
+fn: foo end-fn
+
+fn: foo
+    foo foo foo foo
+    foo foo foo foo
+    foo foo foo foo
+    foo foo foo foo
+end-fn
+
+fn: foo
+    foo foo foo foo
+    foo foo foo foo
+    foo foo foo foo
+    foo foo foo foo
+end-fn
+
+fn: foo
+    foo foo foo foo
+    foo foo foo foo
+    foo foo foo foo
+    foo foo foo foo
+end-fn
+
+fn: foo
+    foo foo foo foo
+    foo foo foo foo
+    foo foo foo foo
+    foo foo foo foo
+end-fn
+
+fn: foo
+    foo foo foo foo
+    foo foo foo foo
+    foo foo foo foo
+    foo foo foo foo
+end-fn
+
+fn: foo
+    foo foo foo foo
+    foo foo foo foo
+    foo foo foo foo
+    foo foo foo foo
+end-fn
+
+fn: foo
+    foo foo foo foo
+    foo foo foo foo
+    foo foo foo foo
+    foo foo foo foo
+end-fn
+
+fn: foo
+    foo foo foo foo
+    foo foo foo foo
+    foo foo foo foo
+    foo foo foo foo
+end-fn
