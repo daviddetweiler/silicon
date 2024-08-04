@@ -171,6 +171,75 @@ class HowardVitterTreeModel:
         return 256
 
 
+class MarkovNode:
+    count = 0
+
+    def __init__(self):
+        self.model = GlobalAdaptiveModel(2)
+        self.children = [None, None]
+        self.tag = None
+        MarkovNode.count += 1
+
+
+class MarkovChainModel:
+    def __init__(self, node: MarkovNode):
+        self.node = node
+
+    def pvalue(self, symbol):
+        return self.node.model.pvalue(symbol)
+
+    def update(self, symbol):
+        self.node.model.update(symbol)
+        self.node = self.node.children[symbol]
+
+    def range(self):
+        return 2
+
+
+def build_markov_bitstring(end: MarkovNode, n: int) -> MarkovNode:
+    if n == 0:
+        return end
+    else:
+        node = MarkovNode()
+        node.children[0] = build_markov_bitstring(end, n - 1)
+        node.children[1] = build_markov_bitstring(end, n - 1)
+        return node
+
+
+def markov_join(node: MarkovNode, other: MarkovNode):
+    joined = MarkovNode()
+    joined.children[0] = node
+    joined.children[1] = other
+    return joined
+
+
+def build_markov_chain() -> MarkovNode:
+    root = MarkovNode()
+    root.tag = "root"
+    ext_length_model = build_markov_bitstring(root, 15)
+    ext_length_model.tag = "ext_length"
+    short_length_model = build_markov_bitstring(root, 7)
+    short_length_model.tag = "short_length"
+    length_model = markov_join(short_length_model, ext_length_model)
+    length_model.tag = "length"
+
+    ext_offset_model = build_markov_bitstring(length_model, 15)
+    ext_offset_model.tag = "ext_offset"
+    short_offset_model = build_markov_bitstring(length_model, 7)
+    short_offset_model.tag = "short_offset"
+    offset_model = markov_join(short_offset_model, ext_offset_model)
+    offset_model.tag = "offset"
+
+    literal_model = build_markov_bitstring(root, 8)
+    literal_model.tag = "literal"
+    root.children[0] = literal_model
+    root.children[1] = offset_model
+
+    print(MarkovNode.count, "nodes")
+
+    return root
+
+
 class Encoder:
     def __init__(self) -> None:
         self.a = 0
