@@ -1276,34 +1276,22 @@ section .rdata
 	; ( -- )
 	declare "init-core-library"
 	thread init_core_library
-		da core_lib
+		da init_script_name
+		da drop
+		da load_file
+		da copy
+		branch_to .found
+		da status_no_init
+		da print_line
+		da drop_pair
+		da return
+
+		.found:
 		da drop
 		da source_push_buffer
 		da all_ones
 		da is_initializing
 		da store
-		da return
-
-	; ( -- buffer length )
-	declare "core-lib"
-	thread core_lib
-		da literal
-		da core_lib_data
-		da literal
-		da core_lib_data_end
-		da over
-		da stack_sub
-		da return
-
-	; ( -- buffer length )
-	declare "src"
-	thread src
-		da literal
-		da src_data
-		da literal
-		da src_data_end
-		da over
-		da stack_sub
 		da return
 
 	; ( path -- buffer? length? )
@@ -2612,6 +2600,12 @@ section .rdata
 	declare "status-bad-execute"
 	string status_bad_execute, red(`Cannot execute scripts while initializing\n`) ; hard fault
 
+	declare "status-no-init"
+	string status_no_init, yellow(`Could not find init script\n`) ; warning
+
+	declare "init-script-name"
+	string init_script_name, `scripts\\core.si` ; Figure out where to put this, also build system / testing zip
+
 	declare "newline-char"
 	string newline, `\n`
 
@@ -2664,18 +2658,6 @@ section .rdata
 		name QueryPerformanceCounter
 		name QueryPerformanceFrequency
 	%endif
-
-	core_lib_data:
-		%include "core.inc"
-
-	core_lib_data_end:
-		db 0
-
-	src_data:
-		%include "kernel.inc"
-
-	src_data_end:
-		db 0
 
 section .bss
 	align 8
