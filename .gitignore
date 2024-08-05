@@ -19,3 +19,4 @@ __pycache__/
 *.version
 *.json
 log.si
+out/

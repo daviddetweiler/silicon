@@ -331,8 +331,8 @@ if __name__ == "__main__":
         print("Usage: ac.py <pack|unpack> <input> <output>")
         sys.exit(1)
 
-    with open(sys.argv[2], "rb") as f:
-        data = f.read()
+    with open(sys.argv[2], "rb") as r:
+        data = r.read()
 
     if sys.argv[1] == "pack":
         e = entropy(data)
@@ -355,10 +355,10 @@ if __name__ == "__main__":
         print(
             f"{100 * (len(encoded) - min_size) / min_size:.2f}%\tadaptive coding overhead"
         )
-        with open(sys.argv[3], "wb") as f:
-            f.write(encoded)
+        with open(sys.argv[3], "wb") as w:
+            w.write(encoded)
     elif sys.argv[1] == "unpack":
         decoder = Decoder(data)
         decoded = decoder.decode(GlobalAdaptiveModel(256), len(data))
-        with open(sys.argv[3], "wb") as f:
-            f.write(decoded)
+        with open(sys.argv[3], "wb") as w:
+            w.write(decoded)

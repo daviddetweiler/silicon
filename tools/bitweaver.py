@@ -62,8 +62,8 @@ def encode(data: bytes, allocation_size: int) -> bytes:
                 break
 
             window_base = max(0, i - window)
-            window_data = data[window_base: i + j - 1]
-            m = window_data.rfind(data[i: i + j])
+            window_data = data[window_base : i + j - 1]
+            m = window_data.rfind(data[i : i + j])
             if m == -1:
                 break
 
@@ -88,11 +88,11 @@ def encode(data: bytes, allocation_size: int) -> bytes:
                 i += length
             else:
                 encoder.encode(command_model, [0])
-                encoder.encode(literal_model, data[i: i + 1])
+                encoder.encode(literal_model, data[i : i + 1])
                 i += 1
         else:
             encoder.encode(command_model, [0])
-            encoder.encode(literal_model, data[i: i + 1])
+            encoder.encode(literal_model, data[i : i + 1])
             i += 1
 
     coded = encoder.end_stream()
@@ -121,9 +121,7 @@ def decode(encoded: bytes) -> bytes:
     alt_length_model = CONFIG["alt_length"](256)
 
     _ = int.from_bytes(bytes(decoder.decode(literal_model, 4)), "little")
-    expected_bytes = int.from_bytes(
-        bytes(decoder.decode(literal_model, 4)), "little"
-    )
+    expected_bytes = int.from_bytes(bytes(decoder.decode(literal_model, 4)), "little")
 
     decompressed = b""
     while len(decompressed) < expected_bytes:
@@ -146,14 +144,13 @@ def decode(encoded: bytes) -> bytes:
             # This is necessary to do this even kind of efficiently in python, but the assembly language version can
             # just use byte-by-byte copies.
             if offset > length:
-                decompressed += decompressed[-offset: -(offset - length)]
+                decompressed += decompressed[-offset : -(offset - length)]
             else:
                 while length > 0:
                     if offset <= length:
                         decompressed += decompressed[-offset:]
                     else:
-                        decompressed += decompressed[-offset: -
-                                                     (offset - length)]
+                        decompressed += decompressed[-offset : -(offset - length)]
 
                     length -= offset
 
@@ -180,11 +177,9 @@ def info(data: bytes) -> None:
     alt_offset_model = CONFIG["alt_offset"](256)
     alt_length_model = CONFIG["alt_length"](256)
 
-    allocation_size = int.from_bytes(
-        bytes(decoder.decode(literal_model, 4)), "little")
+    allocation_size = int.from_bytes(bytes(decoder.decode(literal_model, 4)), "little")
 
-    expected_bytes = int.from_bytes(
-        bytes(decoder.decode(literal_model, 4)), "little")
+    expected_bytes = int.from_bytes(bytes(decoder.decode(literal_model, 4)), "little")
 
     print(allocation_size, "bytes allocated", sep="\t")
     print(expected_bytes, "bytes expected", sep="\t")
@@ -230,13 +225,15 @@ def info(data: bytes) -> None:
     print(extended_length_count, "extended lengths", sep="\t")
     print(pair_count, "offset-length pairs", sep="\t")
 
-    uncoded_length = math.ceil(control_bit_count / 8) \
-        + literal_byte_count \
-        + offset_byte_count \
-        + length_byte_count \
-        + extended_offset_count \
+    uncoded_length = (
+        math.ceil(control_bit_count / 8)
+        + literal_byte_count
+        + offset_byte_count
+        + length_byte_count
+        + extended_offset_count
         + extended_length_count
-    
+    )
+
     print(uncoded_length, "bytes uncoded", sep="\t")
     print(f"{100 * len(data) / uncoded_length :.2f}%\tcoding ratio")
     print(f"{100 * uncoded_length / expected_bytes :.2f}%\tuncoded compression ratio")
