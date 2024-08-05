@@ -3,8 +3,8 @@ bits 64
 
 global start
 
-%define tp r15
-%define wp r14
+%define wp r15
+%define tp r14
 %define dp r13
 %define rp r12
 
@@ -88,6 +88,10 @@ global start
 			resq %2
 
 	__?SECT?__
+%endmacro
+
+%macro entrypoint 1
+	code_field %1, invoke_entrypoint
 %endmacro
 
 %macro branch_to 1
@@ -234,7 +238,14 @@ section .text
 			mov [get_module_handle], rcx
 			mov [get_proc_address], rdx
 		%endif
-		lea tp, initialize
+		lea wp, interpreter
+		run
+
+	; ( -- )
+	invoke_entrypoint:
+		lea tp, [wp + 8]
+		lea dp, stack_base(data_stack)
+		lea rp, stack_base(return_stack)
 		next
 
 	; ( -- )
@@ -1075,11 +1086,7 @@ section .text
 section .rdata
 	; This is here purely to make disassembly work properly
 	declare "interpreter"
-	thread interpreter
-
-	initialize:
-		da clear_data_stack
-		da clear_return_stack
+	entrypoint interpreter
 		da init_imports
 		da init_handles
 		da init_assembler
@@ -1254,7 +1261,9 @@ section .rdata
 		branch_to .die
 		da status_abort
 		da print_line
-		jump_to initialize
+		da literal
+		da interpreter
+		da invoke
 
 		.die:
 		da status_bad_init
@@ -2474,6 +2483,9 @@ section .rdata
 
 	declare "text-size"
 	constant text_size, end_text - begin_text
+
+	declare "ptr-invoke-entrypoint"
+	constant ptr_invoke_entrypoint, address(invoke_entrypoint)
 
 	declare "ptr-invoke-thread"
 	constant ptr_invoke_thread, address(invoke_thread)

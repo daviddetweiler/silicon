@@ -84,7 +84,9 @@ fn: disassemble-word
     copy cell-size + base-addr store
 
     copy load
-    ptr-invoke-thread ~= if
+    copy ptr-invoke-thread ~= swap
+    ptr-invoke-entrypoint ~= &
+    if
         drop
         not-threaded print-red nl
         return
