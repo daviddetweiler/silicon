@@ -40,7 +40,7 @@ $(OUT)\kernel.bin.bw.inc: $(OUT)\kernel.bin.bw $(INC) Makefile
     python $(INC) $(OUT)\kernel.bin.bw $(OUT)\kernel.bin.bw.inc
 
 $(OUT)\loader.obj: $(OUT)\kernel.bin.bw.inc $(SRC)\loader.asm Makefile
-    nasm -I $(OUT) -fwin64 $(SRC)\loader.asm -o $(OUT)\loader.obj -g
+    nasm -I $(OUT) -fwin64 $(SRC)\loader.asm -o $(OUT)\loader.obj
 
 $(BW): $(AC) Makefile
 
@@ -54,7 +54,7 @@ $(OUT)\silicon.exe: $(OUT)\loader.obj Makefile
         /ignore:4254 \
         /section:kernel,RWE \
         /merge:.rdata=kernel \
-        /merge:.text=kernel /debug
+        /merge:.text=kernel
 
 $(OUT)\silicon-debug.exe: $(OUT)\kernel.obj Makefile
     link $(OUT)\kernel.obj kernel32.lib \

@@ -21,9 +21,8 @@ section .text
 
     init_models:
         ; r15 will be the node arena pointer
-        mov r15, (total_nodes * node_size)
         xor rcx, rcx
-        mov rdx, r15
+        mov rdx, (total_nodes * node_size)
         call allocate
         mov r15, rax
 
@@ -41,7 +40,7 @@ section .text
         mov rdi, rsi ; dict entry model in rdi
 
         mov rcx, r14
-        mov rdx, 8
+        mov dl, 8
         call make_bitstring ; rsi now points to the literal model
         mov rsi, rax
 
@@ -70,16 +69,16 @@ section .text
         xchg r15, r14
         call decode_literal_dword
 
-        mov [rsp + 8 * 4], r11
-        mov [rsp + 8 * 5], r10
+        push r11
+        push r10
 
         mov rcx, image_base
         mov edx, eax
         call allocate
         mov rdi, rax ; rdi = decompression buffer address
 
-        mov r11, [rsp + 8 * 4]
-        mov r10, [rsp + 8 * 5]
+        pop r10
+        pop r11
 
         call decode_literal_dword
         xchg r15, r14
@@ -87,8 +86,7 @@ section .text
 
     lzss_unpack:
         .next_command:
-        mov rdx, 2
-        mov r8, 1
+        mov r8b, 1
         call decode
 
         test al, 0x1
@@ -99,10 +97,10 @@ section .text
         xor rsi, rsi
         mov sil, al
 
-        test rsi, flag_extra_byte
+        test sil, flag_extra_byte
         jz .get_length
 
-        xor rsi, flag_extra_byte ; clear the flag
+        xor sil, flag_extra_byte ; clear the flag
         shl rsi, 8
 
         call decode_byte
@@ -114,10 +112,10 @@ section .text
         shl rsi, 32
         mov sil, al
 
-        test rsi, flag_extra_byte
+        test sil, flag_extra_byte
         jz .copy_loop
 
-        xor rsi, flag_extra_byte ; clear the flag
+        xor sil, flag_extra_byte ; clear the flag
         shl si, 8
 
         call decode_byte
@@ -175,35 +173,29 @@ section .text
 
     ; rcx = root, rdx = bits
     make_bitstring:
-        sub rsp, 8
-        test rdx, rdx
-        jnz .recurse
         mov rax, rcx
-        add rsp, 8
-        ret
-
-        .recurse:
-        dec rdx
+        test dl, dl
+        jz .finished
+        dec dl
         call make_bitstring
-        mov [rsp], rax
+        push rax
         call make_bitstring
-        inc rdx
+        inc dl
         mov [r15], rax
-        mov rax, [rsp]
-        mov [r15 + 8], rax
+        pop qword [r15 + 8]
         call make_node
         lea rax, [r15 - node_size]
-        add rsp, 8
+        .finished:
         ret
 
     make_15bit_model:
         mov rcx, rsi
-        mov rdx, 7
+        mov dl, 7
         call make_bitstring ; rsi now points to the short_length model
         mov rsi, rax
 
         mov rcx, rsi
-        mov rdx, 8
+        mov dl, 8
         call make_bitstring ; rdi now points to the ext_length model
         mov rdi, rax
 
@@ -217,14 +209,10 @@ section .text
     ; This will perform the arithmetic decode and return the symbols in rax.
     ; WARNING the unwritten bits of rax are undefined, so mask them off before using.
     ; WARNING the symbols are written in reverse order, so you must reverse them before using.
-    ; rcx = model address
-    ; rdx = model alphabet size
     ; r8 = number of symbols to decode
     ; High register pressure here, r15-r10 in use, as is rdi, rcx, r8, rdx
     decode:
-        sub rsp, 8
-
-        mov rbp, rdx ; rbp = model alphabet size
+        push rsp
 
         .next_symbol:
         lea rcx, [r15 + 8 * 3] ; rcx = model data, ptr is between total and counts
@@ -254,13 +242,13 @@ section .text
         .advance_subinterval:
         mov r13, rdx ; update lower bound
         inc r9
-        cmp r9, rbp
-        jne .next_subinterval
+        jmp .next_subinterval
 
         .renormalize:
         mov rbx, r12
         xor rbx, r13 ; any clear bits are the "frozen" bits
-        mov rax, upper8
+        mov al, 0xff
+        shl rax, 64 - 8
         test rbx, rax ; check if we have 8 frozen bits at the top
         jnz .adjust_convergence
         shl r12, 8 ; renormalize
@@ -310,29 +298,26 @@ section .text
         jmp .next_adjustment
 
         .adjusted:
-        dec r8
-        cmp r8, 0
+        dec r8b
         jnz .next_symbol
 
-        mov rax, qword [rsp] ; rax = decoded symbols
-        add rsp, 8
+        pop rax ; rax = decoded symbols
         ret
 
     decode_byte:
-        mov rdx, 2
-        mov r8, 8
+        mov r8b, 8
         call decode
         ret
 
     decode_literal_dword:
-        mov rdx, 2
-        mov r8, 32
+        mov r8b, 32
         call decode
         ret
 
     strange_shift:
         mov rbx, r9
-        mov rax, upper8
+        mov al, 0xff
+        shl rax, 64 - 8
         and rbx, rax
         shl r9, 8
         andn r9, rax, r9
