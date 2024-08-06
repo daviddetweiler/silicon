@@ -216,17 +216,17 @@ def markov_join(node: MarkovNode, other: MarkovNode):
 def build_markov_chain() -> MarkovNode:
     root = MarkovNode()
     root.tag = "root"
-    ext_length_model = build_markov_bitstring(root, 15)
-    ext_length_model.tag = "ext_length"
     short_length_model = build_markov_bitstring(root, 7)
     short_length_model.tag = "short_length"
+    ext_length_model = build_markov_bitstring(short_length_model, 8)
+    ext_length_model.tag = "ext_length"
     length_model = markov_join(short_length_model, ext_length_model)
     length_model.tag = "length"
 
-    ext_offset_model = build_markov_bitstring(length_model, 15)
-    ext_offset_model.tag = "ext_offset"
     short_offset_model = build_markov_bitstring(length_model, 7)
     short_offset_model.tag = "short_offset"
+    ext_offset_model = build_markov_bitstring(short_offset_model, 8)
+    ext_offset_model.tag = "ext_offset"
     offset_model = markov_join(short_offset_model, ext_offset_model)
     offset_model.tag = "offset"
 

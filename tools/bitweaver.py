@@ -31,11 +31,9 @@ CONFIG = CONFIGS["default"]
 def encode_15bit(n: int) -> bytes:
     assert 0 <= n < 2**15
     if n < 0x80:
-        return n.to_bytes(1, "little")
+        return n.to_bytes(1, "big")
     else:
-        hi = n >> 8
-        lo = n & 0xFF
-        return (0x80 | hi).to_bytes(1, "little") + lo.to_bytes(1, "little")
+        return (0x8000 | n).to_bytes(2, "big")
 
 
 def encode_bytes(encoder: ac.Encoder, bit_model, data: bytes):
@@ -143,9 +141,11 @@ def decode_15bit(data: bytes) -> int:
     if leader < 0x80:
         return leader
     else:
-        hi = leader & 0x7F
-        lo = data[1]
-        return (hi << 8) | lo
+        return int.from_bytes(data, "big") & 0x7FFF
+
+
+assert decode_15bit(encode_15bit(0)) == 0
+assert decode_15bit(encode_15bit(1234)) == 1234, decode_15bit(encode_15bit(1234))
 
 
 def decode(encoded: bytes) -> bytes:
