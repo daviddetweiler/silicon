@@ -79,9 +79,9 @@ def encode(data: bytes, allocation_size: int) -> bytes:
     # alt_length_model = CONFIG["alt_length"](256)
 
     expected_bytes = len(data)
-    encode_bytes(encoder, dummy_model, allocation_size.to_bytes(4, "little"))
+    encode_bytes(encoder, dummy_model, allocation_size.to_bytes(4, "big"))
     assert dummy_model.node.tag == "root"
-    encode_bytes(encoder, dummy_model, expected_bytes.to_bytes(4, "little"))
+    encode_bytes(encoder, dummy_model, expected_bytes.to_bytes(4, "big"))
 
     window = 2**15 - 1
     i = 0
@@ -162,8 +162,8 @@ def decode(encoded: bytes) -> bytes:
     # alt_offset_model = CONFIG["alt_offset"](256)
     # alt_length_model = CONFIG["alt_length"](256)
 
-    _ = int.from_bytes(decode_bytes(decoder, dummy_model, 4), "little")
-    expected_bytes = int.from_bytes(decode_bytes(decoder, dummy_model, 4), "little")
+    _ = int.from_bytes(decode_bytes(decoder, dummy_model, 4), "big")
+    expected_bytes = int.from_bytes(decode_bytes(decoder, dummy_model, 4), "big")
 
     decompressed = b""
     while len(decompressed) < expected_bytes:
@@ -222,8 +222,8 @@ def info(data: bytes) -> None:
     # alt_offset_model = CONFIG["alt_offset"](256)
     # alt_length_model = CONFIG["alt_length"](256)
 
-    allocation_size = int.from_bytes(decode_bytes(decoder, dummy_model, 4), "little")
-    expected_bytes = int.from_bytes(decode_bytes(decoder, dummy_model, 4), "little")
+    allocation_size = int.from_bytes(decode_bytes(decoder, dummy_model, 4), "big")
+    expected_bytes = int.from_bytes(decode_bytes(decoder, dummy_model, 4), "big")
 
     print(allocation_size, "bytes allocated", sep="\t")
     print(expected_bytes, "bytes expected", sep="\t")

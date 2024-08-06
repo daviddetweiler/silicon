@@ -176,27 +176,25 @@ section .text
 
     ; rcx = root, rdx = bits
     make_bitstring:
-        sub rsp, 8 * 2
+        sub rsp, 8
         test rdx, rdx
         jnz .recurse
         mov rax, rcx
-        add rsp, 8 * 2
+        add rsp, 8
         ret
 
         .recurse:
         dec rdx
-        mov [rsp], r15
         call make_bitstring
-        mov [rsp + 8], rax
+        mov [rsp], rax
         call make_bitstring
-        mov r12, [rsp]
-        mov r11, [rsp + 8]
-        mov [r12], r11
-        mov [r12 + 8], rax
         inc rdx
+        mov [r15], rax
+        mov rax, [rsp]
+        mov [r15 + 8], rax
         call make_node
-        mov rax, r12
-        add rsp, 8 * 2
+        lea rax, [r15 - node_size]
+        add rsp, 8
         ret
 
     make_15bit_model:
