@@ -9,50 +9,47 @@ extern GetProcAddress
 
 %define image_base 0x2000000000
 
-%define model256_size (8 + 256 * 8)
-%define model2_size (8 + 2 * 8)
-%define model_offset(i) (i * model256_size)
-
-%define literal_model_offset model_offset(0)
-%define offset_model_offset model_offset(1)
-%define length_model_offset model_offset(2)
-%define alt_offset_model_offset model_offset(3)
-%define alt_length_model_offset model_offset(4)
-%define control0_model_offset model_offset(5)
-%define control1_model_offset model_offset(5) + model2_size
-%define models_size control1_model_offset + model2_size
-%define model256_count 5
-
 %define upper8 (((1 << 8) - 1) << (64 - 8))
 %define flag_extra_byte 0x80
+
+%define node_size (2 * 8 + 2 * 8 + 8) ; Children, counts, total_count
+%define total_nodes (1023) ; Magic number, but known from the python implementation
 
 section .text
     start:
         sub rsp, 8 + 8 * 16
 
     init_models:
+        ; r15 will be the node arena pointer
+        mov r15, (total_nodes * node_size)
         xor rcx, rcx
-        mov rdx, models_size
+        mov rdx, r15
         call allocate
-        lea r15, [rax + 8] ; r15 = models address
+        mov r15, rax
 
-        mov rax, model256_count
-        mov rcx, r15
-        .next_model:
-        mov rdx, 256
-        call init_model
-        add rcx, model256_size
-        dec rax
-        jnz .next_model
+        mov r14, r15 ; root node
+        call make_node
 
-        mov rdx, 2
-        call init_model
+        mov r13, r15 ; dummy node
+        mov [r13 + 8], r13
+        mov [r13], r13
+        call make_node
 
-        add rcx, model2_size
-        mov rdx, 2
-        call init_model
+        mov rsi, r14
+        call make_15bit_model ; length model in rsi
+        call make_15bit_model ; offset model in rsi
+        mov rdi, rsi ; dict entry model in rdi
 
-        mov rsi, control0_model_offset
+        mov rcx, r14
+        mov rdx, 8
+        call make_bitstring ; rsi now points to the literal model
+        mov rsi, rax
+
+        int3
+        mov [r14], rsi
+        mov [r14 + 8], rdi
+        mov r15, r14 ; r15 now points to the packet model
+        mov r14, r13 ; r14 now points to the dummy model
 
     prepare_decoder:
         xor r13, r13 ; r13 = arithmetic decoder lower bound
@@ -71,6 +68,7 @@ section .text
         jnz .next_init
 
     prepare_decompression:
+        xchg r15, r14
         call decode_literal_dword
 
         mov [rsp + 8 * 4], r11
@@ -85,11 +83,11 @@ section .text
         mov r10, [rsp + 8 * 5]
 
         call decode_literal_dword
+        xchg r15, r14
         mov r14d, eax ; r14 = expected bytes to unpack
 
     lzss_unpack:
         .next_command:
-        lea rcx, [r15 + rsi]
         mov rdx, 2
         mov r8, 1
         call decode
@@ -98,7 +96,6 @@ section .text
         jz .literal
 
         .copy_command:
-        lea rcx, [r15 + offset_model_offset]
         call decode_byte
         xor rsi, rsi
         mov sil, al
@@ -109,12 +106,10 @@ section .text
         xor rsi, flag_extra_byte ; clear the flag
         shl rsi, 8
 
-        lea rcx, [r15 + alt_offset_model_offset]
-        call decode_byte
+        call decode
         mov sil, al
 
         .get_length:
-        lea rcx, [r15 + length_model_offset]
         call decode_byte
 
         shl rsi, 32
@@ -126,7 +121,6 @@ section .text
         xor rsi, flag_extra_byte ; clear the flag
         shl si, 8
 
-        lea rcx, [r15 + alt_length_model_offset]
         call decode_byte
         mov sil, al
 
@@ -143,16 +137,12 @@ section .text
         dec rsi
         jnz .next_byte
 
-        mov rsi, control1_model_offset
         jmp .advance
 
         .literal:
-        lea rcx, [r15 + literal_model_offset]
         call decode_byte
         dec r14
         stosb
-
-        mov rsi, control0_model_offset
 
         .advance:
         test r14, r14
@@ -174,14 +164,50 @@ section .text
         add rsp, 8 + 8 * 4
         ret
 
-    ; rcx = model address
-    ; rdx = model alphabet size
-    init_model:
-        .next_pvalue:
-        inc qword [rcx - 8]
-        inc qword [rcx - 8 + rdx * 8]
+    make_node:
+        xor rax, rax
+        inc rax
+        mov [r15 + 8 * 3], rax
+        mov [r15 + 8 * 4], rax
+        inc rax
+        mov [r15 + 8 * 2], rax
+        add r15, node_size
+        ret
+
+    ; rcx = root, rdx = bits
+    make_bitstring:
+        test rdx, rdx
+        jnz .recurse
+        mov rax, rcx
+        ret
+
+        .recurse:
         dec rdx
-        jnz .next_pvalue
+        call make_bitstring
+        mov [r15 + 8], rax
+        call make_bitstring
+        mov [r15], rax
+        inc rdx
+        call make_node
+        lea rax, [r15 - node_size]
+        ret
+
+    make_15bit_model:
+        mov rcx, rsi
+        mov rdx, 7
+        call make_bitstring ; rsi now points to the short_length model
+        mov rsi, rax
+
+        mov rcx, rsi
+        mov rdx, 8
+        call make_bitstring ; rdi now points to the ext_length model
+        mov rdi, rax
+
+        mov [r15], rsi
+        mov rsi, r15 ; rsi now points to the length model
+        mov [r15 + 8], rdi
+        call make_node
+
         ret
 
     ; This will perform the arithmetic decode and return the symbols in rax.
@@ -197,6 +223,7 @@ section .text
         mov rbp, rdx ; rbp = model alphabet size
 
         .next_symbol:
+        lea rcx, [r15 + 8 * 3] ; rcx = model data, ptr is between total and counts
         mov rbx, r12
         sub rbx, r13 ; rbx = interval width
 
@@ -216,6 +243,7 @@ section .text
         mov byte [rsp + r8 - 1], r9b ; store symbol
         inc qword [rcx + r9 * 8] ; update model
         inc qword [rcx - 8] ; update model
+        mov r15, [r15 + r9 * 8] ; r15 = next model
         jmp .renormalize
 
         .advance_subinterval:
@@ -282,20 +310,19 @@ section .text
 
         mov rax, qword [rsp] ; rax = decoded symbols
         add rsp, 8
+        int3
         ret
 
     decode_byte:
-        mov rdx, 256
-        mov r8, 1
+        mov rdx, 2
+        mov r8, 8
         call decode
         ret
 
     decode_literal_dword:
-        lea rcx, [r15 + literal_model_offset]
-        mov rdx, 256
-        mov r8, 4
+        mov rdx, 1
+        mov r8, 32
         call decode
-        bswap eax
         ret
 
     strange_shift:

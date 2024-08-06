@@ -69,6 +69,7 @@ def encode(data: bytes, allocation_size: int) -> bytes:
     big_chain = ac.build_markov_chain()
     bid_model = ac.MarkovChainModel(big_chain)
     dummy_model = ac.MarkovChainModel(ac.build_markov_loop(1))
+    print(ac.MarkovNode.count, "nodes")
 
     # command_model = CONFIG["control"](2)
     # literal_model = CONFIG["literal"](256)

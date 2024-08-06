@@ -6,7 +6,7 @@ ANALYZER=.\tools\analyzer.py
 OUT=.\out
 SRC=.\src
 
-all: build debug-build zip Makefile $(OUT)\new-loader.obj
+all: build debug-build zip Makefile
 
 build: version $(OUT)\silicon.exe Makefile
 
