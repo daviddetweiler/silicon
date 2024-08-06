@@ -42,9 +42,6 @@ $(OUT)\kernel.bin.bw.inc: $(OUT)\kernel.bin.bw $(INC) Makefile
 $(OUT)\loader.obj: $(OUT)\kernel.bin.bw.inc $(SRC)\loader.asm Makefile
     nasm -I $(OUT) -fwin64 $(SRC)\loader.asm -o $(OUT)\loader.obj -g
 
-$(OUT)\new-loader.obj: $(SRC)\loader.asm Makefile
-    nasm -I $(OUT) -fwin64 $(SRC)\new-loader.asm -o $(OUT)\loader.obj
-
 $(BW): $(AC) Makefile
 
 $(OUT)\silicon.exe: $(OUT)\loader.obj Makefile

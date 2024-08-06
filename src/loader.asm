@@ -86,7 +86,6 @@ section .text
         mov r14d, eax ; r14 = expected bytes to unpack
 
     lzss_unpack:
-        int3
         .next_command:
         mov rdx, 2
         mov r8, 1
@@ -106,7 +105,7 @@ section .text
         xor rsi, flag_extra_byte ; clear the flag
         shl rsi, 8
 
-        call decode
+        call decode_byte
         mov sil, al
 
         .get_length:
@@ -312,6 +311,7 @@ section .text
 
         .adjusted:
         dec r8
+        cmp r8, 0
         jnz .next_symbol
 
         mov rax, qword [rsp] ; rax = decoded symbols
