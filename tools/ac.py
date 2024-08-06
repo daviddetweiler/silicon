@@ -68,22 +68,6 @@ class GlobalAdaptiveModel:
         return len(self.histogram)
 
 
-class AdaptiveMarkovModel:
-    def __init__(self, n_symbols):
-        self.context_models = [GlobalAdaptiveModel(n_symbols) for _ in range(n_symbols)]
-        self.context = 0
-
-    def pvalue(self, symbol):
-        return self.context_models[self.context].pvalue(symbol)
-
-    def update(self, symbol):
-        self.context_models[self.context].update(symbol)
-        self.context = symbol
-
-    def range(self):
-        return self.context_models[self.context].range()
-
-
 MAGIC = 64 - 6
 LBOUND = shl(1, MAGIC)
 UBOUND = subtract(0, LBOUND)
@@ -92,83 +76,76 @@ UBOUND = subtract(0, LBOUND)
 # (2^48 + 1)
 
 
-class HowardVitterModel:
-    def __init__(self, n_symbols):
-        assert n_symbols == 2  # For debugging atm
-        self.p_for_1 = divide(1, n_symbols)
-        self.f = subtract(0, divide(1, 32))
+class MarkovNode:
+    def __init__(self):
+        self.model = GlobalAdaptiveModel(2)
+        self.children = [None, None]
+        self.tag = None
+
+
+class MarkovChainModel:
+    def __init__(self, node: MarkovNode):
+        self.node = node
 
     def pvalue(self, symbol):
-        return self.p_for_1 if symbol == 1 else subtract(0, self.p_for_1)
+        return self.node.model.pvalue(symbol)
 
     def update(self, symbol):
-        if symbol == 0:
-            self.p_for_1 = multiply(self.p_for_1, self.f)
-        else:
-            self.p_for_1 = add(multiply(self.p_for_1, self.f), subtract(0, self.f))
-
-        if self.p_for_1 < LBOUND:
-            self.p_for_1 = LBOUND
-        elif self.p_for_1 > UBOUND:
-            self.p_for_1 = UBOUND
+        self.node.model.update(symbol)
+        self.node = self.node.children[symbol]
 
     def range(self):
         return 2
 
 
-class HowardVitterTreeModel:
-    def __init__(self, n_symbols):
-        assert n_symbols == 256
-        bit8_models = [(HowardVitterModel(2), (None, None)) for _ in range(128)]
-        bit7_models = [
-            (HowardVitterModel(2), (bit8_models[2 * i], bit8_models[2 * i + 1]))
-            for i in range(64)
-        ]
-        bit6_models = [
-            (HowardVitterModel(2), (bit7_models[2 * i], bit7_models[2 * i + 1]))
-            for i in range(32)
-        ]
-        bit5_models = [
-            (HowardVitterModel(2), (bit6_models[2 * i], bit6_models[2 * i + 1]))
-            for i in range(16)
-        ]
-        bit4_models = [
-            (HowardVitterModel(2), (bit5_models[2 * i], bit5_models[2 * i + 1]))
-            for i in range(8)
-        ]
-        bit3_models = [
-            (HowardVitterModel(2), (bit4_models[2 * i], bit4_models[2 * i + 1]))
-            for i in range(4)
-        ]
-        bit2_models = [
-            (HowardVitterModel(2), (bit3_models[2 * i], bit3_models[2 * i + 1]))
-            for i in range(2)
-        ]
-        bit1_model = (HowardVitterModel(2), (bit2_models[0], bit2_models[1]))
+def build_markov_bitstring(end: MarkovNode, n: int) -> MarkovNode:
+    if n == 0:
+        return end
+    else:
+        node = MarkovNode()
+        node.children[0] = build_markov_bitstring(end, n - 1)
+        node.children[1] = build_markov_bitstring(end, n - 1)
+        return node
 
-        self.tree = bit1_model
 
-    def pvalue(self, symbol):
-        model = self.tree
-        p = subtract(0, 1)  # Max probability
-        for i in range(8):
-            bit = (symbol >> (7 - i)) & 1
-            predictor, branches = model
-            p = multiply(p, predictor.pvalue(bit))
-            model = branches[bit]
+def markov_join(node: MarkovNode, other: MarkovNode):
+    joined = MarkovNode()
+    joined.children[0] = node
+    joined.children[1] = other
+    return joined
 
-        return p
 
-    def update(self, symbol):
-        model = self.tree
-        for i in range(8):
-            bit = (symbol >> (7 - i)) & 1
-            predictor, branches = model
-            predictor.update(bit)
-            model = branches[bit]
+def build_markov_chain() -> MarkovNode:
+    root = MarkovNode()
+    root.tag = "root"
+    short_length_model = build_markov_bitstring(root, 7)
+    short_length_model.tag = "short_length"
+    ext_length_model = build_markov_bitstring(short_length_model, 8)
+    ext_length_model.tag = "ext_length"
+    length_model = markov_join(short_length_model, ext_length_model)
+    length_model.tag = "length"
 
-    def range(self):
-        return 256
+    short_offset_model = build_markov_bitstring(length_model, 7)
+    short_offset_model.tag = "short_offset"
+    ext_offset_model = build_markov_bitstring(short_offset_model, 8)
+    ext_offset_model.tag = "ext_offset"
+    offset_model = markov_join(short_offset_model, ext_offset_model)
+    offset_model.tag = "offset"
+
+    literal_model = build_markov_bitstring(root, 8)
+    literal_model.tag = "literal"
+    root.children[0] = literal_model
+    root.children[1] = offset_model
+
+    return root
+
+
+def build_markov_loop(n: int) -> MarkovNode:
+    root = MarkovNode()
+    root.tag = "root"
+    root.children[0] = build_markov_bitstring(root, n - 1)
+    root.children[1] = build_markov_bitstring(root, n - 1)
+    return root
 
 
 class Encoder:
