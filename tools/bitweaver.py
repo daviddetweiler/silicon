@@ -1,6 +1,7 @@
 import sys
 import ac
 import math
+from typing import *
 
 HV_CONFIG = {
     "control": ac.HowardVitterModel,
@@ -28,23 +29,25 @@ CONFIGS = {
 CONFIG = CONFIGS["default"]
 
 
-def encode_15bit(n: int) -> bytes:
+def encode_15bit(n: int) -> Tuple[int, int, int]:
     assert 0 <= n < 2**15
     if n < 0x80:
-        return n.to_bytes(1, "little")
+        return 0, n, 0
     else:
-        hi = n >> 8
-        lo = n & 0xFF
-        return (0x80 | hi).to_bytes(1, "little") + lo.to_bytes(1, "little")
+        hi = n >> 7
+        lo = n & 0x7F
+        return 1, lo, hi
 
 
 def encode(data: bytes, allocation_size: int) -> bytes:
     encoder = ac.Encoder()
     command_model = CONFIG["control"](2)
     literal_model = CONFIG["literal"](256)
-    offset_model = CONFIG["offset"](256)
-    length_model = CONFIG["length"](256)
+    octl_model = ac.AdaptiveMarkovModel(2)
+    offset_model = CONFIG["offset"](128)
     alt_offset_model = CONFIG["alt_offset"](256)
+    lctl_model = ac.AdaptiveMarkovModel(2)
+    length_model = CONFIG["length"](128)
     alt_length_model = CONFIG["alt_length"](256)
 
     expected_bytes = len(data)
@@ -73,17 +76,19 @@ def encode(data: bytes, allocation_size: int) -> bytes:
 
         if longest_match is not None:
             offset, length = longest_match
-            offset_code = encode_15bit(offset)
-            length_code = encode_15bit(length)
-            if len(offset_code) + len(length_code) < length:
+            octl, olo, ohi = encode_15bit(offset)
+            lctl, llo, lhi = encode_15bit(length)
+            if (octl + 1) + (lctl + 1) < length:
                 encoder.encode(command_model, [1])
-                encoder.encode(offset_model, offset_code[:1])
-                if len(offset_code) > 1:
-                    encoder.encode(alt_offset_model, offset_code[1:])
+                encoder.encode(octl_model, [octl])
+                encoder.encode(offset_model, [olo])
+                if octl == 1:
+                    encoder.encode(alt_offset_model, [ohi])
 
-                encoder.encode(length_model, length_code[:1])
-                if len(length_code) > 1:
-                    encoder.encode(alt_length_model, length_code[1:])
+                encoder.encode(lctl_model, [lctl])
+                encoder.encode(length_model, [llo])
+                if lctl == 1:
+                    encoder.encode(alt_length_model, [lhi])
 
                 i += length
             else:
@@ -115,9 +120,11 @@ def decode(encoded: bytes) -> bytes:
     decoder = ac.Decoder(encoded)
     command_model = CONFIG["control"](2)
     literal_model = CONFIG["literal"](256)
-    offset_model = CONFIG["offset"](256)
-    length_model = CONFIG["length"](256)
+    octl_model = ac.AdaptiveMarkovModel(2)
+    offset_model = CONFIG["offset"](128)
     alt_offset_model = CONFIG["alt_offset"](256)
+    lctl_model = ac.AdaptiveMarkovModel(2)
+    length_model = CONFIG["length"](128)
     alt_length_model = CONFIG["alt_length"](256)
 
     _ = int.from_bytes(bytes(decoder.decode(literal_model, 4)), "little")
@@ -130,16 +137,20 @@ def decode(encoded: bytes) -> bytes:
             literal = bytes(decoder.decode(literal_model, 1))
             decompressed += literal
         else:
-            offset = decoder.decode(offset_model, 1)
-            if offset[0] & 0x80 != 0:
-                offset += decoder.decode(alt_offset_model, 1)
+            octl = decoder.decode(octl_model, 1)[0]
+            olo = decoder.decode(offset_model, 1)[0]
+            if octl == 1:
+                ohi = decoder.decode(alt_offset_model, 1)[0]
+                olo = (ohi << 7) | olo
 
-            length = decoder.decode(length_model, 1)
-            if length[0] & 0x80 != 0:
-                length += decoder.decode(alt_length_model, 1)
+            lctl = decoder.decode(lctl_model, 1)[0]
+            llo = decoder.decode(length_model, 1)[0]
+            if lctl == 1:
+                lhi = decoder.decode(alt_length_model, 1)[0]
+                llo = (lhi << 7) | llo
 
-            offset = decode_15bit(offset)
-            length = decode_15bit(length)
+            offset = olo
+            length = llo
 
             # This is necessary to do this even kind of efficiently in python, but the assembly language version can
             # just use byte-by-byte copies.
