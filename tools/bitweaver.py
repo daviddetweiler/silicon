@@ -2,31 +2,6 @@ import sys
 import ac
 import math
 
-HV_CONFIG = {
-    "control": ac.HowardVitterModel,
-    "literal": ac.HowardVitterTreeModel,
-    "offset": ac.HowardVitterTreeModel,
-    "length": ac.HowardVitterTreeModel,
-    "alt_offset": ac.HowardVitterTreeModel,
-    "alt_length": ac.HowardVitterTreeModel,
-}
-
-DEFAULT_CONFIG = {
-    "control": ac.AdaptiveMarkovModel,
-    "literal": ac.GlobalAdaptiveModel,
-    "offset": ac.GlobalAdaptiveModel,
-    "length": ac.GlobalAdaptiveModel,
-    "alt_offset": ac.GlobalAdaptiveModel,
-    "alt_length": ac.GlobalAdaptiveModel,
-}
-
-CONFIGS = {
-    "hv": HV_CONFIG,
-    "default": DEFAULT_CONFIG,
-}
-
-CONFIG = CONFIGS["default"]
-
 
 def encode_15bit(n: int) -> bytes:
     assert 0 <= n < 2**15
@@ -69,14 +44,6 @@ def encode(data: bytes, allocation_size: int) -> bytes:
     big_chain = ac.build_markov_chain()
     bid_model = ac.MarkovChainModel(big_chain)
     dummy_model = ac.MarkovChainModel(ac.build_markov_loop(1))
-    print(ac.MarkovNode.count, "nodes")
-
-    # command_model = CONFIG["control"](2)
-    # literal_model = CONFIG["literal"](256)
-    # offset_model = CONFIG["offset"](256)
-    # length_model = CONFIG["length"](256)
-    # alt_offset_model = CONFIG["alt_offset"](256)
-    # alt_length_model = CONFIG["alt_length"](256)
 
     expected_bytes = len(data)
     encode_bytes(encoder, dummy_model, allocation_size.to_bytes(4, "big"))
@@ -155,13 +122,6 @@ def decode(encoded: bytes) -> bytes:
     big_chain = ac.build_markov_chain()
     bid_model = ac.MarkovChainModel(big_chain)
     dummy_model = ac.MarkovChainModel(ac.build_markov_loop(1))
-    # command_model = CONFIG["control"](2)
-    # literal_model = CONFIG["literal"](256)
-    # offset_model = CONFIG["offset"](256)
-    # length_model = CONFIG["length"](256)
-    # alt_offset_model = CONFIG["alt_offset"](256)
-    # alt_length_model = CONFIG["alt_length"](256)
-
     _ = int.from_bytes(decode_bytes(decoder, dummy_model, 4), "big")
     expected_bytes = int.from_bytes(decode_bytes(decoder, dummy_model, 4), "big")
 
@@ -215,12 +175,6 @@ def info(data: bytes) -> None:
     big_chain = ac.build_markov_chain()
     bid_model = ac.MarkovChainModel(big_chain)
     dummy_model = ac.MarkovChainModel(ac.build_markov_loop(1))
-    # command_model = CONFIG["control"](2)
-    # literal_model = CONFIG["literal"](256)
-    # offset_model = CONFIG["offset"](256)
-    # length_model = CONFIG["length"](256)
-    # alt_offset_model = CONFIG["alt_offset"](256)
-    # alt_length_model = CONFIG["alt_length"](256)
 
     allocation_size = int.from_bytes(decode_bytes(decoder, dummy_model, 4), "big")
     expected_bytes = int.from_bytes(decode_bytes(decoder, dummy_model, 4), "big")

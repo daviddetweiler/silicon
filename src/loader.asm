@@ -327,5 +327,4 @@ section .text
     bitstream:
         %include "kernel.bin.bw.inc"
 
-    %warning %eval(bitstream - start)
     db `\0\0\0\0\0\0\0\0` ; You do not want garbage data entering the bitstream near the end
