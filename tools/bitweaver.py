@@ -68,7 +68,7 @@ def encode(data: bytes, allocation_size: int) -> bytes:
     encoder = ac.Encoder()
     big_chain = ac.build_markov_chain()
     bid_model = ac.MarkovChainModel(big_chain)
-    dummy_model = ac.AdaptiveMarkovModel(2)
+    dummy_model = ac.MarkovChainModel(ac.build_markov_loop(1))
 
     # command_model = CONFIG["control"](2)
     # literal_model = CONFIG["literal"](256)
@@ -79,6 +79,7 @@ def encode(data: bytes, allocation_size: int) -> bytes:
 
     expected_bytes = len(data)
     encode_bytes(encoder, dummy_model, allocation_size.to_bytes(4, "little"))
+    assert dummy_model.node.tag == "root"
     encode_bytes(encoder, dummy_model, expected_bytes.to_bytes(4, "little"))
 
     window = 2**15 - 1
@@ -152,7 +153,7 @@ def decode(encoded: bytes) -> bytes:
     decoder = ac.Decoder(encoded)
     big_chain = ac.build_markov_chain()
     bid_model = ac.MarkovChainModel(big_chain)
-    dummy_model = ac.AdaptiveMarkovModel(2)
+    dummy_model = ac.MarkovChainModel(ac.build_markov_loop(1))
     # command_model = CONFIG["control"](2)
     # literal_model = CONFIG["literal"](256)
     # offset_model = CONFIG["offset"](256)
@@ -212,7 +213,7 @@ def info(data: bytes) -> None:
     decoder = ac.Decoder(data)
     big_chain = ac.build_markov_chain()
     bid_model = ac.MarkovChainModel(big_chain)
-    dummy_model = ac.AdaptiveMarkovModel(2)
+    dummy_model = ac.MarkovChainModel(ac.build_markov_loop(1))
     # command_model = CONFIG["control"](2)
     # literal_model = CONFIG["literal"](256)
     # offset_model = CONFIG["offset"](256)

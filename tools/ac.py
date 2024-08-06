@@ -235,8 +235,14 @@ def build_markov_chain() -> MarkovNode:
     root.children[0] = literal_model
     root.children[1] = offset_model
 
-    print(MarkovNode.count, "nodes")
+    return root
 
+
+def build_markov_loop(n: int) -> MarkovNode:
+    root = MarkovNode()
+    root.tag = "root"
+    root.children[0] = build_markov_bitstring(root, n - 1)
+    root.children[1] = build_markov_bitstring(root, n - 1)
     return root
 
 

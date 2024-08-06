@@ -6,7 +6,7 @@ ANALYZER=.\tools\analyzer.py
 OUT=.\out
 SRC=.\src
 
-all: build debug-build zip Makefile
+all: build debug-build zip Makefile $(OUT)\new-loader.obj
 
 build: version $(OUT)\silicon.exe Makefile
 
@@ -41,6 +41,9 @@ $(OUT)\kernel.bin.bw.inc: $(OUT)\kernel.bin.bw $(INC) Makefile
 
 $(OUT)\loader.obj: $(OUT)\kernel.bin.bw.inc $(SRC)\loader.asm Makefile
     nasm -I $(OUT) -fwin64 $(SRC)\loader.asm -o $(OUT)\loader.obj
+
+$(OUT)\new-loader.obj: $(SRC)\loader.asm Makefile
+    nasm -I $(OUT) -fwin64 $(SRC)\new-loader.asm -o $(OUT)\loader.obj
 
 $(BW): $(AC) Makefile
 
