@@ -45,7 +45,6 @@ section .text
         call make_bitstring ; rsi now points to the literal model
         mov rsi, rax
 
-        int3
         mov [r14], rsi
         mov [r14 + 8], rdi
         mov r15, r14 ; r15 now points to the packet model
@@ -87,12 +86,13 @@ section .text
         mov r14d, eax ; r14 = expected bytes to unpack
 
     lzss_unpack:
+        int3
         .next_command:
         mov rdx, 2
         mov r8, 1
         call decode
 
-        test al, al
+        test al, 0x1
         jz .literal
 
         .copy_command:
@@ -176,20 +176,27 @@ section .text
 
     ; rcx = root, rdx = bits
     make_bitstring:
+        sub rsp, 8 * 2
         test rdx, rdx
         jnz .recurse
         mov rax, rcx
+        add rsp, 8 * 2
         ret
 
         .recurse:
         dec rdx
+        mov [rsp], r15
         call make_bitstring
-        mov [r15 + 8], rax
+        mov [rsp + 8], rax
         call make_bitstring
-        mov [r15], rax
+        mov r12, [rsp]
+        mov r11, [rsp + 8]
+        mov [r12], r11
+        mov [r12 + 8], rax
         inc rdx
         call make_node
-        lea rax, [r15 - node_size]
+        mov rax, r12
+        add rsp, 8 * 2
         ret
 
     make_15bit_model:
@@ -240,7 +247,8 @@ section .text
         cmp rdx, r11 ; range check
         jb .advance_subinterval
         mov r12, rdx ; update upper bound
-        mov byte [rsp + r8 - 1], r9b ; store symbol
+        shl qword [rsp], 1
+        or [rsp], r9b ; store symbol
         inc qword [rcx + r9 * 8] ; update model
         inc qword [rcx - 8] ; update model
         mov r15, [r15 + r9 * 8] ; r15 = next model
@@ -310,7 +318,6 @@ section .text
 
         mov rax, qword [rsp] ; rax = decoded symbols
         add rsp, 8
-        int3
         ret
 
     decode_byte:
@@ -320,7 +327,7 @@ section .text
         ret
 
     decode_literal_dword:
-        mov rdx, 1
+        mov rdx, 2
         mov r8, 32
         call decode
         ret
