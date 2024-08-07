@@ -19,7 +19,7 @@ global start
 %define immediate (1 << 7)
 
 %ifndef standalone
-	%define entry_0 -image_base
+	%define entry_0 (8 - image_base)
 %else
 	%define entry_0 0
 %endif
@@ -42,7 +42,7 @@ global start
 %define image_base 0x2000000000
 
 %ifndef standalone
-	%define address(x) (x) + image_base
+	%define address(x) (x) + image_base - 8
 %else
 	%define address(x) x
 %endif

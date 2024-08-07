@@ -1,6 +1,7 @@
 import sys
 import ac
 import math
+from typing import *
 
 
 def encode_15bit(n: int) -> bytes:
@@ -159,15 +160,17 @@ def decode(encoded: bytes) -> bytes:
     return decompressed
 
 
-def get_size(data: bytes) -> int:
+def get_size(data: bytes) -> Tuple[bytes, int]:
     bss_size = 0
     bss_size = int.from_bytes(data[0:8], "little")
     if bss_size > 2**32:  # We're probably dealing with a non-image
         bss_size = 0
+    else:
+        data = data[8:]
 
     print(bss_size, "extra bytes of BSS", sep="\t")
 
-    return len(data) + bss_size
+    return data, len(data) + bss_size
 
 
 def info(data: bytes) -> None:
@@ -255,7 +258,7 @@ if __name__ == "__main__":
         data = rf.read()
 
     if command == "pack":
-        full_size = get_size(data)
+        data, full_size = get_size(data)
         encoded = encode(data, full_size)
         print(f"{100 * len(encoded) / len(data) :.2f}%\tcompression ratio")
         decoded = decode(encoded)
