@@ -156,6 +156,7 @@ class Encoder:
         self.pending = 0
         self.leader = 0
         self.log = open("encode.log", "w")
+        self.bits = 0
 
     def shift_out(self, bits: List[int]):
         self.next_byte += bits
@@ -163,6 +164,8 @@ class Encoder:
             code_bits, self.next_byte = self.next_byte[:8], self.next_byte[8:]
             code = 0
             for bit in code_bits:
+                print(bit, file=self.log)
+                self.bits += 1
                 code = (code << 1) | bit
 
             self.encoded += code.to_bytes(1, "little")
@@ -170,7 +173,7 @@ class Encoder:
     def encode(self, model, data):
         for byte in data:
             interval_width = subtract(self.b, self.a)
-            print(self.a, self.b, file=self.log)
+            # print(self.a, self.b, file=self.log)
             for i in range(model.range()):
                 p = model.pvalue(i)
                 subinterval_width = multiply(interval_width, p)
@@ -203,10 +206,10 @@ class Encoder:
                     self.shift_out([filler] * self.pending)
                     self.pending = 0
 
-            print(
-                f"[{model.node.model.histogram[0]}, {model.node.model.histogram[1]}, {model.node.model.total}], {byte}",
-                file=self.log,
-            )
+            # print(
+            #     f"[{model.node.model.histogram[0]}, {model.node.model.histogram[1]}, {model.node.model.total}], {byte}",
+            #     file=self.log,
+            # )
             model.update(byte)
             # print(f"c({byte})", file=self.log)
 
@@ -258,19 +261,17 @@ class Decoder:
         self.i = 0
         self.next_byte: List[int] = []
         self.log = open("decode.log", "w")
+        self.bits = 0
 
     def decode(self, model, expected_length):
         decoded = []
-        while self.i < 8:
-            self.window = shl(self.window, 8) | (
-                self.bitgroups[self.i] if self.i < len(self.bitgroups) else 0
-            )
-
-            self.i += 1
+        for _ in range(64):
+            self.shift_window()
 
         while len(decoded) < expected_length:
+            faulty_bit = self.bits
             interval_width = subtract(self.b, self.a)
-            print(self.a, self.b, file=self.log)
+            # print(self.a, self.b, file=self.log)
             byte = None
             for j in range(model.range()):
                 subinterval_width = multiply(interval_width, model.pvalue(j))
@@ -293,10 +294,10 @@ class Decoder:
 
             decoded += [byte]
             # print(f"c({byte})", file=self.log)
-            print(
-                f"[{model.node.model.histogram[0]}, {model.node.model.histogram[1]}, {model.node.model.total}], {byte}",
-                file=self.log,
-            )
+            # print(
+            #     f"[{model.node.model.histogram[0]}, {model.node.model.histogram[1]}, {model.node.model.total}], {byte}",
+            #     file=self.log,
+            # )
             model.update(byte)
 
             a_top = shr(self.a, 64 - 1)
@@ -327,13 +328,17 @@ class Decoder:
                     else:
                         break
 
+            assert self.a < self.window < self.b
+
         return decoded
 
     def shift_window(self):
         if len(self.next_byte) == 0:
             byte = self.bitgroups[self.i] if self.i < len(self.bitgroups) else 0
             self.i += 1
-            self.next_byte = [(byte >> (7 - i)) & 1 for i in range(8)]
+            self.next_byte = [(byte >> i) & 1 for i in range(8)]
 
         next_bit = self.next_byte.pop()
+        print(next_bit, file=self.log)
+        self.bits += 1
         self.window = shl(self.window, 1) | next_bit
