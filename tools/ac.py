@@ -1,9 +1,12 @@
 import sys
 import math
+from typing import List
 
-UPPER8 = ((1 << 8) - 1) << (64 - 8)
-TAIL8 = UPPER8 >> 8
+UPPER1 = ((1 << 1) - 1) << (64 - 1)
+TAIL1 = UPPER1 >> 1
 BITS64 = (1 << 64) - 1
+
+# Do we have any overflow issues?
 
 
 def divide(a, b):
@@ -67,10 +70,6 @@ class GlobalAdaptiveModel:
     def range(self):
         return len(self.histogram)
 
-
-MAGIC = 64 - 6
-LBOUND = shl(1, MAGIC)
-UBOUND = subtract(0, LBOUND)
 
 # TODO: check precision guarantees (0x4cfffff..., 0x4d01000000...) seems to me the smallest possible interval width
 # (2^48 + 1)
@@ -153,12 +152,25 @@ class Encoder:
         self.a = 0
         self.b = (1 << 64) - 1
         self.encoded = b""
+        self.next_byte: List[int] = []
         self.pending = 0
         self.leader = 0
+        self.log = open("encode.log", "w")
+
+    def shift_out(self, bits: List[int]):
+        self.next_byte += bits
+        while len(self.next_byte) >= 8:
+            code_bits, self.next_byte = self.next_byte[:8], self.next_byte[8:]
+            code = 0
+            for bit in code_bits:
+                code = (code << 1) | bit
+
+            self.encoded += code.to_bytes(1, "little")
 
     def encode(self, model, data):
         for byte in data:
             interval_width = subtract(self.b, self.a)
+            print(self.a, self.b, file=self.log)
             for i in range(model.range()):
                 p = model.pvalue(i)
                 subinterval_width = multiply(interval_width, p)
@@ -176,63 +188,76 @@ class Encoder:
                 else:
                     self.a = new_a
 
-            while (self.a ^ self.b) & UPPER8 == 0:
-                # 8 bits have been locked in
+            # print(f"a({self.a:064b}, {self.b:064b})", file=self.log)
+            while (self.a ^ self.b) & UPPER1 == 0:
+                # 1 bits have been locked in
                 flush_pending = self.pending > 0
-                to_code = shr(self.a, 64 - 8)
-                self.encoded += to_code.to_bytes(1, "little")
-                self.a = shl(self.a, 8)
-                self.b = shl(self.b, 8)
-                self.b |= (1 << 8) - 1
+                to_code = shr(self.a, 64 - 1)
+                self.shift_out([to_code])
+                self.a = shl(self.a, 1)
+                self.b = shl(self.b, 1)
+                self.b |= (1 << 1) - 1
+                # print(f"b({self.a:064b}, {self.b:064b})", file=self.log)
                 if flush_pending:
-                    filler = 0xFF if to_code == self.leader else 0x00
-                    self.encoded += filler.to_bytes(1, "little") * self.pending
+                    filler = 1 if to_code == self.leader else 0
+                    self.shift_out([filler] * self.pending)
                     self.pending = 0
 
+            print(
+                f"[{model.node.model.histogram[0]}, {model.node.model.histogram[1]}, {model.node.model.total}], {byte}",
+                file=self.log,
+            )
             model.update(byte)
+            # print(f"c({byte})", file=self.log)
 
-            a_top = shr(self.a, 64 - 8)
-            b_top = shr(self.b, 64 - 8)
+            a_top = shr(self.a, 64 - 1)
+            b_top = shr(self.b, 64 - 1)
             if b_top - a_top == 1:
                 while True:
-                    a_tail = shr(self.a & TAIL8, 48)
-                    b_tail = shr(self.b & TAIL8, 48)
-                    if a_tail == 0xFF and b_tail == 0x00:
+                    a_tail = shr(self.a & TAIL1, 62)
+                    b_tail = shr(self.b & TAIL1, 62)
+                    if a_tail == 0b1 and b_tail == 0b0:
+                        # print(f"*({self.a:064b}, {self.b:064b})", file=self.log)
                         self.leader = a_top
                         # How to understand this check:
                         # Think of the interval (0.799..., 0.8000...) in decimal.
                         # The interval may still shrink arbitrarily without ever actually locking in any digits
-                        self.a = shl(self.a, 8)
-                        self.b = shl(self.b, 8)
-                        self.b |= (1 << 8) - 1
+                        self.a = shl(self.a, 1)
+                        self.b = shl(self.b, 1)
+                        self.b |= (1 << 1) - 1
                         self.pending += 1
-                        self.a &= ~UPPER8
-                        self.b &= ~UPPER8
-                        self.a |= shl(a_top, 64 - 8)
-                        self.b |= shl(b_top, 64 - 8)
+                        self.a &= ~UPPER1
+                        self.b &= ~UPPER1
+                        self.a |= shl(a_top, 64 - 1)
+                        self.b |= shl(b_top, 64 - 1)
                     else:
                         break
 
     def end_stream(self):
         flush_pending = self.pending > 0
-        self.a = add(self.a, 1 << (64 - 8))  # The decoder semantics use open intervals
-        to_code = shr(self.a, (64 - 8))
-        self.encoded += to_code.to_bytes(1, "little")
+        self.a = add(self.a, 1 << (64 - 1))  # The decoder semantics use open intervals
+        to_code = shr(self.a, (64 - 1))
+        self.shift_out([to_code])
         if flush_pending:
-            filler = 0xFF if to_code == self.leader else 0x00
-            self.encoded += filler.to_bytes(1, "little") * self.pending
+            filler = 1 if to_code == self.leader else 0
+            self.shift_out([filler] * self.pending)
             self.pending = 0
+
+        n_pad = (8 - (len(self.encoded) % 8)) % 8
+        self.shift_out([0] * n_pad)
 
         return self.encoded
 
 
 class Decoder:
-    def __init__(self, encoded):
+    def __init__(self, encoded: bytes):
         self.bitgroups = [byte for byte in encoded]
         self.a = 0
         self.b = (1 << 64) - 1
         self.window = 0
         self.i = 0
+        self.next_byte: List[int] = []
+        self.log = open("decode.log", "w")
 
     def decode(self, model, expected_length):
         decoded = []
@@ -245,6 +270,7 @@ class Decoder:
 
         while len(decoded) < expected_length:
             interval_width = subtract(self.b, self.a)
+            print(self.a, self.b, file=self.log)
             byte = None
             for j in range(model.range()):
                 subinterval_width = multiply(interval_width, model.pvalue(j))
@@ -256,86 +282,58 @@ class Decoder:
 
                 self.a = next_a
 
-            while (self.a ^ self.b) & UPPER8 == 0:
-                # 8 bits have been locked in
-                self.a = shl(self.a, 8)
-                self.b = shl(self.b, 8)
-                self.b |= (1 << 8) - 1
+            # print(f"a({self.a:064b}, {self.b:064b})", file=self.log)
+            while (self.a ^ self.b) & UPPER1 == 0:
+                # 1 bits have been locked in
+                self.a = shl(self.a, 1)
+                self.b = shl(self.b, 1)
+                self.b |= (1 << 1) - 1
+                # print(f"b({self.a:064b}, {self.b:064b})", file=self.log)
                 self.shift_window()
 
             decoded += [byte]
+            # print(f"c({byte})", file=self.log)
+            print(
+                f"[{model.node.model.histogram[0]}, {model.node.model.histogram[1]}, {model.node.model.total}], {byte}",
+                file=self.log,
+            )
             model.update(byte)
 
-            a_top = shr(self.a, 64 - 8)
-            b_top = shr(self.b, 64 - 8)
+            a_top = shr(self.a, 64 - 1)
+            b_top = shr(self.b, 64 - 1)
             if b_top - a_top == 1:
                 while True:
-                    a_tail = shr(self.a & TAIL8, 48)
-                    b_tail = shr(self.b & TAIL8, 48)
-                    if a_tail == 0xFF and b_tail == 0x00:
+                    a_tail = shr(self.a & TAIL1, 62)
+                    b_tail = shr(self.b & TAIL1, 62)
+                    if a_tail == 0b1 and b_tail == 0b0:
+                        # print(f"*({self.a:064b}, {self.b:064b})", file=self.log)
                         # How to understand this check:
                         # Think of the interval (0.799..., 0.8000...) in decimal.
                         # The interval may still shrink arbitrarily without ever actually locking in any digits
-                        self.a = shl(self.a, 8)
-                        self.a &= ~UPPER8
-                        self.a |= shl(a_top, 64 - 8)
+                        self.a = shl(self.a, 1)
+                        self.a &= ~UPPER1
+                        self.a |= shl(a_top, 64 - 1)
 
-                        self.b = shl(self.b, 8)
-                        self.b &= ~UPPER8
-                        self.b |= shl(b_top, 64 - 8)
+                        self.b = shl(self.b, 1)
+                        self.b &= ~UPPER1
+                        self.b |= shl(b_top, 64 - 1)
 
-                        self.b |= (1 << 8) - 1
+                        self.b |= (1 << 1) - 1
 
-                        window_top = shr(self.window, 64 - 8)
+                        window_top = shr(self.window, 64 - 1)
                         self.shift_window()
-                        self.window &= ~UPPER8
-                        self.window |= shl(window_top, 64 - 8)
+                        self.window &= ~UPPER1
+                        self.window |= shl(window_top, 64 - 1)
                     else:
                         break
 
         return decoded
 
     def shift_window(self):
-        self.window = shl(self.window, 8) | (
-            self.bitgroups[self.i] if self.i < len(self.bitgroups) else 0
-        )
+        if len(self.next_byte) == 0:
+            byte = self.bitgroups[self.i] if self.i < len(self.bitgroups) else 0
+            self.i += 1
+            self.next_byte = [(byte >> (7 - i)) & 1 for i in range(8)]
 
-        self.i += 1
-
-
-if __name__ == "__main__":
-    if len(sys.argv) != 4 or sys.argv[1] not in ("pack", "unpack"):
-        print("Usage: ac.py <pack|unpack> <input> <output>")
-        sys.exit(1)
-
-    with open(sys.argv[2], "rb") as r:
-        data = r.read()
-
-    if sys.argv[1] == "pack":
-        e = entropy(data)
-        print(f"{e:.2f}\tbits of entropy per symbol")
-        print(f"{100 * e / 8 :.2f}%\toptimal compression ratio")
-        min_size = math.ceil((e / 8) * len(data))
-
-        encoder = Encoder()
-        encoder.encode(GlobalAdaptiveModel(256), data)
-        encoded = encoder.end_stream()
-
-        decoder = Decoder(encoded)
-        decoded = decoder.decode(GlobalAdaptiveModel(256), len(data))
-        if decoded != list(data):
-            print("Stream corruption detected!")
-            sys.exit(1)
-
-        print(len(encoded), "compressed size", sep="\t")
-        print(f"{100 * len(encoded) / len(data):.2f}%\tcompression ratio")
-        print(
-            f"{100 * (len(encoded) - min_size) / min_size:.2f}%\tadaptive coding overhead"
-        )
-        with open(sys.argv[3], "wb") as w:
-            w.write(encoded)
-    elif sys.argv[1] == "unpack":
-        decoder = Decoder(data)
-        decoded = decoder.decode(GlobalAdaptiveModel(256), len(data))
-        with open(sys.argv[3], "wb") as w:
-            w.write(decoded)
+        next_bit = self.next_byte.pop()
+        self.window = shl(self.window, 1) | next_bit

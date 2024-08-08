@@ -118,7 +118,7 @@ assert decode_15bit(encode_15bit(0)) == 0
 assert decode_15bit(encode_15bit(1234)) == 1234, decode_15bit(encode_15bit(1234))
 
 
-def decode(encoded: bytes) -> bytes:
+def decode(encoded: bytes, compare: Optional[bytes] = None) -> bytes:
     decoder = ac.Decoder(encoded)
     big_chain = ac.build_markov_chain()
     bid_model = ac.MarkovChainModel(big_chain)
@@ -128,15 +128,21 @@ def decode(encoded: bytes) -> bytes:
 
     decompressed = b""
     while len(decompressed) < expected_bytes:
+        left = len(decompressed)
+
+        assert bid_model.node.tag == "root"
         bit = decoder.decode(bid_model, 1)[0]
         if bit == 0:
+            assert bid_model.node.tag == "literal"
             literal = decode_byte(decoder, bid_model)
             decompressed += literal
         else:
+            assert bid_model.node.tag == "offset"
             offset_bytes = decode_byte(decoder, bid_model)
             if offset_bytes[0] & 0x80 != 0:
                 offset_bytes += decode_byte(decoder, bid_model)
 
+            assert bid_model.node.tag == "length"
             length_bytes = decode_byte(decoder, bid_model)
             if length_bytes[0] & 0x80 != 0:
                 length_bytes += decode_byte(decoder, bid_model)
@@ -156,6 +162,12 @@ def decode(encoded: bytes) -> bytes:
                         decompressed += decompressed[-offset : -(offset - length)]
 
                     length -= offset
+
+        right = len(decompressed)
+        if compare is not None:
+            assert (
+                decompressed[left:right] == compare[left:right]
+            ), f"Stream corruption detected at {left}!"
 
     return decompressed
 
@@ -261,7 +273,7 @@ if __name__ == "__main__":
         data, full_size = get_size(data)
         encoded = encode(data, full_size)
         print(f"{100 * len(encoded) / len(data) :.2f}%\tcompression ratio")
-        decoded = decode(encoded)
+        decoded = decode(encoded, data)
         if decoded != data:
             print("Stream corruption detected!")
             sys.exit(1)
