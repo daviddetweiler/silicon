@@ -39,62 +39,75 @@ def decode_bytes(decoder: ac.Decoder, bit_model, count: int) -> bytes:
     return bytes(data)
 
 
+class Memo:
+    def __init__(self, cbit: int, data: bytes, cost: int, next: int):
+        self.data = data
+        self.cbit = cbit
+        self.cost = cost
+        self.next = next
+
+
+def unwrap(memo: Optional[Memo]) -> Memo:
+    assert memo is not None
+    return memo
+
+
 def encode(data: bytes, allocation_size: int) -> bytes:
     encoder = ac.Encoder()
     big_chain = ac.build_markov_chain()
     chain_model = ac.MarkovChainModel(big_chain)
     dummy_model = ac.MarkovChainModel(ac.build_markov_loop(1))
 
-    expected_bytes = len(data)
-    encode_bytes(encoder, dummy_model, allocation_size.to_bytes(4, "big"))
-    encode_bytes(encoder, dummy_model, expected_bytes.to_bytes(4, "big"))
-
-    window = 2**15 - 1
-    i = 0
-    while i < len(data):
-        # At least 2 bytes are needed to encode a match, so we match only 3 bytes or more.
+    WINDOW_SIZE = 2**15 - 1
+    memoization: List[Optional[Memo]] = [None] * len(data)
+    for n in range(len(data)):
+        i = len(data) - n - 1
         j = 3
-        longest_match = None
+        lit_next_cost = unwrap(memoization[i + 1]).cost if i + 1 < len(data) else 0
+        best_option = Memo(0, data[i : i + 1], 1 + lit_next_cost, i + 1)
         while True:
             if i + j > len(data):
                 break
 
-            window_base = max(0, i - window)
+            window_base = max(0, i - WINDOW_SIZE)
             window_data = data[window_base : i + j - 1]
             m = window_data.rfind(data[i : i + j])
             if m == -1:
                 break
 
             o, l = i - (window_base + m), j
-            longest_match = o, l
+            offset_code = encode_15bit(o)
+            length_code = encode_15bit(l)
+            backref_cost = len(offset_code) + len(length_code)
+            next_cost = unwrap(memoization[i + l]).cost if i + l < len(data) else 0
+            backref_cost += next_cost
+            if backref_cost < best_option.cost:
+                best_option = Memo(1, offset_code + length_code, backref_cost, i + l)
+
             j += 1
 
-        if longest_match is not None:
-            offset, length = longest_match
-            offset_code = encode_15bit(offset)
-            length_code = encode_15bit(length)
-            if len(offset_code) + len(length_code) < length:
-                encoder.encode(chain_model, [1])
-                encode_bytes(encoder, chain_model, offset_code[:1])
-                if len(offset_code) > 1:
-                    encode_bytes(encoder, chain_model, offset_code[1:])
+        memoization[i] = best_option
 
-                encode_bytes(encoder, chain_model, length_code[:1])
-                if len(length_code) > 1:
-                    encode_bytes(encoder, chain_model, length_code[1:])
+    print("Computed best parse: ", best_option.cost, "bytes")
 
-                i += length
-            else:
-                encoder.encode(chain_model, [0])
-                encode_bytes(encoder, chain_model, data[i : i + 1])
-                i += 1
-        else:
-            encoder.encode(chain_model, [0])
-            encode_bytes(encoder, chain_model, data[i : i + 1])
-            i += 1
+    expected_bytes = len(data)
+    encode_bytes(encoder, dummy_model, allocation_size.to_bytes(4, "big"))
+    assert dummy_model.node.tag == "root"
+    encode_bytes(encoder, dummy_model, expected_bytes.to_bytes(4, "big"))
+
+    greedy_cost = 0
+    i = 0
+    while i < len(data):
+        memo = unwrap(memoization[i])
+        assert bid_model.node.tag == "root"
+        encoder.encode(bid_model, [memo.cbit])
+        encode_bytes(encoder, bid_model, memo.data)
+        greedy_cost += len(memo.data)
+        i = memo.next
 
     coded = encoder.end_stream()
     print(len(coded), "bytes compressed", sep="\t")
+    print("Actual parse cost: ", greedy_cost, "bytes")
     print("Model miss rates:")
     buckets = ac.compute_miss_rate(chain_model.node)
     for bucket in buckets:
