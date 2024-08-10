@@ -190,8 +190,12 @@ class Encoder:
         self.encoded = b""
         self.pending = 0
         self.leader = 0
+        self.input_count = 0
 
     def encode(self, model, data):
+        assert model.range() == 2
+        self.input_count += len(data)
+
         for byte in data:
             interval_width = subtract(self.b, self.a)
             for i in range(model.range()):
