@@ -236,8 +236,6 @@ def info(data: bytes) -> None:
         + literal_byte_count
         + offset_byte_count
         + length_byte_count
-        + extended_offset_count
-        + extended_length_count
     )
 
     print(uncoded_length, "bytes uncoded", sep="\t")
