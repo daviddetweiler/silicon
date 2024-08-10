@@ -91,8 +91,6 @@ def encode(data: bytes, allocation_size: int) -> bytes:
 
         memoization[i] = best_option
 
-    print("Computed best parse: ", best_option.cost, "bits")
-
     expected_bytes = len(data)
     encode_bytes(encoder, dummy_model, allocation_size.to_bytes(4, "big"))
     assert dummy_model.node.tag == "root"
@@ -101,57 +99,16 @@ def encode(data: bytes, allocation_size: int) -> bytes:
     i = 0
     start_count = encoder.input_count
     while i < len(data):
-        # At least 2 bytes are needed to encode a match, so we match only 3 bytes or more.
-        j = 3
-        longest_match = None
-        while True:
-            if i + j > len(data):
-                break
-
-            window_base = max(0, i - WINDOW_SIZE)
-            window_data = data[window_base : i + j - 1]
-            m = window_data.rfind(data[i : i + j])
-            if m == -1:
-                break
-
-            o, l = i - (window_base + m), j
-            longest_match = o, l
-            j += 1
-
-        assert bid_model.node.tag == "root"
-        if longest_match is not None:
-            offset, length = longest_match
-            offset_code = encode_15bit(offset)
-            length_code = encode_15bit(length)
-            backref_cost = len(offset_code) + len(length_code)
-            if backref_cost < length:
-                encoder.encode(bid_model, [1])
-                assert bid_model.node.tag == "offset"
-                encode_bytes(encoder, bid_model, offset_code[:1])
-                if len(offset_code) > 1:
-                    encode_bytes(encoder, bid_model, offset_code[1:])
-
-                assert bid_model.node.tag == "length"
-                encode_bytes(encoder, bid_model, length_code[:1])
-                if len(length_code) > 1:
-                    encode_bytes(encoder, bid_model, length_code[1:])
-
-                i += length
-            else:
-                encoder.encode(bid_model, [0])
-                assert bid_model.node.tag == "literal"
-                encode_bytes(encoder, bid_model, data[i : i + 1])
-                i += 1
-        else:
-            encoder.encode(bid_model, [0])
-            assert bid_model.node.tag == "literal"
-            encode_bytes(encoder, bid_model, data[i : i + 1])
-            i += 1
+        memo = memoization[i]
+        assert memo is not None
+        encoder.encode(bid_model, [memo.cbit])
+        encode_bytes(encoder, bid_model, memo.data)
+        i = memo.next
 
     end_count = encoder.input_count
     coded = encoder.end_stream()
     print(len(coded), "bytes compressed", sep="\t")
-    print("Actual parse cost: ", end_count - start_count, "bits")
+    print(end_count - start_count, "bits uncoded", sep="\t")
     print("Model miss rates:")
     buckets = ac.compute_miss_rate(chain_model.node)
     for bucket in buckets:
