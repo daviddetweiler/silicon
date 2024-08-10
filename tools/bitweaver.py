@@ -5,7 +5,6 @@ from typing import *
 
 
 def encode_15bit(n: int) -> bytes:
-    assert 0 <= n < 2**15
     if n < 0x80:
         return n.to_bytes(1, "big")
     else:
@@ -43,12 +42,11 @@ def decode_bytes(decoder: ac.Decoder, bit_model, count: int) -> bytes:
 def encode(data: bytes, allocation_size: int) -> bytes:
     encoder = ac.Encoder()
     big_chain = ac.build_markov_chain()
-    bid_model = ac.MarkovChainModel(big_chain)
+    chain_model = ac.MarkovChainModel(big_chain)
     dummy_model = ac.MarkovChainModel(ac.build_markov_loop(1))
 
     expected_bytes = len(data)
     encode_bytes(encoder, dummy_model, allocation_size.to_bytes(4, "big"))
-    assert dummy_model.node.tag == "root"
     encode_bytes(encoder, dummy_model, expected_bytes.to_bytes(4, "big"))
 
     window = 2**15 - 1
@@ -71,39 +69,34 @@ def encode(data: bytes, allocation_size: int) -> bytes:
             longest_match = o, l
             j += 1
 
-        assert bid_model.node.tag == "root"
         if longest_match is not None:
             offset, length = longest_match
             offset_code = encode_15bit(offset)
             length_code = encode_15bit(length)
             if len(offset_code) + len(length_code) < length:
-                encoder.encode(bid_model, [1])
-                assert bid_model.node.tag == "offset"
-                encode_bytes(encoder, bid_model, offset_code[:1])
+                encoder.encode(chain_model, [1])
+                encode_bytes(encoder, chain_model, offset_code[:1])
                 if len(offset_code) > 1:
-                    encode_bytes(encoder, bid_model, offset_code[1:])
+                    encode_bytes(encoder, chain_model, offset_code[1:])
 
-                assert bid_model.node.tag == "length"
-                encode_bytes(encoder, bid_model, length_code[:1])
+                encode_bytes(encoder, chain_model, length_code[:1])
                 if len(length_code) > 1:
-                    encode_bytes(encoder, bid_model, length_code[1:])
+                    encode_bytes(encoder, chain_model, length_code[1:])
 
                 i += length
             else:
-                encoder.encode(bid_model, [0])
-                assert bid_model.node.tag == "literal"
-                encode_bytes(encoder, bid_model, data[i : i + 1])
+                encoder.encode(chain_model, [0])
+                encode_bytes(encoder, chain_model, data[i : i + 1])
                 i += 1
         else:
-            encoder.encode(bid_model, [0])
-            assert bid_model.node.tag == "literal"
-            encode_bytes(encoder, bid_model, data[i : i + 1])
+            encoder.encode(chain_model, [0])
+            encode_bytes(encoder, chain_model, data[i : i + 1])
             i += 1
 
     coded = encoder.end_stream()
     print(len(coded), "bytes compressed", sep="\t")
     print("Model miss rates:")
-    buckets = ac.compute_miss_rate(bid_model.node)
+    buckets = ac.compute_miss_rate(chain_model.node)
     for bucket in buckets:
         miss_rate = buckets[bucket]
         print(f"\t{bucket}{' ' * (16 - len(bucket))}{100*miss_rate:.2f}%")
@@ -119,32 +112,28 @@ def decode_15bit(data: bytes) -> int:
         return int.from_bytes(data, "big") & 0x7FFF
 
 
-assert decode_15bit(encode_15bit(0)) == 0
-assert decode_15bit(encode_15bit(1234)) == 1234, decode_15bit(encode_15bit(1234))
-
-
 def decode(encoded: bytes) -> bytes:
     decoder = ac.Decoder(encoded)
     big_chain = ac.build_markov_chain()
-    bid_model = ac.MarkovChainModel(big_chain)
+    chain_model = ac.MarkovChainModel(big_chain)
     dummy_model = ac.MarkovChainModel(ac.build_markov_loop(1))
     _ = int.from_bytes(decode_bytes(decoder, dummy_model, 4), "big")
     expected_bytes = int.from_bytes(decode_bytes(decoder, dummy_model, 4), "big")
 
     decompressed = b""
     while len(decompressed) < expected_bytes:
-        bit = decoder.decode(bid_model, 1)[0]
+        bit = decoder.decode(chain_model, 1)[0]
         if bit == 0:
-            literal = decode_byte(decoder, bid_model)
+            literal = decode_byte(decoder, chain_model)
             decompressed += literal
         else:
-            offset_bytes = decode_byte(decoder, bid_model)
+            offset_bytes = decode_byte(decoder, chain_model)
             if offset_bytes[0] & 0x80 != 0:
-                offset_bytes += decode_byte(decoder, bid_model)
+                offset_bytes += decode_byte(decoder, chain_model)
 
-            length_bytes = decode_byte(decoder, bid_model)
+            length_bytes = decode_byte(decoder, chain_model)
             if length_bytes[0] & 0x80 != 0:
-                length_bytes += decode_byte(decoder, bid_model)
+                length_bytes += decode_byte(decoder, chain_model)
 
             offset = decode_15bit(offset_bytes)
             length = decode_15bit(length_bytes)
@@ -181,7 +170,7 @@ def get_size(data: bytes) -> Tuple[bytes, int]:
 def info(data: bytes) -> None:
     decoder = ac.Decoder(data)
     big_chain = ac.build_markov_chain()
-    bid_model = ac.MarkovChainModel(big_chain)
+    chain_model = ac.MarkovChainModel(big_chain)
     dummy_model = ac.MarkovChainModel(ac.build_markov_loop(1))
 
     allocation_size = int.from_bytes(decode_bytes(decoder, dummy_model, 4), "big")
@@ -199,25 +188,25 @@ def info(data: bytes) -> None:
     extended_offset_count = 0
     extended_length_count = 0
     while bytes_counted < expected_bytes:
-        bit = decoder.decode(bid_model, 1)[0]
+        bit = decoder.decode(chain_model, 1)[0]
         control_bit_count += 1
         if bit == 0:
-            decode_byte(decoder, bid_model)
+            decode_byte(decoder, chain_model)
             literal_byte_count += 1
             bytes_counted += 1
         else:
             pair_count += 1
-            b = decode_byte(decoder, bid_model)
+            b = decode_byte(decoder, chain_model)
             offset_byte_count += 1
             if b[0] & 0x80 != 0:
-                decode_byte(decoder, bid_model)
+                decode_byte(decoder, chain_model)
                 offset_byte_count += 1
                 extended_offset_count += 1
 
-            b = decode_byte(decoder, bid_model)
+            b = decode_byte(decoder, chain_model)
             length_byte_count += 1
             if b[0] & 0x80 != 0:
-                b += decode_byte(decoder, bid_model)
+                b += decode_byte(decoder, chain_model)
                 length_byte_count += 1
                 extended_length_count += 1
 

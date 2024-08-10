@@ -90,7 +90,9 @@ class MarkovChainModel:
 
     def update(self, symbol):
         predicted = 0 if self.node.model.pvalue(0) > self.node.model.pvalue(1) else 1
-        self.named_parent.processed += 1
+        if self.node.tag is not None:
+            self.node.processed += 1
+
         if predicted != symbol and not self.already_missed:
             self.named_parent.mispredictions += 1
             self.already_missed = True
