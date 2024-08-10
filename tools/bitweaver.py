@@ -102,6 +102,11 @@ def encode(data: bytes, allocation_size: int) -> bytes:
 
     coded = encoder.end_stream()
     print(len(coded), "bytes compressed", sep="\t")
+    print("Model miss rates:")
+    buckets = ac.compute_miss_rate(bid_model.node)
+    for bucket in buckets:
+        miss_rate = buckets[bucket]
+        print(f"\t{bucket}{' ' * (16 - len(bucket))}{100*miss_rate:.2f}%")
 
     return coded
 
