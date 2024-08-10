@@ -101,8 +101,8 @@ def encode(data: bytes, allocation_size: int) -> bytes:
     while i < len(data):
         memo = memoization[i]
         assert memo is not None
-        encoder.encode(bid_model, [memo.cbit])
-        encode_bytes(encoder, bid_model, memo.data)
+        encoder.encode(chain_model, [memo.cbit])
+        encode_bytes(encoder, chain_model, memo.data)
         i = memo.next
 
     end_count = encoder.input_count
