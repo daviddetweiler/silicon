@@ -70,12 +70,11 @@ def encode(data: bytes, allocation_size: int) -> bytes:
                 break
 
             window_base = max(0, i - WINDOW_SIZE)
-            window_data = data[window_base : i + j - 1]
-            m = window_data.rfind(data[i : i + j])
+            m = data.rfind(data[i : i + j], window_base, i + j - 1)
             if m == -1:
                 break
 
-            o, l = i - (window_base + m), j
+            o, l = i - m, j
             offset_code = encode_15bit(o)
             length_code = encode_15bit(l)
             backref_cost = len(offset_code) + len(length_code)
