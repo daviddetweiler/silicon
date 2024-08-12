@@ -80,11 +80,9 @@ def encode(data: bytes, allocation_size: int) -> bytes:
             backref_cost = len(offset_code) + len(length_code)
             next_cost = unwrap(memoization[i + l]).cost if i + l < len(data) else 0
             backref_cost *= 8
-            backref_cost += next_cost
-            if backref_cost < best_option.cost:
-                best_option = Memo(
-                    1, offset_code + length_code, backref_cost + 1, i + l
-                )
+            backref_cost += next_cost + 1
+            if backref_cost <= best_option.cost:
+                best_option = Memo(1, offset_code + length_code, backref_cost, i + l)
 
             j += 1
 
@@ -92,7 +90,6 @@ def encode(data: bytes, allocation_size: int) -> bytes:
 
     expected_bytes = len(data)
     encode_bytes(encoder, dummy_model, allocation_size.to_bytes(4, "big"))
-    assert dummy_model.node.tag == "root"
     encode_bytes(encoder, dummy_model, expected_bytes.to_bytes(4, "big"))
 
     i = 0
