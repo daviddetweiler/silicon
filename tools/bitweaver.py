@@ -40,11 +40,12 @@ def decode_bytes(decoder: ac.Decoder, bit_model, count: int) -> bytes:
 
 
 class Memo:
-    def __init__(self, cbit: int, data: bytes, cost: int, next: int):
+    def __init__(self, cbit: int, data: bytes, cost: int, next: int, choice: str):
         self.data = data
         self.cbit = cbit
         self.cost = cost
         self.next = next
+        self.choice = choice
 
 
 def unwrap(memo: Optional[Memo]) -> Memo:
@@ -64,7 +65,10 @@ def encode(data: bytes, allocation_size: int) -> bytes:
         i = len(data) - n - 1
         j = 3
         lit_next_cost = unwrap(memoization[i + 1]).cost if i + 1 < len(data) else 0
-        best_option = Memo(0, data[i : i + 1], 1 + 8 + lit_next_cost, i + 1)
+        best_option = Memo(
+            0, data[i : i + 1], 1 + 8 + lit_next_cost, i + 1, f"{data[i]:02X}"
+        )
+
         while True:
             if i + j > len(data):
                 break
@@ -82,7 +86,14 @@ def encode(data: bytes, allocation_size: int) -> bytes:
             backref_cost *= 8
             backref_cost += next_cost + 1
             if backref_cost <= best_option.cost:
-                best_option = Memo(1, offset_code + length_code, backref_cost, i + l)
+                backref = f"({o},{l})"
+                best_option = Memo(
+                    1,
+                    offset_code + length_code,
+                    backref_cost,
+                    i + l,
+                    f"{backref}{' '*(16-len(backref))}{' '.join(f'{b:02X}' for b in data[i:i+l])}",
+                )
 
             j += 1
 
@@ -94,22 +105,19 @@ def encode(data: bytes, allocation_size: int) -> bytes:
 
     i = 0
     start_count = encoder.input_count
-    while i < len(data):
-        memo = memoization[i]
-        assert memo is not None
-        encoder.encode(chain_model, [memo.cbit])
-        encode_bytes(encoder, chain_model, memo.data)
-        i = memo.next
+    with open("compression.log", "w") as log:
+        while i < len(data):
+            memo = memoization[i]
+            assert memo is not None
+            print(memo.choice, file=log)
+            encoder.encode(chain_model, [memo.cbit])
+            encode_bytes(encoder, chain_model, memo.data)
+            i = memo.next
 
     end_count = encoder.input_count
     coded = encoder.end_stream()
     print(len(coded), "bytes compressed", sep="\t")
     print(end_count - start_count, "bits uncoded", sep="\t")
-    print("Model miss rates:")
-    buckets = ac.compute_miss_rate(chain_model.node)
-    for bucket in buckets:
-        miss_rate = buckets[bucket]
-        print(f"\t{bucket}{' ' * (16 - len(bucket))}{100*miss_rate:.2f}%")
 
     return coded
 

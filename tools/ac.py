@@ -36,47 +36,13 @@ def shr(a, n):
     return (a >> n) & BITS64
 
 
-def nlog2(n):
-    return 64 - math.log2(n)
-
-
-def entropy(symbols):
-    histogram = {}
-    for symbol in symbols:
-        histogram[symbol] = histogram.get(symbol, 0) + 1
-
-    total = sum(histogram.values())
-    p_values = [count / total for count in histogram.values()]
-
-    return sum(-p * math.log2(p) for p in p_values)
-
-
-class GlobalAdaptiveModel:
-    def __init__(self, n_symbols):
-        assert (
-            n_symbols > 0 and n_symbols <= 256
-        )  # 64 bits of p-value per symbol makes larger models impractical
-        self.total = n_symbols
-        self.histogram = [1] * n_symbols
-
-    def pvalue(self, symbol):
-        return divide(self.histogram[symbol], self.total)
-
-    def update(self, symbol):
-        self.histogram[symbol] += 1
-        self.total += 1
-
-    def range(self):
-        return len(self.histogram)
-
-
 class MarkovNode:
     def __init__(self):
-        self.model = GlobalAdaptiveModel(2)
+        self.histogram = [1] * 2
+        self.total = 2
         self.children = [None, None]
         self.tag = None
         self.mispredictions = 0
-        self.processed = 0
 
 
 class MarkovChainModel:
@@ -86,51 +52,15 @@ class MarkovChainModel:
         self.already_missed = False
 
     def pvalue(self, symbol):
-        return self.node.model.pvalue(symbol)
+        return divide(self.node.histogram[symbol], self.node.total)
 
     def update(self, symbol):
-        predicted = 0 if self.node.model.pvalue(0) > self.node.model.pvalue(1) else 1
-        if self.node.tag is not None:
-            self.node.processed += 1
-
-        if predicted != symbol and not self.already_missed:
-            self.named_parent.mispredictions += 1
-            self.already_missed = True
-
-        self.node.model.update(symbol)
+        self.node.histogram[symbol] += 1
+        self.node.total += 1
         self.node = self.node.children[symbol]
-        if self.node.tag is not None:
-            self.named_parent = self.node
-            self.already_missed = False
 
     def range(self):
         return 2
-
-
-def compute_miss_recursively(
-    node: MarkovNode,
-    buckets: Dict[str, Tuple[int, int]],
-    visited: Set[MarkovNode] = set(),
-) -> None:
-    if node in visited:
-        return
-
-    a, b = node.children
-    if a is not None and a.tag != "root":
-        compute_miss_recursively(a, buckets)
-    if b is not None and b.tag != "root":
-        compute_miss_recursively(b, buckets)
-
-    if node.tag is not None:
-        buckets[node.tag] = node.mispredictions, node.processed
-
-    visited.add(node)
-
-
-def compute_miss_rate(node: MarkovNode) -> Dict[str, float]:
-    buckets: Dict[str, Tuple[int, int]] = defaultdict(lambda: (0, 0))
-    compute_miss_recursively(node, buckets)
-    return {k: n / t for k, (n, t) in buckets.items() if t > 0}
 
 
 def build_markov_bitstring(end: MarkovNode, n: int) -> MarkovNode:
