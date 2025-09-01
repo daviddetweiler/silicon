@@ -1,7 +1,5 @@
 import sys
-import math
-from collections import defaultdict
-from typing import *
+from typing import List, Optional, Tuple
 
 UPPER8 = ((1 << 8) - 1) << (64 - 8)
 TAIL8 = UPPER8 >> 8
@@ -63,7 +61,21 @@ class MarkovChainModel:
 
     def range(self):
         return 2
-
+    
+class GlobalModel:
+    def __init__(self, cardinality: int):
+        self.histogram = [1] * cardinality
+        self.total = cardinality
+    
+    def pvalue(self, symbol: int) -> int:
+        return divide(self.histogram[symbol], self.total)
+    
+    def update(self, symbol: int):
+        self.histogram[symbol] += 1
+        self.total += 1
+    
+    def range(self) -> int:
+        return len(self.histogram)
 
 def build_markov_bitstring(end: MarkovNode, n: int) -> MarkovNode:
     if n == 0:
@@ -125,7 +137,6 @@ class Encoder:
         self.input_count = 0
 
     def encode(self, model, data):
-        assert model.range() == 2
         self.input_count += len(data)
 
         for byte in data:
@@ -205,8 +216,8 @@ class Decoder:
         self.window = 0
         self.i = 0
 
-    def decode(self, model, expected_length):
-        decoded = []
+    def decode(self, model, expected_length) -> List[int]:
+        decoded: List[int] = []
         while self.i < 8:
             self.window = shl(self.window, 8) | (
                 self.bitgroups[self.i] if self.i < len(self.bitgroups) else 0
@@ -227,6 +238,7 @@ class Decoder:
 
                 self.a = next_a
 
+            assert byte is not None
             while (self.a ^ self.b) & UPPER8 == 0:
                 # 8 bits have been locked in
                 self.a = shl(self.a, 8)

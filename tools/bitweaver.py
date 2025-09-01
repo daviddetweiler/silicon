@@ -1,7 +1,7 @@
 import sys
 import ac
 import math
-from typing import *
+from typing import List, Optional, Tuple
 
 
 def encode_15bit(n: int) -> bytes:
@@ -11,32 +11,16 @@ def encode_15bit(n: int) -> bytes:
         return (0x8000 | n).to_bytes(2, "big")
 
 
-def encode_bytes(encoder: ac.Encoder, bit_model, data: bytes):
-    for byte in data:
-        bitstring = [0] * 8
-        for i in range(8):
-            hibit = (byte & 0x80) >> 7
-            byte <<= 1
-            bitstring[i] = hibit
-
-        encoder.encode(bit_model, bitstring)
+def encode_bytes(encoder: ac.Encoder, model, data: bytes):
+    encoder.encode(model, data)
 
 
-def decode_byte(decoder: ac.Decoder, bit_model) -> bytes:
-    return decode_bytes(decoder, bit_model, 1)
+def decode_byte(decoder: ac.Decoder, model) -> bytes:
+    return decode_bytes(decoder, model, 1)
 
 
-def decode_bytes(decoder: ac.Decoder, bit_model, count: int) -> bytes:
-    data = [0] * count
-    for n in range(count):
-        byte = 0
-        for i in range(8):
-            bit = decoder.decode(bit_model, 1)[0]
-            byte = (byte << 1) | bit
-
-        data[n] = byte
-
-    return bytes(data)
+def decode_bytes(decoder: ac.Decoder, model, count: int) -> bytes:
+    return bytes(decoder.decode(model, count))
 
 
 class Memo:
@@ -54,9 +38,8 @@ def unwrap(memo: Optional[Memo]) -> Memo:
 
 def encode(data: bytes, allocation_size: int) -> bytes:
     encoder = ac.Encoder()
-    big_chain = ac.build_markov_chain()
-    chain_model = ac.MarkovChainModel(big_chain)
-    dummy_model = ac.MarkovChainModel(ac.build_markov_loop(1))
+    cbit_model = ac.GlobalModel(2)
+    model = ac.GlobalModel(256)
 
     WINDOW_SIZE = 2**15 - 1
     memoization: List[Optional[Memo]] = [None] * len(data)
@@ -64,15 +47,15 @@ def encode(data: bytes, allocation_size: int) -> bytes:
         i = len(data) - n - 1
         j = 3
         lit_next_cost = unwrap(memoization[i + 1]).cost if i + 1 < len(data) else 0
-        best_option = Memo(
-            0, data[i : i + 1], 1 + 8 + lit_next_cost, i + 1
-        )
+        best_option = Memo(0, data[i : i + 1], 1 + 8 + lit_next_cost, i + 1)
 
         while True:
             if i + j > len(data):
                 break
 
             window_base = max(0, i - WINDOW_SIZE)
+            # A quick win would be to switch to a list-of-matches approach. Would take us down to like O(mn) or
+            # something like that.
             m = data.rfind(data[i : i + j], window_base, i + j - 1)
             if m == -1:
                 break
@@ -97,16 +80,16 @@ def encode(data: bytes, allocation_size: int) -> bytes:
         memoization[i] = best_option
 
     expected_bytes = len(data)
-    encode_bytes(encoder, dummy_model, allocation_size.to_bytes(4, "big"))
-    encode_bytes(encoder, dummy_model, expected_bytes.to_bytes(4, "big"))
+    encode_bytes(encoder, model, allocation_size.to_bytes(4, "big"))
+    encode_bytes(encoder, model, expected_bytes.to_bytes(4, "big"))
 
     i = 0
     start_count = encoder.input_count
     while i < len(data):
         memo = memoization[i]
         assert memo is not None
-        encoder.encode(chain_model, [memo.cbit])
-        encode_bytes(encoder, chain_model, memo.data)
+        encoder.encode(cbit_model, [memo.cbit])
+        encode_bytes(encoder, model, memo.data)
         i = memo.next
 
     end_count = encoder.input_count
@@ -127,26 +110,25 @@ def decode_15bit(data: bytes) -> int:
 
 def decode(encoded: bytes) -> bytes:
     decoder = ac.Decoder(encoded)
-    big_chain = ac.build_markov_chain()
-    chain_model = ac.MarkovChainModel(big_chain)
-    dummy_model = ac.MarkovChainModel(ac.build_markov_loop(1))
-    _ = int.from_bytes(decode_bytes(decoder, dummy_model, 4), "big")
-    expected_bytes = int.from_bytes(decode_bytes(decoder, dummy_model, 4), "big")
+    cbit_model = ac.GlobalModel(2)
+    model = ac.GlobalModel(256)
+    _ = int.from_bytes(decode_bytes(decoder, model, 4), "big")
+    expected_bytes = int.from_bytes(decode_bytes(decoder, model, 4), "big")
 
     decompressed = b""
     while len(decompressed) < expected_bytes:
-        bit = decoder.decode(chain_model, 1)[0]
+        bit = decoder.decode(cbit_model, 1)[0]
         if bit == 0:
-            literal = decode_byte(decoder, chain_model)
+            literal = decode_byte(decoder, model)
             decompressed += literal
         else:
-            offset_bytes = decode_byte(decoder, chain_model)
+            offset_bytes = decode_byte(decoder, model)
             if offset_bytes[0] & 0x80 != 0:
-                offset_bytes += decode_byte(decoder, chain_model)
+                offset_bytes += decode_byte(decoder, model)
 
-            length_bytes = decode_byte(decoder, chain_model)
+            length_bytes = decode_byte(decoder, model)
             if length_bytes[0] & 0x80 != 0:
-                length_bytes += decode_byte(decoder, chain_model)
+                length_bytes += decode_byte(decoder, model)
 
             offset = decode_15bit(offset_bytes)
             length = decode_15bit(length_bytes)
