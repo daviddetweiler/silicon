@@ -164,12 +164,11 @@ def get_size(data: bytes) -> Tuple[bytes, int]:
 
 def info(data: bytes) -> None:
     decoder = ac.Decoder(data)
-    big_chain = ac.build_markov_chain()
-    chain_model = ac.MarkovChainModel(big_chain)
-    dummy_model = ac.MarkovChainModel(ac.build_markov_loop(1))
+    model = ac.GlobalModel(256)
+    cbit_model = ac.GlobalModel(2)
 
-    allocation_size = int.from_bytes(decode_bytes(decoder, dummy_model, 4), "big")
-    expected_bytes = int.from_bytes(decode_bytes(decoder, dummy_model, 4), "big")
+    allocation_size = int.from_bytes(decode_bytes(decoder, model, 4), "big")
+    expected_bytes = int.from_bytes(decode_bytes(decoder, model, 4), "big")
 
     print(allocation_size, "bytes allocated", sep="\t")
     print(expected_bytes, "bytes expected", sep="\t")
@@ -183,25 +182,25 @@ def info(data: bytes) -> None:
     extended_offset_count = 0
     extended_length_count = 0
     while bytes_counted < expected_bytes:
-        bit = decoder.decode(chain_model, 1)[0]
+        bit = decoder.decode(cbit_model, 1)[0]
         control_bit_count += 1
         if bit == 0:
-            decode_byte(decoder, chain_model)
+            decode_byte(decoder, model)
             literal_byte_count += 1
             bytes_counted += 1
         else:
             pair_count += 1
-            b = decode_byte(decoder, chain_model)
+            b = decode_byte(decoder, model)
             offset_byte_count += 1
             if b[0] & 0x80 != 0:
-                decode_byte(decoder, chain_model)
+                decode_byte(decoder, model)
                 offset_byte_count += 1
                 extended_offset_count += 1
 
-            b = decode_byte(decoder, chain_model)
+            b = decode_byte(decoder, model)
             length_byte_count += 1
             if b[0] & 0x80 != 0:
-                b += decode_byte(decoder, chain_model)
+                b += decode_byte(decoder, model)
                 length_byte_count += 1
                 extended_length_count += 1
 
