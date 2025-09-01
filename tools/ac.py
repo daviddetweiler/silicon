@@ -7,6 +7,8 @@ UPPER8 = ((1 << 8) - 1) << (64 - 8)
 TAIL8 = UPPER8 >> 8
 BITS64 = (1 << 64) - 1
 
+# IIRC, this is essentially treating a 64-bit integer N as if it were actually the fixed-precision binary fraction N *
+# 2^(-64) (or is it -63?)
 
 def divide(a, b):
     a <<= 64
@@ -37,11 +39,11 @@ def shr(a, n):
 
 
 class MarkovNode:
-    def __init__(self):
+    def __init__(self) -> None:
         self.histogram = [1] * 2
         self.total = 2
-        self.children = [None, None]
-        self.tag = None
+        self.children: List[Optional[MarkovNode]] = [None, None]
+        self.tag: Optional[str] = None
         self.mispredictions = 0
 
 

@@ -1141,7 +1141,7 @@ section .rdata
 		branch_to .exit
 		da source_pop
 		da zero
-		da is_initializing
+		da is_initializing ; Unconditional clear to avoid complexity?
 		da store
 		jump_to interpret
 
