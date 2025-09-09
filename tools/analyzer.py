@@ -3,7 +3,7 @@ import json
 from typing import *
 
 
-def get_words(lines: List[List[str]], kind: str, numbers=False) -> List[str]:
+def get_words(lines: List[List[str]], kind: str, numbers=False):
     return sorted(
         [
             line[1].strip(",") if not numbers else (n, line[1].strip(","))
@@ -39,6 +39,7 @@ if __name__ == "__main__":
 
     dictionary = {}
     for n, alias in aliases:
+        assert type(n) is int
         word = lines[n + 1]
         if len(word) < 2:
             continue

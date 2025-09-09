@@ -1,8 +1,16 @@
 import sys
 import ac
 import math
-from typing import *
+from typing import Optional, List, Tuple
 
+# You realize that you can just use booyer-moore and do partial matches, right? But what happens when the pattern gets
+# loooooong Right now each matching step is something absurd like O(n^2) on its own because we reattempt for each
+# possible match length... I think
+
+# I think the suffix tree approach works best, but the naive version would be O(n(m + m)) = O(nm); since this is a case
+# of, for each of n characters, taking O(m) time to build the suffix tree for the window, and O(m) time to find the
+# longest prefix in the window. Best would be to be able to update the suffix tree in constant, or at least sublinear,
+# time. This will need to lean heavily on Ukkonnen's algorithm
 
 def encode_15bit(n: int) -> bytes:
     if n < 0x80:

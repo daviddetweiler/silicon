@@ -1,6 +1,13 @@
 default rel
 bits 64
 
+; I have a plan to move source file management out of the kernel
+;
+; If we restructure the interpreter to be able to take single (ptr, len) buffer at a time, interpret its result, then
+; return, we can reuse this to build the soruce management and even pipe-based interpretation completely outside of the
+; kernel. Consider that reading from a pipe handle or a console handle is just a matter of reading text buffers, and
+; waiting for the line terminator to submit a command.
+
 global start
 
 %define wp r15
@@ -1094,7 +1101,6 @@ section .rdata
 		da init_dictionary
 		da init_assembly_arena
 		da init_terminal
-		da init_logging
 		da init_core_library
 
 	interpret:
@@ -1573,8 +1579,8 @@ section .rdata
 		jump_to .rewrite_point
 
 	; ( -- exit? )
-	declare "repl-accept-line-interactive-nolog"
-	thread repl_accept_line_interactive_nolog
+	declare "repl-accept-line-interactive"
+	thread repl_accept_line_interactive
 		da reset_current_word
 		da repl_buffer
 		da source_line_start
@@ -1613,53 +1619,6 @@ section .rdata
 		da drop
 		da all_ones
 		da return
-
-	; ( -- exit? )
-	declare "repl-accept-line-interactive"
-	thread repl_accept_line_interactive
-		da repl_accept_line_interactive_nolog
-		da copy
-		maybe return
-		da source_line_start
-		da load
-		da source_line_size
-		da load
-		da two
-		da stack_add
-		da log_file_handle
-		da load
-		da write_file
-		maybe return
-		da status_log_failure
-		da print_line
-		da repl_read_line
-		da abort
-
-	; ( -- )
-	declare "init-logging"
-	thread init_logging
-		da log_file_handle ; Might be post-restart
-		da load
-		da copy
-		da stack_neq0
-		predicated close_handle, drop
-
-		da log_name
-		da drop
-		da create_file
-		da copy
-		da all_ones
-		da stack_eq
-		branch_to .error
-		da log_file_handle
-		da store
-		da return
-
-		.error:
-		da status_log_failure
-		da print_line
-		da repl_read_line
-		da abort
 
 	; ( string length -- )
 	declare "print-line"
@@ -2548,9 +2507,6 @@ section .rdata
 	declare "is-terminal-piped"
 	variable is_terminal_piped, 1
 
-	declare "log-file-handle"
-	variable log_file_handle, 1
-
 	; TODO: refactor read_whole_file; this is kind of hacky and indicative of its overcomplexity
 	declare "load-length"
 	variable load_length, 1
@@ -2596,9 +2552,6 @@ section .rdata
 
 	declare "status-nested-def"
 	string status_nested_def, red(`Cannot define new words while another is still being defined\n`) ; soft fault
-
-	declare "status-log-failure"
-	string status_log_failure, red(`Log related-failure\nPress enter to exit...`) ; fatal error
 
 	declare "status-fatal"
 	string status_fatal, red(`Hard fault during piped input\n`) ; fatal error
