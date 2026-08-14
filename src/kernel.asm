@@ -4,9 +4,25 @@ bits 64
 ; I have a plan to move source file management out of the kernel
 ;
 ; If we restructure the interpreter to be able to take single (ptr, len) buffer at a time, interpret its result, then
-; return, we can reuse this to build the soruce management and even pipe-based interpretation completely outside of the
+; return, we can reuse this to build the source management and even pipe-based interpretation completely outside of the
 ; kernel. Consider that reading from a pipe handle or a console handle is just a matter of reading text buffers, and
 ; waiting for the line terminator to submit a command.
+;
+; Could we introduce some notion of unit-testing? I'd especially like to see if I could document the behavior of
+; soft-fault with tests.
+;
+; Currently accept-word is doing the heavy lifting for input handling in the intepreter, calling out to `repl_read_line`
+; as required. This migration will be difficult, but the objectives are:
+; * To move as much of the migrated stuff out of the kernel binary and into core.si, for the benefit of a future
+;   metacompiler
+; * To have the kernel implement only the "load core.si" minimum viable state.
+; * To have core.si implement the stdin interpreter loop / piped input interpreter loop
+; * This will enable us to implement execute"" and any import-type things entirely in the intepreted language
+;
+; require" foo/bar.si"
+;
+; Should look for ./foo/bar.si in the standard search paths, or determine if a module of that ID (not path!) has already
+; been loaded. If it has, do nothing, if it hasn't, then use `execute` on a file handle to avoid a TOCTOU issue.
 
 global start
 

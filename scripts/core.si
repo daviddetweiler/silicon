@@ -271,6 +271,7 @@ end-fn
 char: " const: dquote-char
 
 \ Fails if there is no terminating `"` before the end of the line. Please note that it ignores the initial space.
+\ IIRC this is using the line buffer itself as temporary storage
 fn: s"
 	( -- string? length )
 
@@ -282,7 +283,7 @@ fn: s"
 	if
 		copy skip-line-segment
 		assembly-arena-start-block 	\ FIXME: this memory is leaked unless during compilation; we are fine with
-									\ ovewriting the string during interpretation
+									\ overwriting the string during interpretation
 		over - commit-string
 	else
 		\ If we didn't find the closing `"` before the end of the line, we need to discard the string

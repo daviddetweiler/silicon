@@ -1,0 +1,13 @@
+execute" scripts/utilities.si"
+
+\ The metacompiler's job is relatively simple IMO
+\ To simplify the task we can try assembling to a bespoke format and leave linking for later
+\ Just have to remember how to do things like declare arrays...
+
+1024 var: buffer \ This is in units of cells btw.
+s" test.bin" string: filename
+1 var: handle
+
+filename drop create-file handle store
+filename handle load write-file
+handle load close-handle
